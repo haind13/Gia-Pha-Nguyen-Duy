@@ -1,198 +1,220 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo } from 'react';
 import {
     CalendarDays,
-    MapPin,
-    Clock,
-    Users,
-    Plus,
-    ChevronLeft,
-    ChevronRight,
-    Check,
-    X,
-    HelpCircle,
+    Search,
+    Filter,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
-import { useAuth } from '@/components/auth-provider';
-import { supabase } from '@/lib/supabase';
+import { MOCK_MEMORIALS, type MemorialEvent } from '@/lib/mock-data';
 
-interface EventItem {
-    id: string;
-    title: string;
-    description: string | null;
-    start_at: string;
-    end_at: string | null;
-    location: string | null;
-    type: string;
-    is_recurring: boolean;
-    creator_id: string;
-    created_at: string;
-    creator?: { display_name: string | null; email: string };
-    rsvp_count?: number;
+/* ── Lunar month names ── */
+const LUNAR_MONTH_NAMES = [
+    '', 'Giêng', 'Hai', 'Ba', 'Tư', 'Năm', 'Sáu',
+    'Bảy', 'Tám', 'Chín', 'Mười', 'Mười Một', 'Chạp',
+];
+
+/* ── Group memorials by month ── */
+function groupByMonth(memorials: MemorialEvent[]): Map<number, MemorialEvent[]> {
+    const map = new Map<number, MemorialEvent[]>();
+    for (const m of memorials) {
+        if (!map.has(m.month)) map.set(m.month, []);
+        map.get(m.month)!.push(m);
+    }
+    return map;
 }
 
-const typeLabels: Record<string, { label: string; emoji: string }> = {
-    MEMORIAL: { label: 'Giỗ', emoji: '🕯️' },
-    MEETING: { label: 'Họp họ', emoji: '🤝' },
-    FESTIVAL: { label: 'Lễ hội', emoji: '🎊' },
-    OTHER: { label: 'Khác', emoji: '📅' },
-};
-
-function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString('vi-VN', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    });
-}
-
-function formatTime(dateStr: string) {
-    return new Date(dateStr).toLocaleTimeString('vi-VN', {
-        hour: '2-digit', minute: '2-digit',
-    });
-}
-
-function CreateEventDialog({ onCreated }: { onCreated: () => void }) {
-    const { user } = useAuth();
-    const [open, setOpen] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [startAt, setStartAt] = useState('');
-    const [location, setLocation] = useState('');
-    const [type, setType] = useState('MEETING');
-
-    const handleSubmit = async () => {
-        if (!title.trim() || !startAt || !user) return;
-        setSubmitting(true);
-        try {
-            const { error } = await supabase.from('events').insert({
-                title: title.trim(),
-                description: description.trim() || null,
-                start_at: new Date(startAt).toISOString(),
-                location: location.trim() || null,
-                type,
-                creator_id: user.id,
-            });
-            if (!error) {
-                setOpen(false);
-                setTitle(''); setDescription(''); setStartAt(''); setLocation('');
-                onCreated();
-            }
-        } finally { setSubmitting(false); }
-    };
-
+/* ── Memorial card for a single person ── */
+function MemorialCard({ memorial }: { memorial: MemorialEvent }) {
+    const isSpouse = memorial.personHandle.startsWith('S_');
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Tạo sự kiện</Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Tạo sự kiện mới</DialogTitle></DialogHeader>
-                <div className="space-y-4 mt-4">
-                    <Input placeholder="Tên sự kiện *" value={title} onChange={e => setTitle(e.target.value)} />
-                    <Textarea placeholder="Mô tả" value={description} onChange={e => setDescription(e.target.value)} rows={3} />
-                    <Input type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} />
-                    <Input placeholder="Địa điểm" value={location} onChange={e => setLocation(e.target.value)} />
-                    <select className="w-full rounded-md border px-3 py-2 text-sm bg-background" value={type} onChange={e => setType(e.target.value)}>
-                        {Object.entries(typeLabels).map(([k, v]) => (
-                            <option key={k} value={k}>{v.emoji} {v.label}</option>
-                        ))}
-                    </select>
-                    <Button className="w-full" onClick={handleSubmit} disabled={!title.trim() || !startAt || submitting}>
-                        {submitting ? 'Đang tạo...' : 'Tạo sự kiện'}
-                    </Button>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
+        <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-stone-200/80 shadow-sm
+            hover:shadow-md hover:border-amber-300/60 transition-all duration-200 group">
+            {/* Date circle */}
+            <div className={`flex-shrink-0 w-14 h-14 rounded-full flex flex-col items-center justify-center
+                border-2 transition-colors
+                ${memorial.isLunar
+                    ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 group-hover:from-amber-100 group-hover:to-orange-100'
+                    : 'bg-gradient-to-br from-sky-50 to-blue-50 border-sky-200 group-hover:from-sky-100 group-hover:to-blue-100'
+                }`}>
+                <span className={`text-lg font-bold leading-none ${memorial.isLunar ? 'text-amber-700' : 'text-sky-700'}`}>
+                    {memorial.day}
+                </span>
+                <span className={`text-[10px] font-medium ${memorial.isLunar ? 'text-amber-500' : 'text-sky-500'}`}>
+                    tháng {memorial.month}
+                </span>
+            </div>
 
-function EventCard({ event }: { event: EventItem }) {
-    const router = useRouter();
-    const tl = typeLabels[event.type] || typeLabels.OTHER;
-
-    return (
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/events/${event.id}`)}>
-            <CardContent className="p-4 space-y-2">
-                <div className="flex items-start justify-between">
-                    <div>
-                        <Badge variant="secondary" className="text-xs mb-1">{tl.emoji} {tl.label}</Badge>
-                        <h3 className="font-semibold">{event.title}</h3>
-                    </div>
-                    {event.rsvp_count !== undefined && event.rsvp_count > 0 && (
-                        <Badge variant="outline"><Users className="h-3 w-3 mr-1" />{event.rsvp_count}</Badge>
+            {/* Person info */}
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-slate-800 text-sm">{memorial.personName}</h3>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold border border-amber-200/60">
+                        Đời {memorial.generation}
+                    </span>
+                    {isSpouse && (
+                        <span className="px-1.5 py-0.5 rounded bg-pink-50 text-pink-600 text-[10px] border border-pink-200/60">
+                            Thân quyến
+                        </span>
                     )}
                 </div>
-                {event.description && <p className="text-sm text-muted-foreground line-clamp-2">{event.description}</p>}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(event.start_at)} · {formatTime(event.start_at)}</span>
-                    {event.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{event.location}</span>}
-                </div>
-            </CardContent>
-        </Card>
+                <p className="text-xs text-slate-500 mt-0.5">
+                    Ngày giỗ: {memorial.day}/{memorial.month}
+                    {memorial.isLunar ? ' Âm lịch' : ' Dương lịch'}
+                    {memorial.deathYear && (
+                        <span className="ml-1.5 text-slate-400">· Mất năm {memorial.deathYear}</span>
+                    )}
+                </p>
+            </div>
+
+            {/* Memorial icon */}
+            <div className="flex-shrink-0 text-2xl opacity-60 group-hover:opacity-100 transition-opacity">
+                🕯️
+            </div>
+        </div>
     );
 }
 
 export default function EventsPage() {
-    const { isLoggedIn } = useAuth();
-    const [events, setEvents] = useState<EventItem[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [filterGen, setFilterGen] = useState<number | null>(null);
+    const [filterType, setFilterType] = useState<'all' | 'lunar' | 'solar'>('all');
 
-    const fetchEvents = useCallback(async () => {
-        setLoading(true);
-        try {
-            const { data } = await supabase
-                .from('events')
-                .select('*, creator:profiles(display_name, email)')
-                .order('start_at', { ascending: false });
-            if (data) setEvents(data);
-        } catch { /* ignore */ }
-        finally { setLoading(false); }
+    // Get unique generations for filter
+    const generations = useMemo(() => {
+        const gens = [...new Set(MOCK_MEMORIALS.map(m => m.generation))].sort((a, b) => a - b);
+        return gens;
     }, []);
 
-    useEffect(() => { fetchEvents(); }, [fetchEvents]);
+    // Filter memorials
+    const filtered = useMemo(() => {
+        let result = MOCK_MEMORIALS;
+        if (search.trim()) {
+            const q = search.toLowerCase().trim();
+            result = result.filter(m =>
+                m.personName.toLowerCase().includes(q)
+            );
+        }
+        if (filterGen !== null) {
+            result = result.filter(m => m.generation === filterGen);
+        }
+        if (filterType === 'lunar') {
+            result = result.filter(m => m.isLunar);
+        } else if (filterType === 'solar') {
+            result = result.filter(m => !m.isLunar);
+        }
+        return result;
+    }, [search, filterGen, filterType]);
+
+    // Group by month
+    const grouped = useMemo(() => groupByMonth(filtered), [filtered]);
+    const sortedMonths = useMemo(() => [...grouped.keys()].sort((a, b) => a - b), [grouped]);
+
+    const lunarCount = MOCK_MEMORIALS.filter(m => m.isLunar).length;
+    const solarCount = MOCK_MEMORIALS.filter(m => !m.isLunar).length;
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                        <CalendarDays className="h-6 w-6" />
-                        Sự kiện
-                    </h1>
-                    <p className="text-muted-foreground">Lịch các hoạt động dòng họ</p>
-                </div>
-                {isLoggedIn && <CreateEventDialog onCreated={fetchEvents} />}
+            {/* Header */}
+            <div>
+                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                    <CalendarDays className="h-6 w-6" />
+                    Ngày Giỗ Trong Họ Tộc
+                </h1>
+                <p className="text-muted-foreground">
+                    Lịch ngày giỗ {MOCK_MEMORIALS.length} vị tiền nhân và thân quyến dòng họ Nguyễn Duy
+                </p>
             </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center h-48">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            {/* Search + Filter bar */}
+            <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Tìm theo tên..."
+                        className="pl-9"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
                 </div>
-            ) : events.length === 0 ? (
+                <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <select
+                        className="rounded-md border px-3 py-2 text-sm bg-background"
+                        value={filterGen ?? ''}
+                        onChange={e => setFilterGen(e.target.value ? parseInt(e.target.value) : null)}
+                    >
+                        <option value="">Tất cả đời</option>
+                        {generations.map(g => (
+                            <option key={g} value={g}>Đời {g}</option>
+                        ))}
+                    </select>
+                    <select
+                        className="rounded-md border px-3 py-2 text-sm bg-background"
+                        value={filterType}
+                        onChange={e => setFilterType(e.target.value as 'all' | 'lunar' | 'solar')}
+                    >
+                        <option value="all">Tất cả</option>
+                        <option value="lunar">🌙 Âm lịch ({lunarCount})</option>
+                        <option value="solar">☀️ Dương lịch ({solarCount})</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Memorial listings grouped by month */}
+            {filtered.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-12">
                         <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">Chưa có sự kiện nào</p>
+                        <p className="text-muted-foreground">Không tìm thấy ngày giỗ phù hợp</p>
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid gap-4">
-                    {events.map(event => <EventCard key={event.id} event={event} />)}
+                <div className="space-y-6">
+                    {sortedMonths.map(month => {
+                        const memorials = grouped.get(month)!;
+                        const monthName = LUNAR_MONTH_NAMES[month] || `${month}`;
+                        return (
+                            <div key={month}>
+                                {/* Month header */}
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm">
+                                        <span className="text-sm font-bold">Tháng {monthName}</span>
+                                        <span className="text-xs opacity-80">({month})</span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">{memorials.length} ngày giỗ</span>
+                                    <div className="flex-1 h-px bg-gradient-to-r from-amber-200 to-transparent" />
+                                </div>
+
+                                {/* Memorial cards */}
+                                <div className="space-y-2 ml-2">
+                                    {memorials.map(m => (
+                                        <MemorialCard key={m.personHandle} memorial={m} />
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
+
+            {/* Summary */}
+            <Card className="bg-stone-50 border-stone-200">
+                <CardContent className="py-4">
+                    <div className="flex items-center justify-between text-sm flex-wrap gap-2">
+                        <span className="text-muted-foreground">
+                            Tổng cộng <strong className="text-stone-800">{MOCK_MEMORIALS.length}</strong> ngày giỗ,
+                            từ Đời {Math.min(...MOCK_MEMORIALS.map(m => m.generation))} đến Đời {Math.max(...MOCK_MEMORIALS.map(m => m.generation))}
+                        </span>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span>🌙 Âm lịch: {lunarCount}</span>
+                            <span>☀️ Dương lịch: {solarCount}</span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

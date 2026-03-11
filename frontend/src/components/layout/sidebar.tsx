@@ -17,6 +17,7 @@ import {
     Contact,
     Newspaper,
     CalendarDays,
+    MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ const navItems = [
     { href: '/events', label: 'Sự kiện', icon: CalendarDays },
     { href: '/tree', label: 'Cây gia phả', icon: TreePine },
     { href: '/book', label: 'Sách gia phả', icon: BookOpen },
+    { href: '/kinship', label: 'Xưng hô', icon: MessageCircle },
     { href: '/people', label: 'Thành viên', icon: Users },
     { href: '/media', label: 'Thư viện', icon: Image },
 ];
@@ -56,7 +58,7 @@ export function Sidebar() {
             {/* Logo */}
             <div className="flex items-center gap-2 px-4 py-4 border-b">
                 <TreePine className="h-6 w-6 text-primary shrink-0" />
-                {!collapsed && <span className="font-bold text-lg">Gia phả họ Lê</span>}
+                {!collapsed && <span className="font-bold text-sm leading-tight">Họ Nguyễn Duy<br /><span className="text-xs font-normal text-muted-foreground">(nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình</span></span>}
             </div>
 
             {/* Navigation */}
@@ -113,15 +115,13 @@ export function Sidebar() {
                 )}
             </nav>
 
-            {/* Contact info */}
+            {/* Copyright */}
             {!collapsed && (
                 <div className="border-t px-4 py-3">
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                        Để thiết lập <span className="font-semibold text-foreground">gia phả điện tử</span> riêng cho dòng họ, truy cập được từ bất kì đâu, vui lòng liên hệ
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Gia phả dòng họ <span className="font-semibold text-foreground">Nguyễn Duy</span> — Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình nay là xã Phụ Dực, tỉnh Hưng Yên.
                         <br />
-                        <span className="font-semibold text-foreground">📞 088 999 1120</span>
-                        <br />
-                        <span className="text-[10px] opacity-70">để nhận báo giá.</span>
+                        <span className="text-[10px] opacity-70">Copyright by Nguyen Duy Hai &copy; 2026</span>
                     </p>
                 </div>
             )}
