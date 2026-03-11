@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { supabase } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
-export type UserRole = 'admin' | 'member' | null;
+export type UserRole = 'admin' | 'viewer' | 'member' | null;
 
 interface Profile {
     id: string;
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 id: u.id,
                 email: u.email || '',
                 display_name: u.user_metadata?.display_name || u.email?.split('@')[0] || '',
-                role: 'member',
+                role: 'viewer',
             });
         }
         await fetchProfile(u.id);
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         <AuthContext.Provider value={{
             user, session, profile, role, loading,
             isAdmin: role === 'admin',
-            isMember: role === 'member' || role === 'admin',
+            isMember: role === 'member' || role === 'viewer' || role === 'admin',
             isLoggedIn: !!user,
             signIn, signUp, signOut, refreshProfile,
         }}>

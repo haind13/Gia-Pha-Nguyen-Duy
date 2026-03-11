@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { TreePine, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { TreePine, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,12 +24,11 @@ const registerSchema = z.object({
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
-function RegisterContent() {
+export default function RegisterPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const inviteCode = searchParams.get('code') || '';
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
 
     const {
@@ -38,31 +38,10 @@ function RegisterContent() {
     } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
 
     const onSubmit = async (data: RegisterForm) => {
-        if (!inviteCode) {
-            setError('Bạn cần có mã mời để đăng ký');
-            return;
-        }
-
         try {
             setError('');
+            setSuccess('');
             setLoading(true);
-
-            // Validate invite code against Supabase
-            const { data: invite, error: inviteErr } = await supabase
-                .from('invite_links')
-                .select('*')
-                .eq('code', inviteCode)
-                .single();
-
-            if (inviteErr || !invite) {
-                setError('Mã mời không hợp lệ hoặc đã hết hạn');
-                return;
-            }
-
-            if (invite.max_uses && invite.used_count >= invite.max_uses) {
-                setError('Mã mời đã hết lượt sử dụng');
-                return;
-            }
 
             // Sign up via Supabase Auth
             const { data: authData, error: authErr } = await supabase.auth.signUp({
@@ -71,35 +50,28 @@ function RegisterContent() {
                 options: {
                     data: {
                         display_name: data.displayName,
-                        invite_code: inviteCode,
                     },
                 },
             });
 
             if (authErr) {
-                setError(authErr.message);
+                if (authErr.message.includes('already registered')) {
+                    setError('Email đã được đăng ký. Vui lòng đăng nhập.');
+                } else {
+                    setError(authErr.message);
+                }
                 return;
             }
 
-            // Increment invite used_count
-            await supabase
-                .from('invite_links')
-                .update({ used_count: (invite.used_count || 0) + 1 })
-                .eq('id', invite.id);
-
-            // Create profile
-            if (authData.user) {
-                await supabase.from('profiles').upsert({
-                    id: authData.user.id,
-                    email: data.email,
-                    display_name: data.displayName,
-                    role: invite.role || 'member',
-                    status: 'active',
-                });
+            // If email confirmation is required
+            if (authData.user && !authData.session) {
+                setSuccess('Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.');
+                return;
             }
 
-            router.push('/');
-        } catch (err: unknown) {
+            // Auto-login successful
+            router.push('/tree');
+        } catch {
             setError('Đăng ký thất bại. Vui lòng thử lại.');
         } finally {
             setLoading(false);
@@ -115,18 +87,15 @@ function RegisterContent() {
                     </div>
                 </div>
                 <CardTitle className="text-2xl font-bold">Tham gia Gia phả họ Nguyễn Duy</CardTitle>
-                <CardDescription>Đăng ký tham gia nền tảng gia phả dòng họ</CardDescription>
+                <CardDescription>Đăng ký tài khoản để đóng góp thông tin dòng họ</CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    {!inviteCode && (
-                        <div className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
-                            ⚠️ Bạn cần có mã mời từ Admin để đăng ký
-                        </div>
-                    )}
-
                     {error && (
                         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+                    )}
+                    {success && (
+                        <div className="rounded-md bg-green-50 dark:bg-green-950/30 p-3 text-sm text-green-700 dark:text-green-400">{success}</div>
                     )}
 
                     <div className="space-y-2">
@@ -172,19 +141,22 @@ function RegisterContent() {
                         {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
                     </div>
 
-                    <Button type="submit" className="w-full" disabled={loading || !inviteCode}>
+                    <Button type="submit" className="w-full" disabled={loading}>
                         {loading ? 'Đang đăng ký...' : 'Đăng ký'}
                     </Button>
+
+                    <div className="relative my-2">
+                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
+                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">hoặc</span></div>
+                    </div>
+
+                    <Link href="/login">
+                        <Button type="button" variant="outline" className="w-full">
+                            <LogIn className="h-4 w-4 mr-2" /> Đã có tài khoản? Đăng nhập
+                        </Button>
+                    </Link>
                 </form>
             </CardContent>
         </Card>
-    );
-}
-
-export default function RegisterPage() {
-    return (
-        <Suspense fallback={<div className="flex items-center justify-center h-48"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
-            <RegisterContent />
-        </Suspense>
     );
 }

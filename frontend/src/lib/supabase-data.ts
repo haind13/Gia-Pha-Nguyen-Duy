@@ -4,6 +4,7 @@
  */
 import { supabase } from './supabase';
 import type { TreeNode, TreeFamily } from './tree-layout';
+import type { PersonDetail } from './genealogy-types';
 
 export type { TreeNode, TreeFamily };
 
@@ -284,4 +285,51 @@ export async function addFamily(family: {
         return { error: error.message };
     }
     return { error: null };
+}
+
+/** Fetch full person detail by handle */
+export async function fetchPersonDetail(handle: string): Promise<PersonDetail | null> {
+    const { data, error } = await supabase
+        .from('people')
+        .select('*')
+        .eq('handle', handle)
+        .single();
+
+    if (error || !data) {
+        console.error('Failed to fetch person detail:', error?.message);
+        return null;
+    }
+
+    const row = data as Record<string, unknown>;
+    return {
+        handle: row.handle as string,
+        displayName: row.display_name as string,
+        gender: row.gender as number,
+        birthYear: row.birth_year as number | undefined,
+        deathYear: row.death_year as number | undefined,
+        birthDate: row.birth_date as string | undefined,
+        birthPlace: row.birth_place as string | undefined,
+        deathDate: row.death_date as string | undefined,
+        deathPlace: row.death_place as string | undefined,
+        generation: row.generation as number,
+        chi: row.chi as number | undefined,
+        isLiving: row.is_living as boolean,
+        isPrivacyFiltered: row.is_privacy_filtered as boolean,
+        isPatrilineal: row.is_patrilineal as boolean,
+        families: (row.families as string[]) || [],
+        parentFamilies: (row.parent_families as string[]) || [],
+        surname: row.surname as string | undefined,
+        firstName: row.first_name as string | undefined,
+        nickName: row.nick_name as string | undefined,
+        phone: row.phone as string | undefined,
+        email: row.email as string | undefined,
+        zalo: row.zalo as string | undefined,
+        facebook: row.facebook as string | undefined,
+        currentAddress: row.current_address as string | undefined,
+        hometown: row.hometown as string | undefined,
+        occupation: row.occupation as string | undefined,
+        company: row.company as string | undefined,
+        education: row.education as string | undefined,
+        notes: row.notes as string | undefined,
+    };
 }
