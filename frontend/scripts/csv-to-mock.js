@@ -416,3 +416,73 @@ console.log(`\nGenerated ${outPath}`);
 console.log(`  People: ${people.length + spouseNodes.length} (${people.length} from CSV + ${spouseNodes.length} spouses)`);
 console.log(`  Families: ${families.length}`);
 console.log(`  Generations: ${sortedGens.join(', ')}`);
+
+// ════════════════════════════════════════════════════════════
+// Also generate Supabase SQL import file
+// ════════════════════════════════════════════════════════════
+const sqlOutPath = path.join(__dirname, '..', 'supabase', 'data-import.sql');
+
+function sqlEscape(str) {
+    if (!str) return 'NULL';
+    return `'${str.replace(/'/g, "''")}'`;
+}
+function sqlArr(arr) {
+    if (!arr || arr.length === 0) return "'{}'";
+    return `'{"${arr.join('","')}"}'`;
+}
+
+let sql = `-- ════════════════════════════════════════════════════════════
+-- Dữ liệu thực — Dòng họ Nguyễn Duy — ${people.length + spouseNodes.length} thành viên, ${families.length} gia đình
+-- Generated from Gia_Pha_Nguyen_Duy_Supabase.csv
+-- Chạy file này trong: Supabase Dashboard → SQL Editor (SAU KHI đã chạy database-setup.sql)
+-- ════════════════════════════════════════════════════════════
+
+-- Xóa dữ liệu mẫu demo (nếu có)
+DELETE FROM families WHERE handle LIKE 'F0%';
+DELETE FROM people WHERE handle LIKE 'P0%';
+
+-- ═══ INSERT PEOPLE ═══
+INSERT INTO people (handle, display_name, gender, generation, birth_year, death_year, is_living, is_privacy_filtered, is_patrilineal, families, parent_families) VALUES\n`;
+
+const allPeople = [...people, ...spouseNodes];
+const peopleLines = allPeople.map(p => {
+    const handle = sqlEscape(p.handle);
+    const name = sqlEscape(p.displayName);
+    const gender = p.gender;
+    const gen = p.generation;
+    const birthYear = p.birthYear || 'NULL';
+    const deathYear = p.deathYear || 'NULL';
+    const isLiving = p.isLiving;
+    const isPatri = p.isPatrilineal;
+    const fams = sqlArr(p.families);
+    const parentFams = sqlArr(p.parentFamilies);
+    return `(${handle}, ${name}, ${gender}, ${gen}, ${birthYear}, ${deathYear}, ${isLiving}, false, ${isPatri}, ${fams}, ${parentFams})`;
+});
+sql += peopleLines.join(',\n') + '\nON CONFLICT (handle) DO UPDATE SET\n';
+sql += `    display_name = EXCLUDED.display_name,
+    gender = EXCLUDED.gender,
+    generation = EXCLUDED.generation,
+    birth_year = EXCLUDED.birth_year,
+    death_year = EXCLUDED.death_year,
+    is_living = EXCLUDED.is_living,
+    is_patrilineal = EXCLUDED.is_patrilineal,
+    families = EXCLUDED.families,
+    parent_families = EXCLUDED.parent_families;\n\n`;
+
+sql += `-- ═══ INSERT FAMILIES ═══\nINSERT INTO families (handle, father_handle, mother_handle, children) VALUES\n`;
+const familyLines = families.map(f => {
+    const handle = sqlEscape(f.handle);
+    const father = sqlEscape(f.fatherHandle);
+    const mother = f.motherHandle ? sqlEscape(f.motherHandle) : 'NULL';
+    const children = sqlArr(f.children);
+    return `(${handle}, ${father}, ${mother}, ${children})`;
+});
+sql += familyLines.join(',\n') + '\nON CONFLICT (handle) DO UPDATE SET\n';
+sql += `    father_handle = EXCLUDED.father_handle,
+    mother_handle = EXCLUDED.mother_handle,
+    children = EXCLUDED.children;\n\n`;
+
+sql += `-- Kiểm tra kết quả\nSELECT 'Imported ' || count(*) || ' people' AS status FROM people\nUNION ALL\nSELECT 'Imported ' || count(*) || ' families' AS status FROM families;\n`;
+
+fs.writeFileSync(sqlOutPath, sql, 'utf-8');
+console.log(`\nGenerated ${sqlOutPath}`);
