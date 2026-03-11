@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Users, Search, Filter } from 'lucide-react';
+import { Users, Search, MoreHorizontal, Eye, Pencil, GitBranch } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +14,15 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { PersonDetailPanel } from '@/components/person-detail-panel';
+import { useAuth } from '@/components/auth-provider';
+import { useRouter } from 'next/navigation';
 
 interface Person {
     handle: string;
@@ -24,16 +32,18 @@ interface Person {
     deathYear?: number;
     isLiving: boolean;
     isPrivacyFiltered: boolean;
-    _privacyNote?: string;
 }
 
 export default function PeopleListPage() {
-    const router = useRouter();
     const [people, setPeople] = useState<Person[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [genderFilter, setGenderFilter] = useState<number | null>(null);
     const [livingFilter, setLivingFilter] = useState<boolean | null>(null);
+    const [selectedHandle, setSelectedHandle] = useState<string | null>(null);
+    const [editHandle, setEditHandle] = useState<string | null>(null);
+    const { canEdit } = useAuth();
+    const router = useRouter();
 
     useEffect(() => {
         const fetchPeople = async () => {
@@ -111,6 +121,7 @@ export default function PeopleListPage() {
                                     <TableHead>Năm sinh</TableHead>
                                     <TableHead>Năm mất</TableHead>
                                     <TableHead>Trạng thái</TableHead>
+                                    <TableHead className="w-10"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -118,7 +129,7 @@ export default function PeopleListPage() {
                                     <TableRow
                                         key={p.handle}
                                         className="cursor-pointer hover:bg-accent/50"
-                                        onClick={() => router.push(`/people/${p.handle}`)}
+                                        onClick={() => setSelectedHandle(p.handle)}
                                     >
                                         <TableCell className="font-medium">
                                             {p.displayName}
@@ -136,11 +147,36 @@ export default function PeopleListPage() {
                                                 {p.isLiving ? 'Còn sống' : 'Đã mất'}
                                             </Badge>
                                         </TableCell>
+                                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => setSelectedHandle(p.handle)}>
+                                                        <Eye className="h-4 w-4 mr-2" />
+                                                        Xem chi tiết
+                                                    </DropdownMenuItem>
+                                                    {canEdit && (
+                                                        <DropdownMenuItem onClick={() => setEditHandle(p.handle)}>
+                                                            <Pencil className="h-4 w-4 mr-2" />
+                                                            Chỉnh sửa
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    <DropdownMenuItem onClick={() => { window.location.href = `/tree?focus=${p.handle}`; }}>
+                                                        <GitBranch className="h-4 w-4 mr-2" />
+                                                        Xem trên cây
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                                 {filtered.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                                             {search ? 'Không tìm thấy kết quả' : 'Chưa có dữ liệu gia phả'}
                                         </TableCell>
                                     </TableRow>
@@ -150,6 +186,28 @@ export default function PeopleListPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Person detail panel (slide-in) */}
+            {(selectedHandle || editHandle) && (
+                <PersonDetailPanel
+                    handle={(editHandle || selectedHandle)!}
+                    initialEdit={!!editHandle}
+                    onClose={() => { setSelectedHandle(null); setEditHandle(null); }}
+                    onNavigate={(h) => { setSelectedHandle(h); setEditHandle(null); }}
+                    onPersonUpdated={(h, fields) => {
+                        setPeople(prev => prev.map(p => {
+                            if (p.handle !== h) return p;
+                            return {
+                                ...p,
+                                ...(fields.displayName !== undefined && { displayName: fields.displayName }),
+                                ...(fields.birthYear !== undefined && { birthYear: fields.birthYear ?? undefined }),
+                                ...(fields.deathYear !== undefined && { deathYear: fields.deathYear ?? undefined }),
+                                ...(fields.isLiving !== undefined && { isLiving: fields.isLiving }),
+                            };
+                        }));
+                    }}
+                />
+            )}
         </div>
     );
 }

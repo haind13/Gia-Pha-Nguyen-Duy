@@ -1,17 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, User, Heart, Image, FileText, History, Lock, Phone, MapPin, Briefcase, GraduationCap, Tag, MessageCircle } from 'lucide-react';
+import { ArrowLeft, User, Heart, Image, FileText, History, Lock, Phone, MapPin, Briefcase, GraduationCap, Tag, MessageCircle, Pencil, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
 import { zodiacYear } from '@/lib/genealogy-types';
 import type { PersonDetail } from '@/lib/genealogy-types';
 import { CommentSection } from '@/components/comment-section';
+import { useAuth } from '@/components/auth-provider';
+import { updatePerson as supaUpdatePerson, type PersonEditFields } from '@/lib/supabase-data';
 
 
 export default function PersonProfilePage() {
@@ -20,6 +22,11 @@ export default function PersonProfilePage() {
     const handle = params.handle as string;
     const [person, setPerson] = useState<PersonDetail | null>(null);
     const [loading, setLoading] = useState(true);
+    const [editing, setEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saveMsg, setSaveMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+    const [form, setForm] = useState<PersonEditFields>({});
+    const { canEdit } = useAuth();
 
     useEffect(() => {
         const fetchPerson = async () => {
@@ -37,7 +44,11 @@ export default function PersonProfilePage() {
                         displayName: row.display_name as string,
                         gender: row.gender as number,
                         birthYear: row.birth_year as number | undefined,
+                        birthDate: row.birth_date as string | undefined,
+                        birthPlace: row.birth_place as string | undefined,
                         deathYear: row.death_year as number | undefined,
+                        deathDate: row.death_date as string | undefined,
+                        deathPlace: row.death_place as string | undefined,
                         generation: row.generation as number,
                         isLiving: row.is_living as boolean,
                         isPrivacyFiltered: row.is_privacy_filtered as boolean,
@@ -46,10 +57,14 @@ export default function PersonProfilePage() {
                         parentFamilies: (row.parent_families as string[]) || [],
                         phone: row.phone as string | undefined,
                         email: row.email as string | undefined,
+                        zalo: row.zalo as string | undefined,
+                        facebook: row.facebook as string | undefined,
                         currentAddress: row.current_address as string | undefined,
                         hometown: row.hometown as string | undefined,
                         occupation: row.occupation as string | undefined,
+                        company: row.company as string | undefined,
                         education: row.education as string | undefined,
+                        nickName: row.nick_name as string | undefined,
                         notes: row.notes as string | undefined,
                     } as PersonDetail);
                 }
@@ -58,6 +73,63 @@ export default function PersonProfilePage() {
         };
         fetchPerson();
     }, [handle]);
+
+    const startEditing = useCallback(() => {
+        if (!person) return;
+        setForm({
+            displayName: person.displayName || '',
+            nickName: person.nickName || '',
+            birthYear: person.birthYear ?? null,
+            birthDate: person.birthDate || '',
+            birthPlace: person.birthPlace || '',
+            deathYear: person.deathYear ?? null,
+            deathDate: person.deathDate || '',
+            deathPlace: person.deathPlace || '',
+            isLiving: person.isLiving,
+            phone: person.phone || '',
+            email: person.email || '',
+            zalo: person.zalo || '',
+            facebook: person.facebook || '',
+            currentAddress: person.currentAddress || '',
+            hometown: person.hometown || '',
+            occupation: person.occupation || '',
+            company: person.company || '',
+            education: person.education || '',
+            notes: person.notes || '',
+        });
+        setEditing(true);
+        setSaveMsg(null);
+    }, [person]);
+
+    const handleSave = useCallback(async () => {
+        if (!person) return;
+        setSaving(true);
+        setSaveMsg(null);
+        const cleaned: PersonEditFields = {};
+        for (const [k, v] of Object.entries(form)) {
+            if (v === '' || v === undefined) (cleaned as Record<string, unknown>)[k] = null;
+            else (cleaned as Record<string, unknown>)[k] = v;
+        }
+        const { error } = await supaUpdatePerson(person.handle, cleaned);
+        if (error) {
+            setSaveMsg({ type: 'err', text: `Lỗi: ${error}` });
+        } else {
+            setSaveMsg({ type: 'ok', text: 'Đã lưu thành công!' });
+            // Update local state
+            const update: Partial<PersonDetail> = {};
+            for (const [k, v] of Object.entries(cleaned)) {
+                (update as Record<string, unknown>)[k] = v === null ? undefined : v;
+            }
+            if (!update.displayName) update.displayName = person.displayName;
+            setPerson(prev => prev ? { ...prev, ...update } as PersonDetail : prev);
+            setTimeout(() => setEditing(false), 600);
+        }
+        setSaving(false);
+    }, [person, form]);
+
+    const setField = useCallback(<K extends keyof PersonEditFields>(key: K, value: PersonEditFields[K]) => {
+        setForm(prev => ({ ...prev, [key]: value }));
+    }, []);
 
     if (loading) {
         return (
@@ -107,12 +179,35 @@ export default function PersonProfilePage() {
                         </p>
                     </div>
                 </div>
+                {canEdit && !editing && (
+                    <Button variant="outline" size="sm" onClick={startEditing} className="gap-1.5">
+                        <Pencil className="h-3.5 w-3.5" /> Chỉnh sửa
+                    </Button>
+                )}
+                {editing && (
+                    <div className="flex gap-2">
+                        <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
+                            {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                            {saving ? 'Đang lưu...' : 'Lưu'}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => { setEditing(false); setSaveMsg(null); }} className="gap-1.5">
+                            <X className="h-3.5 w-3.5" /> Hủy
+                        </Button>
+                    </div>
+                )}
             </div>
+
+            {/* Save message */}
+            {saveMsg && (
+                <div className={`rounded-lg px-4 py-2.5 text-sm font-medium ${saveMsg.type === 'ok' ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                    {saveMsg.text}
+                </div>
+            )}
 
             {/* Privacy notice */}
             {person.isPrivacyFiltered && person._privacyNote && (
                 <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-3 text-sm text-amber-600 dark:text-amber-400">
-                    🔒 {person._privacyNote}
+                    {person._privacyNote}
                 </div>
             )}
 
@@ -146,24 +241,53 @@ export default function PersonProfilePage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-4 md:grid-cols-2">
-                            <InfoRow label="Họ" value={person.surname || '—'} />
-                            <InfoRow label="Tên" value={person.firstName || '—'} />
-                            <InfoRow label="Giới tính" value={genderLabel} />
-                            {person.nickName && <InfoRow label="Tên thường gọi" value={person.nickName} />}
-                            <InfoRow label="Ngày sinh" value={person.birthDate || (person.birthYear ? `${person.birthYear}` : '—')} />
-                            {person.birthYear && <InfoRow label="Năm âm lịch" value={zodiacYear(person.birthYear) || '—'} />}
-                            <InfoRow label="Nơi sinh" value={person.birthPlace || '—'} />
-                            {!person.isLiving && (
+                            {editing ? (
                                 <>
-                                    <InfoRow label="Ngày mất" value={person.deathDate || (person.deathYear ? `${person.deathYear}` : '—')} />
-                                    <InfoRow label="Nơi mất" value={person.deathPlace || '—'} />
+                                    <EditRow label="Họ tên" value={form.displayName || ''} onChange={v => setField('displayName', v)} />
+                                    <EditRow label="Tên thường gọi" value={form.nickName || ''} onChange={v => setField('nickName', v)} placeholder="Biệt danh" />
+                                    <EditRow label="Năm sinh" value={form.birthYear?.toString() || ''} onChange={v => setField('birthYear', v ? parseInt(v) || null : null)} type="number" />
+                                    <EditRow label="Ngày sinh" value={form.birthDate || ''} onChange={v => setField('birthDate', v)} placeholder="VD: 15/03/1945" />
+                                    {person.birthYear && <InfoRow label="Năm âm lịch" value={zodiacYear(person.birthYear) || '—'} />}
+                                    <EditRow label="Nơi sinh" value={form.birthPlace || ''} onChange={v => setField('birthPlace', v)} />
+                                    <div className="flex items-center gap-3 col-span-full">
+                                        <p className="text-xs font-medium text-muted-foreground">Trạng thái</p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setField('isLiving', !form.isLiving)}
+                                            className={form.isLiving ? 'border-emerald-300 text-emerald-700' : 'border-slate-300 text-slate-500'}
+                                        >
+                                            {form.isLiving ? '● Còn sống' : '✝ Đã mất'}
+                                        </Button>
+                                    </div>
+                                    {!form.isLiving && (
+                                        <>
+                                            <EditRow label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
+                                            <EditRow label="Ngày mất" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="VD: 01/12/2020" />
+                                            <EditRow label="Nơi mất" value={form.deathPlace || ''} onChange={v => setField('deathPlace', v)} />
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <InfoRow label="Giới tính" value={genderLabel} />
+                                    {person.nickName && <InfoRow label="Tên thường gọi" value={person.nickName} />}
+                                    <InfoRow label="Ngày sinh" value={person.birthDate || (person.birthYear ? `${person.birthYear}` : '—')} />
+                                    {person.birthYear && <InfoRow label="Năm âm lịch" value={zodiacYear(person.birthYear) || '—'} />}
+                                    {person.birthPlace && <InfoRow label="Nơi sinh" value={person.birthPlace} />}
+                                    {!person.isLiving && (
+                                        <>
+                                            <InfoRow label="Ngày mất" value={person.deathDate || (person.deathYear ? `${person.deathYear}` : '—')} />
+                                            {person.deathPlace && <InfoRow label="Nơi mất" value={person.deathPlace} />}
+                                        </>
+                                    )}
                                 </>
                             )}
                         </CardContent>
                     </Card>
 
                     {/* Liên hệ */}
-                    {(person.phone || person.email || person.zalo || person.facebook) && (
+                    {(editing || person.phone || person.email || person.zalo || person.facebook) && (
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-base flex items-center gap-2">
@@ -171,16 +295,27 @@ export default function PersonProfilePage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="grid gap-4 md:grid-cols-2">
-                                {person.phone && <InfoRow label="Điện thoại" value={person.phone} />}
-                                {person.email && <InfoRow label="Email" value={person.email} />}
-                                {person.zalo && <InfoRow label="Zalo" value={person.zalo} />}
-                                {person.facebook && <InfoRow label="Facebook" value={person.facebook} />}
+                                {editing ? (
+                                    <>
+                                        <EditRow label="Điện thoại" value={form.phone || ''} onChange={v => setField('phone', v)} placeholder="0912345678" />
+                                        <EditRow label="Email" value={form.email || ''} onChange={v => setField('email', v)} placeholder="email@example.com" />
+                                        <EditRow label="Zalo" value={form.zalo || ''} onChange={v => setField('zalo', v)} placeholder="Số Zalo" />
+                                        <EditRow label="Facebook" value={form.facebook || ''} onChange={v => setField('facebook', v)} placeholder="Link Facebook" />
+                                    </>
+                                ) : (
+                                    <>
+                                        {person.phone && <InfoRow label="Điện thoại" value={person.phone} />}
+                                        {person.email && <InfoRow label="Email" value={person.email} />}
+                                        {person.zalo && <InfoRow label="Zalo" value={person.zalo} />}
+                                        {person.facebook && <InfoRow label="Facebook" value={person.facebook} />}
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
                     )}
 
                     {/* Địa chỉ */}
-                    {(person.hometown || person.currentAddress) && (
+                    {(editing || person.hometown || person.currentAddress) && (
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-base flex items-center gap-2">
@@ -188,14 +323,23 @@ export default function PersonProfilePage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="grid gap-4 md:grid-cols-2">
-                                {person.hometown && <InfoRow label="Quê quán" value={person.hometown} />}
-                                {person.currentAddress && <InfoRow label="Nơi ở hiện tại" value={person.currentAddress} />}
+                                {editing ? (
+                                    <>
+                                        <EditRow label="Quê quán" value={form.hometown || ''} onChange={v => setField('hometown', v)} />
+                                        <EditRow label="Nơi ở hiện tại" value={form.currentAddress || ''} onChange={v => setField('currentAddress', v)} />
+                                    </>
+                                ) : (
+                                    <>
+                                        {person.hometown && <InfoRow label="Quê quán" value={person.hometown} />}
+                                        {person.currentAddress && <InfoRow label="Nơi ở hiện tại" value={person.currentAddress} />}
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
                     )}
 
                     {/* Nghề nghiệp & Học vấn */}
-                    {(person.occupation || person.company || person.education) && (
+                    {(editing || person.occupation || person.company || person.education) && (
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-base flex items-center gap-2">
@@ -203,41 +347,63 @@ export default function PersonProfilePage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="grid gap-4 md:grid-cols-2">
-                                {person.occupation && <InfoRow label="Nghề nghiệp" value={person.occupation} />}
-                                {person.company && <InfoRow label="Nơi công tác" value={person.company} />}
-                                {person.education && (
-                                    <div className="flex items-start gap-2">
-                                        <GraduationCap className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                                        <div>
-                                            <p className="text-xs font-medium text-muted-foreground">Học vấn</p>
-                                            <p className="text-sm">{person.education}</p>
-                                        </div>
-                                    </div>
+                                {editing ? (
+                                    <>
+                                        <EditRow label="Nghề nghiệp" value={form.occupation || ''} onChange={v => setField('occupation', v)} placeholder="VD: Giáo viên, Kỹ sư..." />
+                                        <EditRow label="Nơi công tác" value={form.company || ''} onChange={v => setField('company', v)} placeholder="VD: Công ty ABC..." />
+                                        <EditRow label="Học vấn" value={form.education || ''} onChange={v => setField('education', v)} placeholder="VD: Đại học Bách khoa..." />
+                                    </>
+                                ) : (
+                                    <>
+                                        {person.occupation && <InfoRow label="Nghề nghiệp" value={person.occupation} />}
+                                        {person.company && <InfoRow label="Nơi công tác" value={person.company} />}
+                                        {person.education && (
+                                            <div className="flex items-start gap-2">
+                                                <GraduationCap className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                                                <div>
+                                                    <p className="text-xs font-medium text-muted-foreground">Học vấn</p>
+                                                    <p className="text-sm">{person.education}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
                     )}
 
                     {/* Tiểu sử & Ghi chú */}
-                    {(person.biography || person.notes) && (
+                    {(editing || person.biography || person.notes) && (
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-base flex items-center gap-2">
-                                    <FileText className="h-4 w-4" /> Tiểu sử & Ghi chú
+                                    <FileText className="h-4 w-4" /> Ghi chú
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                {person.biography && (
-                                    <div>
-                                        <p className="text-xs font-medium text-muted-foreground mb-1">Tiểu sử</p>
-                                        <p className="text-sm leading-relaxed">{person.biography}</p>
-                                    </div>
-                                )}
-                                {person.notes && (
-                                    <div>
-                                        <p className="text-xs font-medium text-muted-foreground mb-1">Ghi chú</p>
-                                        <p className="text-sm leading-relaxed text-muted-foreground">{person.notes}</p>
-                                    </div>
+                                {editing ? (
+                                    <textarea
+                                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-y min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
+                                        rows={3}
+                                        value={form.notes || ''}
+                                        onChange={e => setField('notes', e.target.value)}
+                                        placeholder="Ghi chú thêm về người này..."
+                                    />
+                                ) : (
+                                    <>
+                                        {person.biography && (
+                                            <div>
+                                                <p className="text-xs font-medium text-muted-foreground mb-1">Tiểu sử</p>
+                                                <p className="text-sm leading-relaxed">{person.biography}</p>
+                                            </div>
+                                        )}
+                                        {person.notes && (
+                                            <div>
+                                                <p className="text-xs font-medium text-muted-foreground mb-1">Ghi chú</p>
+                                                <p className="text-sm leading-relaxed text-muted-foreground">{person.notes}</p>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
@@ -352,6 +518,23 @@ function InfoRow({ label, value }: { label: string; value: string }) {
         <div>
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
             <p className="text-sm">{value}</p>
+        </div>
+    );
+}
+
+function EditRow({ label, value, onChange, type, placeholder }: {
+    label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+}) {
+    return (
+        <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
+            <Input
+                type={type || 'text'}
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                placeholder={placeholder}
+                className="h-8 text-sm"
+            />
         </div>
     );
 }

@@ -43,33 +43,34 @@ export default function RegisterPage() {
             setSuccess('');
             setLoading(true);
 
-            // Sign up via Supabase Auth
-            const { data: authData, error: authErr } = await supabase.auth.signUp({
+            // Register via server API (uses service role, auto-confirms email, sets admin role)
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: data.email,
+                    password: data.password,
+                    displayName: data.displayName,
+                }),
+            });
+            const result = await res.json();
+
+            if (!res.ok) {
+                setError(result.error || 'Đăng ký thất bại');
+                return;
+            }
+
+            // Auto sign-in after successful registration
+            const { error: signInErr } = await supabase.auth.signInWithPassword({
                 email: data.email,
                 password: data.password,
-                options: {
-                    data: {
-                        display_name: data.displayName,
-                    },
-                },
             });
 
-            if (authErr) {
-                if (authErr.message.includes('already registered')) {
-                    setError('Email đã được đăng ký. Vui lòng đăng nhập.');
-                } else {
-                    setError(authErr.message);
-                }
+            if (signInErr) {
+                setSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
                 return;
             }
 
-            // If email confirmation is required
-            if (authData.user && !authData.session) {
-                setSuccess('Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.');
-                return;
-            }
-
-            // Auto-login successful
             router.push('/tree');
         } catch {
             setError('Đăng ký thất bại. Vui lòng thử lại.');
