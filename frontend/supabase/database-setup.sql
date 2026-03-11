@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT UNIQUE NOT NULL,
     display_name TEXT,
-    role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'viewer')),
+    role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'viewer', 'member')),
     person_handle TEXT,
     avatar_url TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -95,17 +95,27 @@ CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
     user_email TEXT;
+    user_display_name TEXT;
 BEGIN
     user_email := COALESCE(NEW.email, NEW.raw_user_meta_data->>'email', '');
+    user_display_name := COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(user_email, '@', 1));
     IF user_email != '' THEN
-        INSERT INTO profiles (id, email, role)
+        INSERT INTO profiles (id, email, display_name, role)
         VALUES (
             NEW.id,
             user_email,
+            user_display_name,
             CASE WHEN user_email = 'your-admin@example.com' THEN 'admin' ELSE 'viewer' END
         )
-        ON CONFLICT (email) DO UPDATE SET id = NEW.id;
+        ON CONFLICT (id) DO UPDATE SET
+            email = EXCLUDED.email,
+            display_name = COALESCE(EXCLUDED.display_name, profiles.display_name)
+        ;
     END IF;
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    -- Don't block user creation if profile insert fails
+    RAISE WARNING 'handle_new_user failed: %', SQLERRM;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
