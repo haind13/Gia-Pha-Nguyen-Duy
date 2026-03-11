@@ -35,7 +35,7 @@ export function Header() {
             {/* Left side */}
             <div className="flex items-center gap-2">
                 <h2 className="text-sm font-medium text-muted-foreground">
-                    Dòng họ Lê Huy
+                    Họ Nguyễn Duy (nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình
                 </h2>
             </div>
 

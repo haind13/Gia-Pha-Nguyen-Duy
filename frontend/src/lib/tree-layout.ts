@@ -64,7 +64,7 @@ export interface LayoutResult {
 }
 
 // Sizing
-export const CARD_W = 180;
+export const CARD_W = 220;
 export const CARD_H = 80;
 export const H_SPACE = 24;
 export const V_SPACE = 80;
@@ -420,8 +420,14 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
     const rootFamilies = families.filter(f => {
         const fh = f.fatherHandle ? personMap.get(f.fatherHandle) : null;
         const mh = f.motherHandle ? personMap.get(f.motherHandle) : null;
-        return (fh && !childOfAnyFamily.has(fh.handle)) || (mh && !childOfAnyFamily.has(mh.handle));
+        // A family is root if at least one PATRILINEAL parent is not a child of any family.
+        // Non-patrilineal spouses (ngoại tộc) are never children in the tree, so we
+        // exclude them from the root check to avoid creating disconnected subtrees.
+        const fhIsRoot = fh && fh.isPatrilineal && !childOfAnyFamily.has(fh.handle);
+        const mhIsRoot = mh && mh.isPatrilineal && !childOfAnyFamily.has(mh.handle);
+        return fhIsRoot || mhIsRoot;
     });
+
 
     const allNodes: PositionedNode[] = [];
     const visited = new Set<string>();

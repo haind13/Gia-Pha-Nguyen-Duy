@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Gia phả dòng họ Lê Huy',
-  description: 'Gia phả dòng họ Lê Huy — Quản lý gia phả & kết nối cộng đồng dòng họ',
+  title: 'Họ Nguyễn Duy (nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình',
+  description: 'Gia phả dòng họ Nguyễn Duy (nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình — Quản lý gia phả & kết nối cộng đồng dòng họ',
 };
 
 export default function RootLayout({
