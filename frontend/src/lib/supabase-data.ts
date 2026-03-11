@@ -175,35 +175,54 @@ export async function updatePersonLiving(
     if (error) console.error('Failed to update person living status:', error.message);
 }
 
+/** Editable person fields (camelCase) */
+export interface PersonEditFields {
+    displayName?: string;
+    birthYear?: number | null;
+    birthDate?: string | null;
+    birthPlace?: string | null;
+    deathYear?: number | null;
+    deathDate?: string | null;
+    deathPlace?: string | null;
+    isLiving?: boolean;
+    phone?: string | null;
+    email?: string | null;
+    zalo?: string | null;
+    facebook?: string | null;
+    currentAddress?: string | null;
+    hometown?: string | null;
+    occupation?: string | null;
+    company?: string | null;
+    education?: string | null;
+    nickName?: string | null;
+    notes?: string | null;
+}
+
 /** Update a person's editable fields */
 export async function updatePerson(
     handle: string,
-    fields: {
-        displayName?: string;
-        birthYear?: number | null;
-        deathYear?: number | null;
-        isLiving?: boolean;
-        phone?: string | null;
-        email?: string | null;
-        currentAddress?: string | null;
-        hometown?: string | null;
-        occupation?: string | null;
-        education?: string | null;
-        notes?: string | null;
-    }
-): Promise<void> {
+    fields: PersonEditFields
+): Promise<{ error: string | null }> {
     // Convert camelCase → snake_case for DB
     const dbFields: Record<string, unknown> = {};
     if (fields.displayName !== undefined) dbFields.display_name = fields.displayName;
     if (fields.birthYear !== undefined) dbFields.birth_year = fields.birthYear;
+    if (fields.birthDate !== undefined) dbFields.birth_date = fields.birthDate;
+    if (fields.birthPlace !== undefined) dbFields.birth_place = fields.birthPlace;
     if (fields.deathYear !== undefined) dbFields.death_year = fields.deathYear;
+    if (fields.deathDate !== undefined) dbFields.death_date = fields.deathDate;
+    if (fields.deathPlace !== undefined) dbFields.death_place = fields.deathPlace;
     if (fields.isLiving !== undefined) dbFields.is_living = fields.isLiving;
     if (fields.phone !== undefined) dbFields.phone = fields.phone;
     if (fields.email !== undefined) dbFields.email = fields.email;
+    if (fields.zalo !== undefined) dbFields.zalo = fields.zalo;
+    if (fields.facebook !== undefined) dbFields.facebook = fields.facebook;
     if (fields.currentAddress !== undefined) dbFields.current_address = fields.currentAddress;
     if (fields.hometown !== undefined) dbFields.hometown = fields.hometown;
     if (fields.occupation !== undefined) dbFields.occupation = fields.occupation;
+    if (fields.company !== undefined) dbFields.company = fields.company;
     if (fields.education !== undefined) dbFields.education = fields.education;
+    if (fields.nickName !== undefined) dbFields.nick_name = fields.nickName;
     if (fields.notes !== undefined) dbFields.notes = fields.notes;
     dbFields.updated_at = new Date().toISOString();
 
@@ -212,7 +231,11 @@ export async function updatePerson(
         .update(dbFields)
         .eq('handle', handle);
 
-    if (error) console.error('Failed to update person:', error.message);
+    if (error) {
+        console.error('Failed to update person:', error.message);
+        return { error: error.message };
+    }
+    return { error: null };
 }
 
 /** Add a new person to the tree */

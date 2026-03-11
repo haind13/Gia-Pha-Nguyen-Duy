@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { ContributeDialog } from '@/components/contribute-dialog';
-import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus } from 'lucide-react';
+import { PersonDetailPanel } from '@/components/person-detail-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -203,15 +204,18 @@ export default function TreeViewPage() {
     // Editor mode state
     const [editorMode, setEditorMode] = useState(false);
     const [selectedCard, setSelectedCard] = useState<string | null>(null);
-    const { isAdmin } = useAuth();
+    const { isAdmin, canEdit } = useAuth();
 
     // URL query param initialization + auto-collapse on initial load
     const urlInitialized = useRef(false);
+    const initialFocusFromUrl = useRef<string | null>(null);
     useEffect(() => {
         if (urlInitialized.current || !treeData) return;
         urlInitialized.current = true;
         const viewParam = searchParams.get('view') as ViewMode | null;
-        const personParam = searchParams.get('person');
+        const personParam = searchParams.get('person') || searchParams.get('focus');
+        // Store initial focus for centering effect (before URL sync strips it)
+        initialFocusFromUrl.current = personParam;
         if (viewParam && ['full', 'ancestor', 'descendant'].includes(viewParam)) {
             setViewMode(viewParam);
         }
@@ -572,19 +576,21 @@ export default function TreeViewPage() {
         let pp = '';
         let cp = '';
         const vc: PositionedCouple[] = [];
-        // Only render connections where at least one endpoint is visible
+        // Only render connections where the line segment intersects visible area
+        const vw = viewportRef.current?.clientWidth ?? 1200;
+        const vh = viewportRef.current?.clientHeight ?? 900;
+        const { x: tx, y: ty, scale } = transform;
+        const left = (-tx / scale) - CULL_PAD;
+        const top = (-ty / scale) - CULL_PAD;
+        const right = ((vw - tx) / scale) + CULL_PAD;
+        const bottom = ((vh - ty) / scale) + CULL_PAD;
         for (const c of layout.connections) {
-            // Check if any endpoint is near visible area
-            const vw = viewportRef.current?.clientWidth ?? 1200;
-            const vh = viewportRef.current?.clientHeight ?? 900;
-            const { x: tx, y: ty, scale } = transform;
-            const left = (-tx / scale) - CULL_PAD;
-            const top = (-ty / scale) - CULL_PAD;
-            const right = ((vw - tx) / scale) + CULL_PAD;
-            const bottom = ((vh - ty) / scale) + CULL_PAD;
-            const inView = (x: number, y: number) =>
-                x >= left && x <= right && y >= top && y <= bottom;
-            if (!inView(c.fromX, c.fromY) && !inView(c.toX, c.toY)) continue;
+            // Check if the line segment's bounding box intersects the viewport
+            const minX = Math.min(c.fromX, c.toX);
+            const maxX = Math.max(c.fromX, c.toX);
+            const minY = Math.min(c.fromY, c.toY);
+            const maxY = Math.max(c.fromY, c.toY);
+            if (maxX < left || minX > right || maxY < top || minY > bottom) continue;
 
             if (c.type === 'couple') {
                 cp += `M${c.fromX},${c.fromY}L${c.toX},${c.toY}`;
@@ -639,10 +645,45 @@ export default function TreeViewPage() {
         });
     }, [layout]);
 
-    // Auto-fit on first load
+    // Center on root ancestor at readable zoom on first load
+    const initialFitDone = useRef(false);
     useEffect(() => {
-        if (layout && !loading) setTimeout(fitAll, 50);
-    }, [layout, loading]); // eslint-disable-line
+        if (!layout || loading) return;
+        if (initialFitDone.current) return;
+        initialFitDone.current = true;
+        setTimeout(() => {
+            if (!viewportRef.current) return;
+            const vw = viewportRef.current.clientWidth;
+            const vh = viewportRef.current.clientHeight;
+            // If a specific person was requested via URL (?focus= or ?person=), center on them
+            const urlFocus = initialFocusFromUrl.current;
+            const focusNode = urlFocus ? layout.nodes.find(n => n.node.handle === urlFocus) : null;
+            if (focusNode) {
+                const targetScale = 0.8;
+                setTransform({
+                    x: vw / 2 - (focusNode.x + CARD_W / 2) * targetScale,
+                    y: vh * 0.3 - focusNode.y * targetScale,
+                    scale: targetScale,
+                });
+                return;
+            }
+            // Default: center on cụ Khoan Giản (the branch root) or the earliest patrilineal ancestor
+            const khoanGian = layout.nodes.find(n => n.node.handle === 'D10-003');
+            const rootNode = khoanGian || layout.nodes
+                .filter(n => n.node.isPatrilineal)
+                .sort((a, b) => a.node.generation - b.node.generation)[0];
+            if (rootNode) {
+                const targetScale = 0.6;
+                setTransform({
+                    x: vw / 2 - (rootNode.x + CARD_W / 2) * targetScale,
+                    y: vh * 0.15 - rootNode.y * targetScale,
+                    scale: targetScale,
+                });
+            } else {
+                fitAll();
+            }
+        }, 50);
+    }, [layout, loading, fitAll]);
 
     // === Mouse handlers ===
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -751,20 +792,47 @@ export default function TreeViewPage() {
         setFocusPerson(handle);
     }, [layout]);
 
+    // Pending fitAll flag — triggers fitAll after layout recalculates from view mode change
+    const pendingFitAll = useRef(false);
+
     // View mode
     const changeViewMode = (mode: ViewMode) => {
-        if (mode !== 'full' && !focusPerson && treeData?.people[0]) setFocusPerson(treeData.people[0].handle);
-        setViewMode(mode);
-        // Auto-collapse based on view mode
         if (mode === 'full') {
-            autoCollapseForPanoramic();
+            // Toàn cảnh: show FULL tree overview — expand all, then fit entire tree
+            setViewMode('full');
+            setCollapsedBranches(new Set()); // expand all branches
+            setFocusPerson(null);
+            pendingFitAll.current = true;
+        } else if (mode === 'ancestor') {
+            // Tổ tiên: show full patrilineal ancestor chain from Đời 1
+            // Find the latest-generation patrilineal person to trace full lineage back to root
+            if (treeData) {
+                const patrilineals = treeData.people.filter(p => p.isPatrilineal);
+                const latestPatrilineal = patrilineals.sort((a, b) => b.generation - a.generation)[0];
+                const person = latestPatrilineal?.handle || focusPerson || treeData.people[0]?.handle || null;
+                if (person) {
+                    setFocusPerson(person);
+                    setViewMode('ancestor');
+                    setCollapsedBranches(new Set()); // clear collapses for ancestor view
+                    pendingFitAll.current = true;
+                }
+            }
         } else if (mode === 'descendant') {
+            if (!focusPerson && treeData?.people[0]) setFocusPerson(treeData.people[0].handle);
+            setViewMode('descendant');
             const person = focusPerson || treeData?.people[0]?.handle;
             if (person) autoCollapseForDescendant(person);
-        } else {
-            setCollapsedBranches(new Set());
+            pendingFitAll.current = true;
         }
     };
+
+    // Effect: run fitAll when layout recalculates after a view mode change
+    useEffect(() => {
+        if (!pendingFitAll.current || !layout) return;
+        pendingFitAll.current = false;
+        // Small delay to ensure DOM has updated
+        setTimeout(() => fitAll(), 50);
+    }, [layout, fitAll]);
 
     // Copy shareable link
     const copyTreeLink = useCallback((handle: string) => {
@@ -859,7 +927,7 @@ export default function TreeViewPage() {
                         })}><ZoomOut className="h-3.5 w-3.5" /></Button>
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={fitAll}><Maximize2 className="h-3.5 w-3.5" /></Button>
                         <div className="w-px bg-border mx-0.5" />
-                        {isAdmin && (
+                        {canEdit && (
                             <Button
                                 variant={editorMode ? 'default' : 'outline'}
                                 size="icon"
@@ -1241,334 +1309,28 @@ export default function TreeViewPage() {
                     handle={detailPerson}
                     treeData={treeData}
                     onClose={() => setDetailPerson(null)}
-                    onNavigate={(handle) => setDetailPerson(handle)}
+                    onNavigate={(h) => setDetailPerson(h)}
+                    onPersonUpdated={(h, fields) => {
+                        setTreeData(prev => {
+                            if (!prev) return null;
+                            return {
+                                ...prev,
+                                people: prev.people.map(p => {
+                                    if (p.handle !== h) return p;
+                                    return {
+                                        ...p,
+                                        ...(fields.displayName !== undefined && { displayName: fields.displayName }),
+                                        ...(fields.birthYear !== undefined && { birthYear: fields.birthYear ?? undefined }),
+                                        ...(fields.deathYear !== undefined && { deathYear: fields.deathYear ?? undefined }),
+                                        ...(fields.isLiving !== undefined && { isLiving: fields.isLiving }),
+                                    };
+                                }),
+                            };
+                        });
+                    }}
                 />
             )}
         </div>
-    );
-}
-
-// === Person Detail Panel (slide-in from right) ===
-function PersonDetailPanel({ handle, treeData, onClose, onNavigate }: {
-    handle: string;
-    treeData: { people: TreeNode[]; families: TreeFamily[] } | null;
-    onClose: () => void;
-    onNavigate: (handle: string) => void;
-}) {
-    const [detail, setDetail] = useState<PersonDetail | null>(null);
-    const [loading, setLoading] = useState(true);
-    const person = treeData?.people.find(p => p.handle === handle);
-
-    useEffect(() => {
-        setLoading(true);
-        setDetail(null);
-        fetchPersonDetail(handle).then(d => {
-            if (d) {
-                setDetail(d);
-            } else if (person) {
-                // Fallback: build detail from tree node basic data
-                setDetail({
-                    handle: person.handle,
-                    displayName: person.displayName,
-                    gender: person.gender,
-                    generation: person.generation,
-                    birthYear: person.birthYear,
-                    deathYear: person.deathYear,
-                    isLiving: person.isLiving,
-                    isPrivacyFiltered: person.isPrivacyFiltered,
-                    isPatrilineal: person.isPatrilineal,
-                    families: person.families,
-                    parentFamilies: person.parentFamilies,
-                });
-            }
-            setLoading(false);
-        });
-    }, [handle, person]);
-
-    // Find family relationships for display
-    const parents = useMemo(() => {
-        if (!treeData || !person) return [];
-        const result: { label: string; person: TreeNode }[] = [];
-        for (const pfId of person.parentFamilies) {
-            const fam = treeData.families.find(f => f.handle === pfId);
-            if (!fam) continue;
-            if (fam.fatherHandle) {
-                const father = treeData.people.find(p => p.handle === fam.fatherHandle);
-                if (father) result.push({ label: 'Cha', person: father });
-            }
-            if (fam.motherHandle) {
-                const mother = treeData.people.find(p => p.handle === fam.motherHandle);
-                if (mother) result.push({ label: 'Mẹ', person: mother });
-            }
-        }
-        return result;
-    }, [treeData, person]);
-
-    const spousesAndChildren = useMemo(() => {
-        if (!treeData || !person) return [];
-        const result: { spouse?: TreeNode; children: TreeNode[]; familyHandle: string }[] = [];
-        for (const fId of person.families) {
-            const fam = treeData.families.find(f => f.handle === fId);
-            if (!fam) continue;
-            const spouseHandle = fam.fatherHandle === person.handle ? fam.motherHandle : fam.fatherHandle;
-            const spouse = spouseHandle ? treeData.people.find(p => p.handle === spouseHandle) : undefined;
-            const children = fam.children.map(ch => treeData.people.find(p => p.handle === ch)).filter(Boolean) as TreeNode[];
-            result.push({ spouse, children, familyHandle: fam.handle });
-        }
-        return result;
-    }, [treeData, person]);
-
-    const siblings = useMemo(() => {
-        if (!treeData || !person) return [];
-        const result: TreeNode[] = [];
-        for (const pfId of person.parentFamilies) {
-            const fam = treeData.families.find(f => f.handle === pfId);
-            if (!fam) continue;
-            for (const ch of fam.children) {
-                if (ch !== person.handle) {
-                    const sib = treeData.people.find(p => p.handle === ch);
-                    if (sib) result.push(sib);
-                }
-            }
-        }
-        return result;
-    }, [treeData, person]);
-
-    const genderLabel = detail?.gender === 1 ? 'Nam' : detail?.gender === 2 ? 'Nữ' : 'Không rõ';
-    const genderColor = detail?.gender === 1 ? 'blue' : 'pink';
-
-    return (
-        <div className="fixed inset-0 z-[60] flex justify-end" onClick={onClose}>
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
-
-            {/* Panel */}
-            <div
-                className="relative w-full max-w-md bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto
-                    animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-700"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className={`sticky top-0 z-10 bg-gradient-to-r ${genderColor === 'blue' ? 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20' : 'from-pink-50 to-pink-100/50 dark:from-pink-950/40 dark:to-pink-900/20'} border-b border-slate-200 dark:border-slate-700 px-5 py-4`}>
-                    <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold
-                                ${genderColor === 'blue' ? 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200' : 'bg-pink-200 text-pink-800 dark:bg-pink-800 dark:text-pink-200'}`}>
-                                {detail?.displayName?.split(' ').pop()?.[0] || '?'}
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                                    {loading ? '...' : detail?.displayName || 'Không rõ'}
-                                </h2>
-                                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                    <span className={`px-1.5 py-0.5 rounded font-semibold ${genderColor === 'blue' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300'}`}>
-                                        {genderLabel}
-                                    </span>
-                                    <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-semibold">
-                                        Đời {detail?.generation}
-                                    </span>
-                                    {detail?.isLiving ? (
-                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">● Còn sống</span>
-                                    ) : (
-                                        <span className="text-slate-400">✝ Đã mất</span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-
-                {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                    </div>
-                ) : detail ? (
-                    <div className="p-5 space-y-5">
-                        {/* Thông tin cá nhân */}
-                        <DetailSection icon={<User className="w-4 h-4" />} title="Thông tin cá nhân">
-                            <div className="grid grid-cols-2 gap-3">
-                                {detail.birthYear && (
-                                    <DetailInfo label="Năm sinh" value={`${detail.birthDate || detail.birthYear}`} />
-                                )}
-                                {detail.birthYear && (
-                                    <DetailInfo label="Năm âm lịch" value={zodiacYear(detail.birthYear) || '—'} />
-                                )}
-                                {detail.birthPlace && (
-                                    <DetailInfo label="Nơi sinh" value={detail.birthPlace} />
-                                )}
-                                {!detail.isLiving && detail.deathYear && (
-                                    <DetailInfo label="Năm mất" value={`${detail.deathDate || detail.deathYear}`} />
-                                )}
-                                {!detail.isLiving && detail.deathPlace && (
-                                    <DetailInfo label="Nơi mất" value={detail.deathPlace} />
-                                )}
-                                {detail.nickName && (
-                                    <DetailInfo label="Tên thường gọi" value={detail.nickName} />
-                                )}
-                            </div>
-                        </DetailSection>
-
-                        {/* Liên hệ */}
-                        {(detail.phone || detail.email || detail.zalo || detail.facebook) && (
-                            <DetailSection icon={<Phone className="w-4 h-4" />} title="Liên hệ">
-                                <div className="space-y-2">
-                                    {detail.phone && <DetailInfo label="Điện thoại" value={detail.phone} icon={<Phone className="w-3.5 h-3.5" />} />}
-                                    {detail.email && <DetailInfo label="Email" value={detail.email} icon={<Mail className="w-3.5 h-3.5" />} />}
-                                    {detail.zalo && <DetailInfo label="Zalo" value={detail.zalo} />}
-                                    {detail.facebook && <DetailInfo label="Facebook" value={detail.facebook} />}
-                                </div>
-                            </DetailSection>
-                        )}
-
-                        {/* Địa chỉ */}
-                        {(detail.currentAddress || detail.hometown) && (
-                            <DetailSection icon={<MapPin className="w-4 h-4" />} title="Địa chỉ">
-                                <div className="space-y-2">
-                                    {detail.hometown && <DetailInfo label="Quê quán" value={detail.hometown} />}
-                                    {detail.currentAddress && <DetailInfo label="Nơi ở hiện tại" value={detail.currentAddress} />}
-                                </div>
-                            </DetailSection>
-                        )}
-
-                        {/* Nghề nghiệp & Học vấn */}
-                        {(detail.occupation || detail.company || detail.education) && (
-                            <DetailSection icon={<Briefcase className="w-4 h-4" />} title="Nghề nghiệp & Học vấn">
-                                <div className="space-y-2">
-                                    {detail.occupation && <DetailInfo label="Nghề nghiệp" value={detail.occupation} icon={<Briefcase className="w-3.5 h-3.5" />} />}
-                                    {detail.company && <DetailInfo label="Nơi công tác" value={detail.company} />}
-                                    {detail.education && <DetailInfo label="Học vấn" value={detail.education} icon={<GraduationCap className="w-3.5 h-3.5" />} />}
-                                </div>
-                            </DetailSection>
-                        )}
-
-                        {/* Ghi chú */}
-                        {detail.notes && (
-                            <DetailSection icon={<StickyNote className="w-4 h-4" />} title="Ghi chú">
-                                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{detail.notes}</p>
-                            </DetailSection>
-                        )}
-
-                        {/* Quan hệ gia đình */}
-                        <DetailSection icon={<Users className="w-4 h-4" />} title="Quan hệ gia đình">
-                            {/* Parents */}
-                            {parents.length > 0 && (
-                                <div className="mb-3">
-                                    <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">Cha mẹ</p>
-                                    <div className="space-y-1">
-                                        {parents.map(({ label, person: p }) => (
-                                            <RelationChip key={p.handle} label={label} person={p} onClick={() => onNavigate(p.handle)} />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Spouses & Children */}
-                            {spousesAndChildren.map(({ spouse, children }, idx) => (
-                                <div key={idx} className="mb-3">
-                                    {spouse && (
-                                        <>
-                                            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">
-                                                {spouse.gender === 2 ? 'Vợ' : 'Chồng'}
-                                            </p>
-                                            <RelationChip label={spouse.gender === 2 ? 'Vợ' : 'Chồng'} person={spouse} onClick={() => onNavigate(spouse.handle)} />
-                                        </>
-                                    )}
-                                    {children.length > 0 && (
-                                        <>
-                                            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5 mt-2">
-                                                Con ({children.length})
-                                            </p>
-                                            <div className="space-y-1">
-                                                {children.map(ch => (
-                                                    <RelationChip key={ch.handle} label={ch.gender === 1 ? 'Con trai' : 'Con gái'} person={ch} onClick={() => onNavigate(ch.handle)} />
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-
-                            {/* Siblings */}
-                            {siblings.length > 0 && (
-                                <div className="mb-3">
-                                    <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">Anh chị em ({siblings.length})</p>
-                                    <div className="space-y-1">
-                                        {siblings.map(sib => (
-                                            <RelationChip key={sib.handle} label={sib.gender === 1 ? 'Anh/Em trai' : 'Chị/Em gái'} person={sib} onClick={() => onNavigate(sib.handle)} />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {parents.length === 0 && spousesAndChildren.length === 0 && siblings.length === 0 && (
-                                <p className="text-sm text-slate-400 italic">Chưa có thông tin quan hệ</p>
-                            )}
-                        </DetailSection>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                        <User className="w-10 h-10 mb-2 opacity-40" />
-                        <p className="text-sm">Không tìm thấy thông tin</p>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-function DetailSection({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
-    return (
-        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700/50">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 mb-3">
-                <span className="text-slate-400 dark:text-slate-500">{icon}</span>
-                {title}
-            </h3>
-            {children}
-        </div>
-    );
-}
-
-function DetailInfo({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
-    return (
-        <div className="flex items-start gap-2">
-            {icon && <span className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0">{icon}</span>}
-            <div className="min-w-0">
-                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{label}</p>
-                <p className="text-sm text-slate-700 dark:text-slate-200 break-words">{value}</p>
-            </div>
-        </div>
-    );
-}
-
-function RelationChip({ label, person, onClick }: { label: string; person: TreeNode; onClick: () => void }) {
-    const isM = person.gender === 1;
-    return (
-        <button
-            className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2.5 transition-all
-                ${isM
-                    ? 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:hover:bg-blue-900/40 border border-blue-100 dark:border-blue-800/40'
-                    : 'bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/30 dark:hover:bg-pink-900/40 border border-pink-100 dark:border-pink-800/40'
-                }`}
-            onClick={onClick}
-        >
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                ${isM ? 'bg-blue-200 text-blue-700 dark:bg-blue-800 dark:text-blue-300' : 'bg-pink-200 text-pink-700 dark:bg-pink-800 dark:text-pink-300'}`}>
-                {person.displayName.split(' ').pop()?.[0] || '?'}
-            </div>
-            <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{person.displayName}</p>
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-                    <span className="font-medium">{label}</span>
-                    <span>·</span>
-                    <span>Đời {person.generation}</span>
-                    {person.birthYear && <><span>·</span><span>{person.birthYear}{person.deathYear ? `—${person.deathYear}` : ''}</span></>}
-                </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0" />
-        </button>
     );
 }
 

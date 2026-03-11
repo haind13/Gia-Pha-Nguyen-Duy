@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Contact, Search, MapPin, GitBranch, User } from 'lucide-react';
+import { Contact, Search, MapPin, GitBranch, User, LogIn, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/auth-provider';
 
 interface DirectoryMember {
     id: string;
@@ -21,11 +22,13 @@ interface DirectoryMember {
 
 export default function DirectoryPage() {
     const router = useRouter();
+    const { isLoggedIn, loading: authLoading } = useAuth();
     const [members, setMembers] = useState<DirectoryMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
     const fetchMembers = useCallback(async () => {
+        if (!isLoggedIn) return;
         setLoading(true);
         try {
             const { data } = await supabase
@@ -36,9 +39,39 @@ export default function DirectoryPage() {
             if (data) setMembers(data);
         } catch { /* ignore */ }
         finally { setLoading(false); }
-    }, []);
+    }, [isLoggedIn]);
 
     useEffect(() => { fetchMembers(); }, [fetchMembers]);
+
+    // Auth loading state
+    if (authLoading) {
+        return (
+            <div className="flex items-center justify-center h-[60vh]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+        );
+    }
+
+    // Not logged in — require authentication
+    if (!isLoggedIn) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] space-y-6">
+                <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
+                    <Lock className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <div className="text-center space-y-2">
+                    <h2 className="text-xl font-semibold">Yêu cầu đăng nhập</h2>
+                    <p className="text-muted-foreground max-w-sm">
+                        Danh bạ chứa thông tin cá nhân của các thành viên. Vui lòng đăng nhập để xem.
+                    </p>
+                </div>
+                <Button onClick={() => router.push('/login')} className="gap-2">
+                    <LogIn className="h-4 w-4" />
+                    Đăng nhập
+                </Button>
+            </div>
+        );
+    }
 
     const filtered = members.filter(m =>
         (m.display_name || '').toLowerCase().includes(search.toLowerCase()) ||

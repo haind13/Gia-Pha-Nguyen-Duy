@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { supabase } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
-export type UserRole = 'admin' | 'viewer' | 'member' | null;
+export type UserRole = 'admin' | 'editor' | 'viewer' | 'member' | null;
 
 interface Profile {
     id: string;
@@ -22,6 +22,7 @@ interface AuthState {
     role: UserRole;
     loading: boolean;
     isAdmin: boolean;
+    canEdit: boolean;
     isMember: boolean;
     isLoggedIn: boolean;
     signIn: (email: string, password: string) => Promise<{ error?: string }>;
@@ -142,7 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         <AuthContext.Provider value={{
             user, session, profile, role, loading,
             isAdmin: role === 'admin',
-            isMember: role === 'member' || role === 'viewer' || role === 'admin',
+            canEdit: role === 'admin' || role === 'editor',
+            isMember: role === 'member' || role === 'viewer' || role === 'editor' || role === 'admin',
             isLoggedIn: !!user,
             signIn, signUp, signOut, refreshProfile,
         }}>
