@@ -91,13 +91,6 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
         });
     }, [handle, person]);
 
-    // Auto-enter edit mode when initialEdit is true and data is loaded
-    useEffect(() => {
-        if (initialEdit && canEdit && detail && !loading) {
-            startEditing();
-        }
-    }, [initialEdit, canEdit, detail, loading, startEditing]);
-
     // Initialize form when entering edit mode
     const startEditing = useCallback(() => {
         if (!detail) return;
@@ -125,6 +118,13 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
         setEditing(true);
         setSaveMsg(null);
     }, [detail]);
+
+    // Auto-enter edit mode when initialEdit is true and data is loaded
+    useEffect(() => {
+        if (initialEdit && canEdit && detail && !loading) {
+            startEditing();
+        }
+    }, [initialEdit, canEdit, detail, loading, startEditing]);
 
     const handleSave = useCallback(async () => {
         if (!detail) return;
