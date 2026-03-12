@@ -207,7 +207,7 @@ export default function TreeViewPage() {
     const { isAdmin, canEdit } = useAuth();
 
     // Quick add person from context menu
-    const [quickAdd, setQuickAdd] = useState<{ type: 'child' | 'spouse'; person: TreeNode; x: number; y: number } | null>(null);
+    const [quickAdd, setQuickAdd] = useState<{ person: TreeNode; x: number; y: number } | null>(null);
 
     // Drag-and-drop state (editor mode only)
     const [dragState, setDragState] = useState<{
@@ -1256,48 +1256,6 @@ export default function TreeViewPage() {
                                 );
                             })}
 
-                            {/* Context menu on card */}
-                            {contextMenu && !quickAdd && (() => {
-                                const person = treeData?.people.find(p => p.handle === contextMenu.handle);
-                                if (!person) return null;
-                                return (
-                                    <CardContextMenu
-                                        person={person}
-                                        x={contextMenu.x}
-                                        y={contextMenu.y}
-                                        canEdit={canEdit}
-                                        onViewDetail={() => { setDetailPerson(person.handle); setContextMenu(null); }}
-                                        onShowDescendants={() => { setFocusPerson(person.handle); setViewMode('descendant'); setContextMenu(null); }}
-                                        onShowAncestors={() => { setFocusPerson(person.handle); setViewMode('ancestor'); setContextMenu(null); }}
-                                        onSetFocus={() => { panToPerson(person.handle); setContextMenu(null); }}
-                                        onShowFull={() => { setViewMode('full'); setContextMenu(null); }}
-                                        onCopyLink={() => { copyTreeLink(person.handle); setContextMenu(null); }}
-                                        onContribute={() => { setContributePerson({ handle: person.handle, name: person.displayName }); setContextMenu(null); }}
-                                        onAddChild={() => { setQuickAdd({ type: 'child', person, x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
-                                        onAddSpouse={() => { setQuickAdd({ type: 'spouse', person, x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
-                                        onClose={() => setContextMenu(null)}
-                                    />
-                                );
-                            })()}
-
-                            {/* Quick add person dialog */}
-                            {quickAdd && (
-                                <QuickAddPersonDialog
-                                    type={quickAdd.type}
-                                    person={quickAdd.person}
-                                    x={quickAdd.x}
-                                    y={quickAdd.y}
-                                    onSubmit={(data) => {
-                                        handleQuickAddPerson(data, quickAdd.person);
-                                        setQuickAdd(null);
-                                    }}
-                                    onClose={() => setQuickAdd(null)}
-                                    nextHandle={nextHandle}
-                                    nextFamilyHandle={nextFamilyHandle}
-                                    treeData={treeData}
-                                />
-                            )}
-
                             {/* Drag ghost card */}
                             {dragState && (() => {
                                 const draggedNode = layout?.nodes.find(n => n.node.handle === dragState.handle);
@@ -1318,6 +1276,50 @@ export default function TreeViewPage() {
                                 );
                             })()}
                         </div>
+                    )}
+
+                    {/* Context menu on card — outside transformed container so fixed positioning works */}
+                    {contextMenu && !quickAdd && (() => {
+                        const person = treeData?.people.find(p => p.handle === contextMenu.handle);
+                        if (!person) return null;
+                        return (
+                            <CardContextMenu
+                                person={person}
+                                x={contextMenu.x}
+                                y={contextMenu.y}
+                                canEdit={canEdit}
+                                viewportRef={viewportRef}
+                                transform={transform}
+                                onViewDetail={() => { setDetailPerson(person.handle); setContextMenu(null); }}
+                                onShowDescendants={() => { setFocusPerson(person.handle); setViewMode('descendant'); setContextMenu(null); }}
+                                onShowAncestors={() => { setFocusPerson(person.handle); setViewMode('ancestor'); setContextMenu(null); }}
+                                onSetFocus={() => { panToPerson(person.handle); setContextMenu(null); }}
+                                onShowFull={() => { setViewMode('full'); setContextMenu(null); }}
+                                onCopyLink={() => { copyTreeLink(person.handle); setContextMenu(null); }}
+                                onContribute={() => { setContributePerson({ handle: person.handle, name: person.displayName }); setContextMenu(null); }}
+                                onAddPerson={() => { setQuickAdd({ person, x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
+                                onClose={() => setContextMenu(null)}
+                            />
+                        );
+                    })()}
+
+                    {/* Quick add person dialog — outside transformed container */}
+                    {quickAdd && (
+                        <QuickAddPersonDialog
+                            person={quickAdd.person}
+                            x={quickAdd.x}
+                            y={quickAdd.y}
+                            viewportRef={viewportRef}
+                            transform={transform}
+                            onSubmit={(data) => {
+                                handleQuickAddPerson(data, quickAdd.person);
+                                setQuickAdd(null);
+                            }}
+                            onClose={() => setQuickAdd(null)}
+                            nextHandle={nextHandle}
+                            nextFamilyHandle={nextFamilyHandle}
+                            treeData={treeData}
+                        />
                     )}
 
                     {/* F2: Generation Row Headers */}
@@ -1629,11 +1631,13 @@ export default function TreeViewPage() {
 }
 
 // === Card Context Menu ===
-function CardContextMenu({ person, x, y, canEdit, onViewDetail, onShowDescendants, onShowAncestors, onSetFocus, onShowFull, onCopyLink, onContribute, onAddChild, onAddSpouse, onClose }: {
+function CardContextMenu({ person, x, y, canEdit, viewportRef, transform, onViewDetail, onShowDescendants, onShowAncestors, onSetFocus, onShowFull, onCopyLink, onContribute, onAddPerson, onClose }: {
     person: TreeNode;
     x: number;
     y: number;
     canEdit: boolean;
+    viewportRef: React.RefObject<HTMLDivElement | null>;
+    transform: { x: number; y: number; scale: number };
     onViewDetail: () => void;
     onShowDescendants: () => void;
     onShowAncestors: () => void;
@@ -1641,20 +1645,44 @@ function CardContextMenu({ person, x, y, canEdit, onViewDetail, onShowDescendant
     onShowFull: () => void;
     onCopyLink: () => void;
     onContribute: () => void;
-    onAddChild: () => void;
-    onAddSpouse: () => void;
+    onAddPerson: () => void;
     onClose: () => void;
 }) {
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [pos, setPos] = useState({ left: 0, top: 0 });
+
+    // Convert tree-space (x,y) to viewport-relative and clamp within bounds
+    useEffect(() => {
+        const vp = viewportRef.current;
+        const menu = menuRef.current;
+        if (!vp || !menu) return;
+        const vpW = vp.clientWidth;
+        const vpH = vp.clientHeight;
+        // Tree-space → viewport-relative
+        let posX = x * transform.scale + transform.x + 8;
+        let posY = y * transform.scale + transform.y + 8;
+        const menuW = menu.offsetWidth || 220;
+        const menuH = menu.offsetHeight || 400;
+        // Clamp so menu stays inside the viewport
+        if (posX + menuW > vpW - 8) posX = vpW - menuW - 8;
+        if (posX < 8) posX = 8;
+        if (posY + menuH > vpH - 8) posY = vpH - menuH - 8;
+        if (posY < 8) posY = 8;
+        setPos({ left: posX, top: posY });
+    }, [x, y, transform, viewportRef]);
+
     return (
         <div
+            ref={menuRef}
             className="absolute z-50 animate-in fade-in zoom-in-95 duration-150"
-            style={{ left: x + 8, top: y + 8 }}
+            style={{ left: pos.left, top: pos.top }}
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
         >
             <div className="bg-white/95 backdrop-blur-lg border border-slate-200 rounded-xl shadow-xl
-                py-1.5 min-w-[200px] overflow-hidden">
+                py-1.5 min-w-[200px] max-h-[70vh] flex flex-col overflow-hidden">
                 {/* Header with person info */}
-                <div className="px-3 py-2 border-b border-slate-100">
+                <div className="px-3 py-2 border-b border-slate-100 flex-shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
@@ -1687,8 +1715,8 @@ function CardContextMenu({ person, x, y, canEdit, onViewDetail, onShowDescendant
                     </div>
                 </div>
 
-                {/* Actions */}
-                <div className="py-1">
+                {/* Actions — scrollable */}
+                <div className="py-1 overflow-y-auto flex-1">
                     <MenuAction icon={<User className="w-4 h-4" />} label="Xem chi tiết" desc="Thông tin cá nhân & quan hệ" onClick={onViewDetail} />
                     <MenuAction icon={<ArrowDownToLine className="w-4 h-4" />} label="Hậu duệ từ đây" desc="Hiển thị cây con cháu" onClick={onShowDescendants} />
                     <MenuAction icon={<ArrowUpFromLine className="w-4 h-4" />} label="Tổ tiên" desc="Hiển thị dòng tổ tiên" onClick={onShowAncestors} />
@@ -1696,8 +1724,7 @@ function CardContextMenu({ person, x, y, canEdit, onViewDetail, onShowDescendant
                     <div className="border-t border-slate-100 my-1" />
                     {canEdit && (
                         <>
-                            <MenuAction icon={<Baby className="w-4 h-4" />} label="Thêm con" desc="Thêm người con mới" onClick={onAddChild} />
-                            <MenuAction icon={<Heart className="w-4 h-4" />} label="Thêm vợ/chồng" desc="Thêm hôn phối" onClick={onAddSpouse} />
+                            <MenuAction icon={<UserPlus className="w-4 h-4" />} label="Thêm người thân" desc="Thêm con hoặc vợ/chồng" onClick={onAddPerson} />
                             <div className="border-t border-slate-100 my-1" />
                         </>
                     )}
@@ -1728,20 +1755,51 @@ function MenuAction({ icon, label, desc, onClick }: { icon: React.ReactNode; lab
 }
 
 // === Quick Add Person Dialog (popup from context menu) ===
-function QuickAddPersonDialog({ type, person, x, y, onSubmit, onClose, nextHandle, nextFamilyHandle, treeData }: {
-    type: 'child' | 'spouse';
+function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, onClose, nextHandle, nextFamilyHandle, treeData }: {
     person: TreeNode;
     x: number;
     y: number;
+    viewportRef: React.RefObject<HTMLDivElement | null>;
+    transform: { x: number; y: number; scale: number };
     onSubmit: (data: { handle: string; displayName: string; gender: number; generation: number; birthYear?: number; parentFamilyHandle?: string }) => void;
     onClose: () => void;
     nextHandle: () => string;
     nextFamilyHandle: () => string;
     treeData: { people: TreeNode[]; families: TreeFamily[] } | null;
 }) {
+    const [type, setType] = useState<'child' | 'spouse'>('child');
     const [name, setName] = useState('');
-    const [gender, setGender] = useState(type === 'spouse' ? (person.gender === 1 ? 2 : 1) : 1);
+    const [gender, setGender] = useState(1);
     const [birthYear, setBirthYear] = useState('');
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const [pos, setPos] = useState({ left: 0, top: 0 });
+
+    // Auto-set gender when type changes
+    useEffect(() => {
+        if (type === 'spouse') {
+            setGender(person.gender === 1 ? 2 : 1);
+        } else {
+            setGender(1);
+        }
+    }, [type, person.gender]);
+
+    // Convert tree-space (x,y) to viewport-relative and clamp within bounds
+    useEffect(() => {
+        const vp = viewportRef.current;
+        const dialog = dialogRef.current;
+        if (!vp || !dialog) return;
+        const vpW = vp.clientWidth;
+        const vpH = vp.clientHeight;
+        let posX = x * transform.scale + transform.x + 8;
+        let posY = y * transform.scale + transform.y + 8;
+        const dW = dialog.offsetWidth || 280;
+        const dH = dialog.offsetHeight || 380;
+        if (posX + dW > vpW - 8) posX = vpW - dW - 8;
+        if (posX < 8) posX = 8;
+        if (posY + dH > vpH - 8) posY = vpH - dH - 8;
+        if (posY < 8) posY = 8;
+        setPos({ left: posX, top: posY });
+    }, [x, y, transform, viewportRef]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -1752,11 +1810,9 @@ function QuickAddPersonDialog({ type, person, x, y, onSubmit, onClose, nextHandl
 
         let familyHandle: string | undefined;
         if (type === 'child') {
-            // Find existing family where person is parent
             const existingFamily = treeData.families.find(f => f.fatherHandle === person.handle || f.motherHandle === person.handle);
             familyHandle = existingFamily?.handle || nextFamilyHandle();
         } else {
-            // Spouse: always create new family
             familyHandle = nextFamilyHandle();
         }
 
@@ -1772,37 +1828,60 @@ function QuickAddPersonDialog({ type, person, x, y, onSubmit, onClose, nextHandl
 
     return (
         <div
+            ref={dialogRef}
             className="absolute z-50 animate-in fade-in zoom-in-95 duration-150"
-            style={{ left: x + 8, top: y + 8 }}
+            style={{ left: pos.left, top: pos.top }}
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
         >
             <div className="bg-white/95 backdrop-blur-lg border border-slate-200 rounded-xl shadow-xl
-                py-3 px-4 w-[260px]">
+                py-3 px-4 w-[280px]">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                        {type === 'child' ? (
-                            <Baby className="w-4 h-4 text-blue-600" />
-                        ) : (
-                            <Heart className="w-4 h-4 text-rose-500" />
-                        )}
-                        <span className="text-sm font-semibold text-slate-800">
-                            {type === 'child' ? 'Thêm con' : 'Thêm vợ/chồng'}
-                        </span>
+                        <UserPlus className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-semibold text-slate-800">Thêm người thân</span>
                     </div>
                     <button onClick={onClose} className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
                         <X className="w-3.5 h-3.5" />
                     </button>
                 </div>
 
-                {/* Parent info */}
+                {/* Person info */}
                 <div className="text-[11px] text-slate-500 mb-3 px-2 py-1.5 bg-slate-50 rounded-lg">
-                    {type === 'child' ? 'Con của' : 'Hôn phối của'}{' '}
+                    Người thân của{' '}
                     <span className="font-semibold text-slate-700">{person.displayName}</span>
                     <span className="text-slate-400"> · Đời {person.generation}</span>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-2.5">
+                    {/* Relationship type selector */}
+                    <div>
+                        <label className="text-[11px] font-medium text-slate-600 block mb-1">Quan hệ</label>
+                        <div className="flex gap-1">
+                            <button
+                                type="button"
+                                className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors flex items-center justify-center gap-1 ${
+                                    type === 'child' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                }`}
+                                onClick={() => setType('child')}
+                            >
+                                <Baby className="w-3 h-3" />
+                                Con
+                            </button>
+                            <button
+                                type="button"
+                                className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors flex items-center justify-center gap-1 ${
+                                    type === 'spouse' ? 'bg-rose-50 border-rose-300 text-rose-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                }`}
+                                onClick={() => setType('spouse')}
+                            >
+                                <Heart className="w-3 h-3" />
+                                Vợ/Chồng
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Name */}
                     <div>
                         <label className="text-[11px] font-medium text-slate-600 block mb-1">Họ và tên *</label>
