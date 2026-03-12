@@ -804,8 +804,8 @@ export default function TreeViewPage() {
             setFocusPerson(null);
             pendingFitAll.current = true;
         } else if (mode === 'ancestor') {
-            // Tổ tiên: show full patrilineal ancestor chain from Đời 1
-            // Find the latest-generation patrilineal person to trace full lineage back to root
+            // Tổ tiên: show patrilineal ancestor chain, collapsed per generation
+            // Each generation shows 1 person; expand to reveal next generation
             if (treeData) {
                 const patrilineals = treeData.people.filter(p => p.isPatrilineal);
                 const latestPatrilineal = patrilineals.sort((a, b) => b.generation - a.generation)[0];
@@ -813,7 +813,17 @@ export default function TreeViewPage() {
                 if (person) {
                     setFocusPerson(person);
                     setViewMode('ancestor');
-                    setCollapsedBranches(new Set()); // clear collapses for ancestor view
+                    // Auto-collapse: collapse all ancestors so only Đời 1 is visible initially
+                    // User expands one generation at a time to explore the lineage
+                    const { filteredPeople } = filterAncestors(person, treeData.people, treeData.families);
+                    const toCollapse = new Set<string>();
+                    for (const p of filteredPeople) {
+                        // Collapse everyone except the focus person (last generation)
+                        if (p.handle !== person) {
+                            toCollapse.add(p.handle);
+                        }
+                    }
+                    setCollapsedBranches(toCollapse);
                     pendingFitAll.current = true;
                 }
             }
