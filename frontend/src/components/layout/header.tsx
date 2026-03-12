@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Moon, Sun, LogOut, User, LogIn } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useRouter } from 'next/navigation';
@@ -27,7 +28,7 @@ export function Header() {
 
     const handleSignOut = async () => {
         await signOut();
-        router.push('/login');
+        router.push('/');
     };
 
     return (
@@ -84,10 +85,12 @@ export function Header() {
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                                <User className="mr-2 h-4 w-4" />
-                                Hồ sơ cá nhân
-                            </DropdownMenuItem>
+                            <Link href="/profile">
+                                <DropdownMenuItem>
+                                    <User className="mr-2 h-4 w-4" />
+                                    Hồ sơ cá nhân
+                                </DropdownMenuItem>
+                            </Link>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
                                 <LogOut className="mr-2 h-4 w-4" />

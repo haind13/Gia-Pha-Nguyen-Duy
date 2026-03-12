@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { TreePine, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -120,6 +121,13 @@ export default function LoginPage() {
                             </button>
                         </div>
                         {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+                        {mode === 'login' && (
+                            <div className="text-right">
+                                <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                                    Quên mật khẩu?
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     <Button type="submit" className="w-full" disabled={loading}>
