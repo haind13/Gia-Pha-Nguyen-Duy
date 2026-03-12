@@ -242,7 +242,7 @@ export default function BookPage() {
                     <div className="flex items-center gap-2">
                         <Link href="/tree">
                             <Button variant="ghost" size="sm">
-                                <ArrowLeft className="w-4 h-4 mr-1" /> Cây gia phả
+                                <ArrowLeft className="w-4 h-4 mr-1" /> Phả đồ
                             </Button>
                         </Link>
                         <span className="text-xs text-muted-foreground hidden sm:inline">

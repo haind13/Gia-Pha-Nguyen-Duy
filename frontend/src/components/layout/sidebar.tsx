@@ -29,7 +29,7 @@ import { useAuth } from '@/components/auth-provider';
 /* Public navigation — always visible */
 const publicNavItems = [
     { href: '/', label: 'Trang chủ', icon: Home },
-    { href: '/tree', label: 'Cây gia phả', icon: TreePine },
+    { href: '/tree', label: 'Phả đồ', icon: TreePine },
     { href: '/media', label: 'Thư viện', icon: Image },
 ];
 

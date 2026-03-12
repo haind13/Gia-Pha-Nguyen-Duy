@@ -14,6 +14,34 @@ import {
 import type { PersonDetail } from '@/lib/genealogy-types';
 import { zodiacYear } from '@/lib/genealogy-types';
 
+// ─── Helper: format date display (DD/MM or fallback to year) ───
+function formatDateDisplay(dateStr?: string, year?: number): string {
+    if (dateStr) {
+        // dateStr might be "DD/MM/YYYY", "DD/MM", "YYYY", or other formats
+        // Ensure it shows DD/MM format when possible
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            return `${parts[0]}/${parts[1]}/${parts[2]}`; // DD/MM/YYYY
+        }
+        if (parts.length === 2) {
+            return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}`; // DD/MM + year
+        }
+        return dateStr;
+    }
+    return year ? `${year}` : '—';
+}
+
+// ─── Helper: marital status label ───
+function maritalStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+        single: 'Độc thân',
+        married: 'Đã kết hôn',
+        divorced: 'Đã ly hôn',
+        widowed: 'Góa',
+    };
+    return labels[status] || status;
+}
+
 // ─── Shared sub-types (same as tree-layout but decoupled) ───
 export interface SimpleTreeNode {
     handle: string;
@@ -114,6 +142,10 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
             company: detail.company || '',
             education: detail.education || '',
             notes: detail.notes || '',
+            title: detail.title || '',
+            birthOrder: detail.birthOrder ?? null,
+            maritalStatus: detail.maritalStatus || '',
+            bloodType: detail.bloodType || '',
         });
         setEditing(true);
         setSaveMsg(null);
@@ -282,12 +314,20 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
                         <DetailSection icon={<User className="w-4 h-4" />} title="Thông tin cơ bản">
                             <div className="space-y-3">
                                 <EditField label="Họ tên" value={form.displayName || ''} onChange={v => setField('displayName', v)} />
-                                <EditField label="Tên thường gọi" value={form.nickName || ''} onChange={v => setField('nickName', v)} placeholder="Biệt danh, tên gọi" />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <EditField label="Tên thường gọi" value={form.nickName || ''} onChange={v => setField('nickName', v)} placeholder="Biệt danh" />
+                                    <EditField label="Chức danh" value={form.title || ''} onChange={v => setField('title', v)} placeholder="Trưởng tộc..." />
+                                </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <EditField label="Năm sinh" value={form.birthYear?.toString() || ''} onChange={v => setField('birthYear', v ? parseInt(v) || null : null)} type="number" />
-                                    <EditField label="Ngày sinh" value={form.birthDate || ''} onChange={v => setField('birthDate', v)} placeholder="VD: 15/03/1945" />
+                                    <EditField label="Ngày sinh (DD/MM)" value={form.birthDate || ''} onChange={v => setField('birthDate', v)} placeholder="15/03/1945" />
                                 </div>
                                 <EditField label="Nơi sinh" value={form.birthPlace || ''} onChange={v => setField('birthPlace', v)} />
+                                <div className="grid grid-cols-3 gap-3">
+                                    <EditField label="Thứ tự (con thứ)" value={form.birthOrder?.toString() || ''} onChange={v => setField('birthOrder', v ? parseInt(v) || null : null)} type="number" />
+                                    <EditField label="Nhóm máu" value={form.bloodType || ''} onChange={v => setField('bloodType', v)} placeholder="A, B, AB, O" />
+                                    <EditField label="Hôn nhân" value={form.maritalStatus || ''} onChange={v => setField('maritalStatus', v)} placeholder="married..." />
+                                </div>
                                 <div className="flex items-center gap-3 py-1">
                                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Trạng thái</label>
                                     <button
@@ -300,7 +340,7 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
                                 {!form.isLiving && (
                                     <div className="grid grid-cols-2 gap-3">
                                         <EditField label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
-                                        <EditField label="Ngày mất" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="VD: 01/12/2020" />
+                                        <EditField label="Ngày mất (DD/MM)" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="01/12/2020" />
                                     </div>
                                 )}
                                 {!form.isLiving && (
@@ -376,23 +416,38 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
                         {/* Thông tin cá nhân */}
                         <DetailSection icon={<User className="w-4 h-4" />} title="Thông tin cá nhân">
                             <div className="grid grid-cols-2 gap-3">
-                                {detail.birthYear && (
-                                    <DetailInfo label="Năm sinh" value={`${detail.birthDate || detail.birthYear}`} />
+                                {detail.nickName && (
+                                    <DetailInfo label="Tên thường gọi" value={detail.nickName} />
+                                )}
+                                {detail.title && (
+                                    <DetailInfo label="Chức danh" value={detail.title} />
                                 )}
                                 {detail.birthYear && (
-                                    <DetailInfo label="Năm âm lịch" value={zodiacYear(detail.birthYear) || '—'} />
+                                    <DetailInfo label="Ngày sinh" value={formatDateDisplay(detail.birthDate, detail.birthYear)} />
+                                )}
+                                {detail.birthYear && (
+                                    <DetailInfo label="Năm âm lịch (sinh)" value={zodiacYear(detail.birthYear) || '—'} />
                                 )}
                                 {detail.birthPlace && (
                                     <DetailInfo label="Nơi sinh" value={detail.birthPlace} />
                                 )}
+                                {detail.birthOrder && (
+                                    <DetailInfo label="Thứ tự" value={`Con thứ ${detail.birthOrder}`} />
+                                )}
                                 {!detail.isLiving && detail.deathYear && (
-                                    <DetailInfo label="Năm mất" value={`${detail.deathDate || detail.deathYear}`} />
+                                    <DetailInfo label="Ngày mất" value={formatDateDisplay(detail.deathDate, detail.deathYear)} />
+                                )}
+                                {!detail.isLiving && detail.deathYear && (
+                                    <DetailInfo label="Năm âm lịch (mất)" value={zodiacYear(detail.deathYear) || '—'} />
                                 )}
                                 {!detail.isLiving && detail.deathPlace && (
                                     <DetailInfo label="Nơi mất" value={detail.deathPlace} />
                                 )}
-                                {detail.nickName && (
-                                    <DetailInfo label="Tên thường gọi" value={detail.nickName} />
+                                {detail.maritalStatus && (
+                                    <DetailInfo label="Hôn nhân" value={maritalStatusLabel(detail.maritalStatus)} />
+                                )}
+                                {detail.bloodType && (
+                                    <DetailInfo label="Nhóm máu" value={detail.bloodType} />
                                 )}
                             </div>
                         </DetailSection>

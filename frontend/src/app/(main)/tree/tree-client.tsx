@@ -1139,7 +1139,7 @@ export default function TreeViewPage() {
             <div className="flex items-center justify-between flex-wrap gap-2 px-1 pb-2">
                 <div>
                     <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-                        <TreePine className="h-5 w-5" /> Cây gia phả
+                        <TreePine className="h-5 w-5" /> Phả đồ
                     </h1>
                     <p className="text-muted-foreground text-xs">
                         {layout ? `${layout.nodes.length} thành viên` : 'Đang tải...'}
