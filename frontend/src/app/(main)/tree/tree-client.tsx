@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { ContributeDialog } from '@/components/contribute-dialog';
-import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal } from 'lucide-react';
 import { PersonDetailPanel } from '@/components/person-detail-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -205,6 +205,19 @@ export default function TreeViewPage() {
     const [editorMode, setEditorMode] = useState(false);
     const [selectedCard, setSelectedCard] = useState<string | null>(null);
     const { isAdmin, canEdit } = useAuth();
+
+    // Quick add person from context menu
+    const [quickAdd, setQuickAdd] = useState<{ type: 'child' | 'spouse'; person: TreeNode; x: number; y: number } | null>(null);
+
+    // Drag-and-drop state (editor mode only)
+    const [dragState, setDragState] = useState<{
+        handle: string;
+        startX: number;
+        startY: number;
+        currentX: number;
+        currentY: number;
+    } | null>(null);
+    const [dropTarget, setDropTarget] = useState<string | null>(null);
 
     // URL query param initialization + auto-collapse on initial load
     const urlInitialized = useRef(false);
@@ -622,6 +635,219 @@ export default function TreeViewPage() {
         setFocusPerson(handle);
     }, []);
 
+    // === Handle generators (shared between EditorPanel and QuickAddDialog) ===
+    const nextHandle = useCallback(() => {
+        if (!treeData) return 'P001';
+        const maxNum = treeData.people.reduce((max, p) => {
+            const num = parseInt(p.handle.replace(/\D/g, '')) || 0;
+            return Math.max(max, num);
+        }, 0);
+        return `P${String(maxNum + 1).padStart(3, '0')}`;
+    }, [treeData]);
+
+    const nextFamilyHandle = useCallback(() => {
+        if (!treeData) return 'F001';
+        const maxNum = treeData.families.reduce((max, f) => {
+            const num = parseInt(f.handle.replace(/\D/g, '')) || 0;
+            return Math.max(max, num);
+        }, 0);
+        return `F${String(maxNum + 1).padStart(3, '0')}`;
+    }, [treeData]);
+
+    // === Quick add person handler (from context menu) ===
+    const handleQuickAddPerson = useCallback(async (newPerson: { handle: string; displayName: string; gender: number; generation: number; birthYear?: number; parentFamilyHandle?: string }, contextPerson: TreeNode) => {
+        if (!treeData) return;
+        const treeNode: TreeNode = {
+            handle: newPerson.handle,
+            displayName: newPerson.displayName,
+            gender: newPerson.gender,
+            generation: newPerson.generation,
+            birthYear: newPerson.birthYear,
+            isLiving: true,
+            isPrivacyFiltered: false,
+            isPatrilineal: newPerson.gender === 1,
+            families: [],
+            parentFamilies: newPerson.parentFamilyHandle ? [newPerson.parentFamilyHandle] : [],
+        };
+
+        setTreeData(prev => {
+            if (!prev) return null;
+            const newPeople = [...prev.people, treeNode];
+            let newFamilies = [...prev.families];
+
+            if (newPerson.parentFamilyHandle) {
+                const existingFamily = newFamilies.find(f => f.handle === newPerson.parentFamilyHandle);
+                if (existingFamily) {
+                    if (newPerson.generation === contextPerson.generation) {
+                        // Adding spouse
+                        if (newPerson.gender === 2 && !existingFamily.motherHandle) {
+                            newFamilies = newFamilies.map(f => f.handle === newPerson.parentFamilyHandle ? { ...f, motherHandle: newPerson.handle } : f);
+                            treeNode.families = [newPerson.parentFamilyHandle!];
+                            treeNode.parentFamilies = [];
+                            treeNode.isPatrilineal = false;
+                        } else if (newPerson.gender === 1 && !existingFamily.fatherHandle) {
+                            newFamilies = newFamilies.map(f => f.handle === newPerson.parentFamilyHandle ? { ...f, fatherHandle: newPerson.handle } : f);
+                            treeNode.families = [newPerson.parentFamilyHandle!];
+                            treeNode.parentFamilies = [];
+                            treeNode.isPatrilineal = false;
+                        }
+                    } else {
+                        // Adding child
+                        newFamilies = newFamilies.map(f =>
+                            f.handle === newPerson.parentFamilyHandle
+                                ? { ...f, children: [...f.children, newPerson.handle] }
+                                : f
+                        );
+                    }
+                } else {
+                    // Create new family
+                    if (newPerson.generation === contextPerson.generation) {
+                        // Spouse — new family
+                        const newFamily: TreeFamily = {
+                            handle: newPerson.parentFamilyHandle,
+                            fatherHandle: contextPerson.gender === 1 ? contextPerson.handle : newPerson.handle,
+                            motherHandle: contextPerson.gender === 2 ? contextPerson.handle : newPerson.handle,
+                            children: [],
+                        };
+                        newFamilies.push(newFamily);
+                        newPeople.forEach(p => {
+                            if (p.handle === contextPerson.handle) {
+                                p.families = [...(p.families || []), newPerson.parentFamilyHandle!];
+                            }
+                        });
+                        treeNode.families = [newPerson.parentFamilyHandle!];
+                        treeNode.parentFamilies = [];
+                        treeNode.isPatrilineal = false;
+                    } else {
+                        // Child — new family
+                        const newFamily: TreeFamily = {
+                            handle: newPerson.parentFamilyHandle,
+                            fatherHandle: contextPerson.gender === 1 ? contextPerson.handle : undefined,
+                            motherHandle: contextPerson.gender === 2 ? contextPerson.handle : undefined,
+                            children: [newPerson.handle],
+                        };
+                        newFamilies.push(newFamily);
+                        newPeople.forEach(p => {
+                            if (p.handle === contextPerson.handle) {
+                                p.families = [...(p.families || []), newPerson.parentFamilyHandle!];
+                            }
+                        });
+                    }
+                }
+            }
+
+            return { people: newPeople, families: newFamilies };
+        });
+
+        // Persist to Supabase
+        await supaAddPerson({
+            handle: treeNode.handle,
+            displayName: treeNode.displayName,
+            gender: treeNode.gender,
+            generation: treeNode.generation,
+            birthYear: treeNode.birthYear,
+            isLiving: true,
+            families: treeNode.families,
+            parentFamilies: treeNode.parentFamilies,
+        });
+
+        // Persist new family if created
+        if (newPerson.parentFamilyHandle) {
+            const existingFamily = treeData.families.find(f => f.handle === newPerson.parentFamilyHandle);
+            if (!existingFamily) {
+                if (newPerson.generation === contextPerson.generation) {
+                    await supaAddFamily({
+                        handle: newPerson.parentFamilyHandle,
+                        fatherHandle: contextPerson.gender === 1 ? contextPerson.handle : newPerson.handle,
+                        motherHandle: contextPerson.gender === 2 ? contextPerson.handle : newPerson.handle,
+                        children: [],
+                    });
+                } else {
+                    await supaAddFamily({
+                        handle: newPerson.parentFamilyHandle,
+                        fatherHandle: contextPerson.gender === 1 ? contextPerson.handle : undefined,
+                        motherHandle: contextPerson.gender === 2 ? contextPerson.handle : undefined,
+                        children: [newPerson.handle],
+                    });
+                }
+            } else {
+                if (newPerson.generation !== contextPerson.generation) {
+                    await supaUpdateFamilyChildren(newPerson.parentFamilyHandle, [...existingFamily.children, newPerson.handle]);
+                }
+            }
+        }
+    }, [treeData]);
+
+    // === Drag-and-drop handlers (editor mode) ===
+    const handleCardDragStart = useCallback((handle: string, clientX: number, clientY: number) => {
+        if (!editorMode) return;
+        setDragState({ handle, startX: clientX, startY: clientY, currentX: clientX, currentY: clientY });
+    }, [editorMode]);
+
+    const handleCardDragMove = useCallback((clientX: number, clientY: number) => {
+        if (!dragState) return;
+        setDragState(prev => prev ? { ...prev, currentX: clientX, currentY: clientY } : null);
+        // Hit-test for drop target
+        if (!layout || !viewportRef.current) return;
+        const rect = viewportRef.current.getBoundingClientRect();
+        const mx = (clientX - rect.left - transform.x) / transform.scale;
+        const my = (clientY - rect.top - transform.y) / transform.scale;
+        let found: string | null = null;
+        for (const n of layout.nodes) {
+            if (n.node.handle === dragState.handle) continue;
+            if (mx >= n.x && mx <= n.x + CARD_W && my >= n.y && my <= n.y + CARD_H) {
+                found = n.node.handle;
+                break;
+            }
+        }
+        setDropTarget(found);
+    }, [dragState, layout, transform]);
+
+    const handleCardDrop = useCallback(() => {
+        if (!dragState || !dropTarget || !treeData) {
+            setDragState(null);
+            setDropTarget(null);
+            return;
+        }
+        const draggedPerson = treeData.people.find(p => p.handle === dragState.handle);
+        const targetPerson = treeData.people.find(p => p.handle === dropTarget);
+        if (!draggedPerson || !targetPerson) {
+            setDragState(null);
+            setDropTarget(null);
+            return;
+        }
+
+        // Find family where dragged person is a child
+        const fromFamily = treeData.families.find(f => f.children.includes(dragState.handle));
+        if (!fromFamily) {
+            setDragState(null);
+            setDropTarget(null);
+            return;
+        }
+
+        // Find or create family where target person is a parent
+        let toFamily = treeData.families.find(f =>
+            f.fatherHandle === dropTarget || f.motherHandle === dropTarget
+        );
+
+        if (toFamily && toFamily.handle !== fromFamily.handle) {
+            // Move child from one family to another
+            setTreeData(prev => {
+                if (!prev) return null;
+                const families = prev.families.map(f => {
+                    if (f.handle === fromFamily.handle) return { ...f, children: f.children.filter(c => c !== dragState.handle) };
+                    if (f.handle === toFamily!.handle) return { ...f, children: [...f.children, dragState.handle] };
+                    return f;
+                });
+                supaMoveChild(dragState.handle, fromFamily.handle, toFamily!.handle, prev.families);
+                return { ...prev, families };
+            });
+        }
+
+        setDragState(null);
+        setDropTarget(null);
+    }, [dragState, dropTarget, treeData]);
+
     // Search highlight
     useEffect(() => {
         if (!searchQuery || !treeData) { setHighlightHandles(new Set()); return; }
@@ -688,16 +914,27 @@ export default function TreeViewPage() {
     // === Mouse handlers ===
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
+        if (dragState) return; // Don't pan while dragging a card
         setIsDragging(true);
         dragRef.current = { startX: e.clientX, startY: e.clientY, startTx: transform.x, startTy: transform.y };
     };
     const handleMouseMove = (e: React.MouseEvent) => {
+        if (dragState) {
+            handleCardDragMove(e.clientX, e.clientY);
+            return;
+        }
         if (!isDragging) return;
         const dx = e.clientX - dragRef.current.startX;
         const dy = e.clientY - dragRef.current.startY;
         setTransform(t => ({ ...t, x: dragRef.current.startTx + dx, y: dragRef.current.startTy + dy }));
     };
-    const handleMouseUp = () => setIsDragging(false);
+    const handleMouseUp = () => {
+        if (dragState) {
+            handleCardDrop();
+            return;
+        }
+        setIsDragging(false);
+    };
 
     // === Scroll-wheel zoom ===
     useEffect(() => {
@@ -958,7 +1195,7 @@ export default function TreeViewPage() {
                     className="flex-1 relative overflow-hidden rounded-xl border-2 bg-gradient-to-br from-background to-muted/30 cursor-grab active:cursor-grabbing select-none"
                     onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
-                    onClick={() => { setShowSearch(false); setContextMenu(null); if (editorMode) setSelectedCard(null); }}
+                    onClick={() => { setShowSearch(false); setContextMenu(null); setQuickAdd(null); if (editorMode) setSelectedCard(null); }}
                 >
                     {loading ? (
                         <div className="flex items-center justify-center h-full">
@@ -993,10 +1230,14 @@ export default function TreeViewPage() {
                                     zoomLevel={zoomLevel}
                                     showCollapseToggle={hasChildren(item.node.handle)}
                                     isCollapsed={collapsedBranches.has(item.node.handle)}
+                                    isDragging={dragState?.handle === item.node.handle}
+                                    isDropTarget={dropTarget === item.node.handle}
+                                    editorMode={editorMode}
                                     onHover={handleCardHover}
                                     onClick={handleCardClick}
                                     onSetFocus={handleCardFocus}
                                     onToggleCollapse={toggleCollapse}
+                                    onDragStart={handleCardDragStart}
                                 />
                             ))}
 
@@ -1016,7 +1257,7 @@ export default function TreeViewPage() {
                             })}
 
                             {/* Context menu on card */}
-                            {contextMenu && (() => {
+                            {contextMenu && !quickAdd && (() => {
                                 const person = treeData?.people.find(p => p.handle === contextMenu.handle);
                                 if (!person) return null;
                                 return (
@@ -1024,6 +1265,7 @@ export default function TreeViewPage() {
                                         person={person}
                                         x={contextMenu.x}
                                         y={contextMenu.y}
+                                        canEdit={canEdit}
                                         onViewDetail={() => { setDetailPerson(person.handle); setContextMenu(null); }}
                                         onShowDescendants={() => { setFocusPerson(person.handle); setViewMode('descendant'); setContextMenu(null); }}
                                         onShowAncestors={() => { setFocusPerson(person.handle); setViewMode('ancestor'); setContextMenu(null); }}
@@ -1031,8 +1273,48 @@ export default function TreeViewPage() {
                                         onShowFull={() => { setViewMode('full'); setContextMenu(null); }}
                                         onCopyLink={() => { copyTreeLink(person.handle); setContextMenu(null); }}
                                         onContribute={() => { setContributePerson({ handle: person.handle, name: person.displayName }); setContextMenu(null); }}
+                                        onAddChild={() => { setQuickAdd({ type: 'child', person, x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
+                                        onAddSpouse={() => { setQuickAdd({ type: 'spouse', person, x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
                                         onClose={() => setContextMenu(null)}
                                     />
+                                );
+                            })()}
+
+                            {/* Quick add person dialog */}
+                            {quickAdd && (
+                                <QuickAddPersonDialog
+                                    type={quickAdd.type}
+                                    person={quickAdd.person}
+                                    x={quickAdd.x}
+                                    y={quickAdd.y}
+                                    onSubmit={(data) => {
+                                        handleQuickAddPerson(data, quickAdd.person);
+                                        setQuickAdd(null);
+                                    }}
+                                    onClose={() => setQuickAdd(null)}
+                                    nextHandle={nextHandle}
+                                    nextFamilyHandle={nextFamilyHandle}
+                                    treeData={treeData}
+                                />
+                            )}
+
+                            {/* Drag ghost card */}
+                            {dragState && (() => {
+                                const draggedNode = layout?.nodes.find(n => n.node.handle === dragState.handle);
+                                if (!draggedNode || !viewportRef.current) return null;
+                                const rect = viewportRef.current.getBoundingClientRect();
+                                const ghostX = (dragState.currentX - rect.left - transform.x) / transform.scale;
+                                const ghostY = (dragState.currentY - rect.top - transform.y) / transform.scale;
+                                return (
+                                    <div
+                                        className="absolute rounded-lg border-2 border-blue-400 bg-blue-50/80 shadow-lg pointer-events-none z-40"
+                                        style={{ left: ghostX - CARD_W / 2, top: ghostY - CARD_H / 2, width: CARD_W, height: CARD_H, opacity: 0.8 }}
+                                    >
+                                        <div className="px-2 py-1.5 h-full flex items-center gap-2">
+                                            <GripHorizontal className="w-4 h-4 text-blue-400" />
+                                            <p className="text-xs font-semibold text-blue-700 truncate">{draggedNode.node.displayName}</p>
+                                        </div>
+                                    </div>
                                 );
                             })()}
                         </div>
@@ -1302,7 +1584,9 @@ export default function TreeViewPage() {
                 <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-pink-100 border border-pink-400" /> Nữ</span>
                 <span className="flex items-center gap-1"><span className="text-red-500">❤</span> Vợ chồng</span>
                 <span className="flex items-center gap-1 opacity-60"><span className="w-2.5 h-2.5 rounded-sm bg-slate-200 border border-slate-400" /> Đã mất</span>
-                <span className="ml-auto opacity-50">Cuộn để zoom • Kéo để di chuyển • Nhấn để xem</span>
+                <span className="ml-auto opacity-50">
+                    {editorMode ? 'Kéo card để đổi cha/mẹ • Nhấn để chỉnh sửa' : 'Cuộn để zoom • Kéo để di chuyển • Nhấn để xem'}
+                </span>
             </div>
             {/* Contribute dialog */}
             {contributePerson && (
@@ -1345,10 +1629,11 @@ export default function TreeViewPage() {
 }
 
 // === Card Context Menu ===
-function CardContextMenu({ person, x, y, onViewDetail, onShowDescendants, onShowAncestors, onSetFocus, onShowFull, onCopyLink, onContribute, onClose }: {
+function CardContextMenu({ person, x, y, canEdit, onViewDetail, onShowDescendants, onShowAncestors, onSetFocus, onShowFull, onCopyLink, onContribute, onAddChild, onAddSpouse, onClose }: {
     person: TreeNode;
     x: number;
     y: number;
+    canEdit: boolean;
     onViewDetail: () => void;
     onShowDescendants: () => void;
     onShowAncestors: () => void;
@@ -1356,6 +1641,8 @@ function CardContextMenu({ person, x, y, onViewDetail, onShowDescendants, onShow
     onShowFull: () => void;
     onCopyLink: () => void;
     onContribute: () => void;
+    onAddChild: () => void;
+    onAddSpouse: () => void;
     onClose: () => void;
 }) {
     return (
@@ -1407,6 +1694,13 @@ function CardContextMenu({ person, x, y, onViewDetail, onShowDescendants, onShow
                     <MenuAction icon={<ArrowUpFromLine className="w-4 h-4" />} label="Tổ tiên" desc="Hiển thị dòng tổ tiên" onClick={onShowAncestors} />
                     <MenuAction icon={<Crosshair className="w-4 h-4" />} label="Căn giữa" desc="Di chuyển tới vị trí" onClick={onSetFocus} />
                     <div className="border-t border-slate-100 my-1" />
+                    {canEdit && (
+                        <>
+                            <MenuAction icon={<Baby className="w-4 h-4" />} label="Thêm con" desc="Thêm người con mới" onClick={onAddChild} />
+                            <MenuAction icon={<Heart className="w-4 h-4" />} label="Thêm vợ/chồng" desc="Thêm hôn phối" onClick={onAddSpouse} />
+                            <div className="border-t border-slate-100 my-1" />
+                        </>
+                    )}
                     <MenuAction icon={<Link className="w-4 h-4" />} label="Sao chép link hậu duệ" desc="Chia sẻ link cây con cháu" onClick={onCopyLink} />
                     <MenuAction icon={<Eye className="w-4 h-4" />} label="Toàn cảnh" desc="Hiển thị toàn bộ cây" onClick={onShowFull} />
                     <div className="border-t border-slate-100 my-1" />
@@ -1433,6 +1727,156 @@ function MenuAction({ icon, label, desc, onClick }: { icon: React.ReactNode; lab
     );
 }
 
+// === Quick Add Person Dialog (popup from context menu) ===
+function QuickAddPersonDialog({ type, person, x, y, onSubmit, onClose, nextHandle, nextFamilyHandle, treeData }: {
+    type: 'child' | 'spouse';
+    person: TreeNode;
+    x: number;
+    y: number;
+    onSubmit: (data: { handle: string; displayName: string; gender: number; generation: number; birthYear?: number; parentFamilyHandle?: string }) => void;
+    onClose: () => void;
+    nextHandle: () => string;
+    nextFamilyHandle: () => string;
+    treeData: { people: TreeNode[]; families: TreeFamily[] } | null;
+}) {
+    const [name, setName] = useState('');
+    const [gender, setGender] = useState(type === 'spouse' ? (person.gender === 1 ? 2 : 1) : 1);
+    const [birthYear, setBirthYear] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name.trim() || !treeData) return;
+
+        const handle = nextHandle();
+        const generation = type === 'child' ? person.generation + 1 : person.generation;
+
+        let familyHandle: string | undefined;
+        if (type === 'child') {
+            // Find existing family where person is parent
+            const existingFamily = treeData.families.find(f => f.fatherHandle === person.handle || f.motherHandle === person.handle);
+            familyHandle = existingFamily?.handle || nextFamilyHandle();
+        } else {
+            // Spouse: always create new family
+            familyHandle = nextFamilyHandle();
+        }
+
+        onSubmit({
+            handle,
+            displayName: name.trim(),
+            gender,
+            generation,
+            birthYear: birthYear ? parseInt(birthYear) : undefined,
+            parentFamilyHandle: familyHandle,
+        });
+    };
+
+    return (
+        <div
+            className="absolute z-50 animate-in fade-in zoom-in-95 duration-150"
+            style={{ left: x + 8, top: y + 8 }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="bg-white/95 backdrop-blur-lg border border-slate-200 rounded-xl shadow-xl
+                py-3 px-4 w-[260px]">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        {type === 'child' ? (
+                            <Baby className="w-4 h-4 text-blue-600" />
+                        ) : (
+                            <Heart className="w-4 h-4 text-rose-500" />
+                        )}
+                        <span className="text-sm font-semibold text-slate-800">
+                            {type === 'child' ? 'Thêm con' : 'Thêm vợ/chồng'}
+                        </span>
+                    </div>
+                    <button onClick={onClose} className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+
+                {/* Parent info */}
+                <div className="text-[11px] text-slate-500 mb-3 px-2 py-1.5 bg-slate-50 rounded-lg">
+                    {type === 'child' ? 'Con của' : 'Hôn phối của'}{' '}
+                    <span className="font-semibold text-slate-700">{person.displayName}</span>
+                    <span className="text-slate-400"> · Đời {person.generation}</span>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-2.5">
+                    {/* Name */}
+                    <div>
+                        <label className="text-[11px] font-medium text-slate-600 block mb-1">Họ và tên *</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Nguyễn Duy..."
+                            className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                            autoFocus
+                        />
+                    </div>
+
+                    {/* Gender + Birth year row */}
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <label className="text-[11px] font-medium text-slate-600 block mb-1">Giới tính</label>
+                            <div className="flex gap-1">
+                                <button
+                                    type="button"
+                                    className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+                                        gender === 1 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                    }`}
+                                    onClick={() => setGender(1)}
+                                >
+                                    Nam
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+                                        gender === 2 ? 'bg-pink-50 border-pink-300 text-pink-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                    }`}
+                                    onClick={() => setGender(2)}
+                                >
+                                    Nữ
+                                </button>
+                            </div>
+                        </div>
+                        <div className="w-20">
+                            <label className="text-[11px] font-medium text-slate-600 block mb-1">Năm sinh</label>
+                            <input
+                                type="number"
+                                value={birthYear}
+                                onChange={(e) => setBirthYear(e.target.value)}
+                                placeholder="1990"
+                                className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Submit */}
+                    <div className="flex gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!name.trim()}
+                            className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+                        >
+                            <UserPlus className="w-3 h-3" />
+                            Thêm
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 // === Person Card Component (memoized) ===
 const MemoPersonCard = memo(PersonCard, (prev, next) =>
     prev.item === next.item &&
@@ -1442,10 +1886,13 @@ const MemoPersonCard = memo(PersonCard, (prev, next) =>
     prev.isSelected === next.isSelected &&
     prev.zoomLevel === next.zoomLevel &&
     prev.showCollapseToggle === next.showCollapseToggle &&
-    prev.isCollapsed === next.isCollapsed
+    prev.isCollapsed === next.isCollapsed &&
+    prev.isDragging === next.isDragging &&
+    prev.isDropTarget === next.isDropTarget &&
+    prev.editorMode === next.editorMode
 );
 
-function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoomLevel, showCollapseToggle, isCollapsed, onHover, onClick, onSetFocus, onToggleCollapse }: {
+function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoomLevel, showCollapseToggle, isCollapsed, isDragging, isDropTarget, editorMode, onHover, onClick, onSetFocus, onToggleCollapse, onDragStart }: {
     item: PositionedNode;
     isHighlighted: boolean;
     isFocused: boolean;
@@ -1454,10 +1901,14 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoo
     zoomLevel: ZoomLevel;
     showCollapseToggle: boolean;
     isCollapsed: boolean;
+    isDragging: boolean;
+    isDropTarget: boolean;
+    editorMode: boolean;
     onHover: (h: string | null) => void;
     onClick: (handle: string, x: number, y: number) => void;
     onSetFocus: (handle: string) => void;
     onToggleCollapse: (handle: string) => void;
+    onDragStart: (handle: string, clientX: number, clientY: number) => void;
 }) {
     const { node, x, y } = item;
     const isMale = node.gender === 1;
@@ -1514,7 +1965,9 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoo
                     ? 'from-rose-50 to-pink-50 border-rose-300'
                     : 'from-slate-50 to-slate-100 border-slate-300';
 
-    const glowClass = isSelected ? 'ring-2 ring-blue-500 ring-offset-2 shadow-blue-200 shadow-lg'
+    const glowClass = isDropTarget ? 'ring-2 ring-green-500 ring-offset-2 shadow-green-200 shadow-lg scale-105'
+        : isDragging ? 'opacity-40 ring-2 ring-blue-300 ring-dashed'
+        : isSelected ? 'ring-2 ring-blue-500 ring-offset-2 shadow-blue-200 shadow-lg'
         : isHighlighted ? 'ring-2 ring-amber-400 ring-offset-2'
             : isFocused ? 'ring-2 ring-indigo-400 ring-offset-2'
                 : isHovered ? 'ring-1 ring-indigo-200' : '';
@@ -1524,12 +1977,13 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoo
         return (
             <div
                 className={`absolute rounded-lg border bg-gradient-to-br shadow-sm transition-all duration-200
-                    cursor-pointer hover:shadow-md ${bgClass} ${glowClass}
-                    ${isDead ? 'opacity-70' : ''} ${!isPatri ? 'opacity-80' : ''}`}
+                    ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} hover:shadow-md ${bgClass} ${glowClass}
+                    ${isDead && !isDragging ? 'opacity-70' : ''} ${!isPatri && !isDragging ? 'opacity-80' : ''}`}
                 style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
                 onMouseEnter={() => onHover(node.handle)}
                 onMouseLeave={() => onHover(null)}
                 onClick={(e) => { e.stopPropagation(); onClick(node.handle, x + CARD_W, y + CARD_H / 2); }}
+                onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.handle, e.clientX, e.clientY); } }}
             >
                 <div className="px-2 py-1.5 h-full flex items-center gap-2">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center
@@ -1560,12 +2014,13 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoo
     return (
         <div
             className={`absolute rounded-xl border-[1.5px] bg-gradient-to-br shadow-sm transition-all duration-200
-                cursor-pointer hover:shadow-md hover:-translate-y-0.5 ${bgClass} ${glowClass}
-                ${isDead ? 'opacity-70' : ''} ${!isPatri ? 'opacity-80' : ''}`}
+                ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} hover:shadow-md hover:-translate-y-0.5 ${bgClass} ${glowClass}
+                ${isDead && !isDragging ? 'opacity-70' : ''} ${!isPatri && !isDragging ? 'opacity-80' : ''}`}
             style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
             onMouseEnter={() => onHover(node.handle)}
             onMouseLeave={() => onHover(null)}
             onClick={(e) => { e.stopPropagation(); onClick(node.handle, x + CARD_W, y + CARD_H / 2); }}
+            onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.handle, e.clientX, e.clientY); } }}
             onContextMenu={(e) => { e.preventDefault(); onSetFocus(node.handle); }}
         >
             <div className="px-2.5 py-2 h-full flex items-center gap-2.5">
