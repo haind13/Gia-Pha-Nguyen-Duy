@@ -254,6 +254,82 @@ function analyzeRelationship(
     };
 }
 
+// ═══ Helper: Determine branch seniority from LCA ═══
+
+/**
+ * For collateral (same-generation) relationships, determine seniority
+ * by comparing which branch of the LCA (common ancestor) is senior.
+ *
+ * Vietnamese rule: if LCA's child on A's side is older than LCA's child on B's side,
+ * then ALL descendants of A's branch are senior to ALL descendants of B's branch.
+ * This cascades regardless of actual birth years of the individuals.
+ */
+function determineBranchSeniority(
+    path: PathStep[],
+    lcaHandle: string | undefined,
+    people: TreeNode[],
+    families: TreeFamily[],
+    fallback: boolean,
+): boolean {
+    if (!lcaHandle) return fallback;
+
+    // Find LCA index in path
+    let lcaIdx = -1;
+    for (let i = 0; i < path.length; i++) {
+        if (path[i].personHandle === lcaHandle) {
+            lcaIdx = i;
+            break;
+        }
+    }
+    if (lcaIdx <= 0 || lcaIdx >= path.length - 1) return fallback;
+
+    // Collect all handles on A's side (before LCA) and B's side (after LCA)
+    const aSideHandles = new Set<string>();
+    for (let i = 0; i < lcaIdx; i++) {
+        aSideHandles.add(path[i].personHandle);
+    }
+    const bSideHandles = new Set<string>();
+    for (let i = lcaIdx + 1; i < path.length; i++) {
+        bSideHandles.add(path[i].personHandle);
+    }
+
+    // Find which of LCA's children are on each side
+    let childAHandle: string | null = null;
+    let childBHandle: string | null = null;
+
+    for (const fam of families) {
+        if (fam.fatherHandle === lcaHandle || fam.motherHandle === lcaHandle) {
+            for (const ch of fam.children) {
+                if (!childAHandle && aSideHandles.has(ch)) childAHandle = ch;
+                if (!childBHandle && bSideHandles.has(ch)) childBHandle = ch;
+            }
+        }
+    }
+
+    if (!childAHandle || !childBHandle || childAHandle === childBHandle) return fallback;
+
+    const childA = people.find(p => p.handle === childAHandle);
+    const childB = people.find(p => p.handle === childBHandle);
+    if (!childA || !childB) return fallback;
+
+    // Compare the two children of LCA
+    if (childA.birthOrder != null && childB.birthOrder != null) {
+        return childA.birthOrder < childB.birthOrder;
+    }
+    if (childA.birthYear && childB.birthYear && childA.birthYear !== childB.birthYear) {
+        return childA.birthYear < childB.birthYear;
+    }
+    // Fallback: position in shared family's children array
+    for (const fam of families) {
+        const aIdx = fam.children.indexOf(childAHandle!);
+        const bIdx = fam.children.indexOf(childBHandle!);
+        if (aIdx >= 0 && bIdx >= 0) {
+            return aIdx < bIdx;
+        }
+    }
+    return fallback;
+}
+
 // ═══ Vietnamese Kinship Terms ═══
 
 /**
@@ -356,32 +432,14 @@ function getKinshipTerms(
         return reverse;
     }
 
-    // Cousins: 2 up, 2 down (same generation, grandparent is LCA)
-    // IMPORTANT: For cousins, seniority is determined by PARENT's birth order,
-    // not the cousins' own age. E.g. if A's parent is older sibling of B's parent,
-    // then A is "anh/chị" of B regardless of actual birth years.
+    // Cousins & same-generation collateral: seniority by LCA branch
+    // IMPORTANT: Seniority is determined by comparing LCA's children on each side,
+    // NOT by the individuals' own age. This cascades through all generations.
+    // E.g. if grandfather's first son → father → Hải, and grandfather's second son → uncle → cousin,
+    // then Hải is "anh" of cousin regardless of actual birth years.
     if (stepsUp === 2 && stepsDown === 2) {
-        const parentOfA = people.find(p => p.handle === path[1].personHandle);
-        const parentOfB = people.find(p => p.handle === path[path.length - 2].personHandle);
-        let parentAIsOlder = aIsOlder; // fallback
-        if (parentOfA && parentOfB) {
-            if (parentOfA.birthOrder != null && parentOfB.birthOrder != null) {
-                parentAIsOlder = parentOfA.birthOrder < parentOfB.birthOrder;
-            } else if (parentOfA.birthYear && parentOfB.birthYear && parentOfA.birthYear !== parentOfB.birthYear) {
-                parentAIsOlder = parentOfA.birthYear < parentOfB.birthYear;
-            } else {
-                // Check position in shared family's children array
-                for (const fam of families) {
-                    const aIdx = fam.children.indexOf(parentOfA.handle);
-                    const bIdx = fam.children.indexOf(parentOfB.handle);
-                    if (aIdx >= 0 && bIdx >= 0) {
-                        parentAIsOlder = aIdx < bIdx;
-                        break;
-                    }
-                }
-            }
-        }
-        return getCousinTerms(personA, personB, parentAIsOlder, isPaternal);
+        const branchAIsOlder = determineBranchSeniority(path, info.lcaHandle, people, families, aIsOlder);
+        return getCousinTerms(personA, personB, branchAIsOlder, isPaternal);
     }
 
     // Great uncle/aunt: stepsUp=1, stepsDown=3 or stepsUp=3, stepsDown=1
@@ -398,32 +456,60 @@ function getKinshipTerms(
     const genGap = stepsUp - stepsDown;
     if (genGap > 0) {
         // B is senior (higher generation)
-        return getDistantRelationTerms(genGap, genderA, genderB, 'B_is_senior', isPaternal);
-    } else if (genGap < 0) {
-        // A is senior
-        return getDistantRelationTerms(-genGap, genderA, genderB, 'A_is_senior', isPaternal);
-    } else {
-        // Same generation, distant — use parent seniority like cousins
-        const parentOfA = path.length >= 2 ? people.find(p => p.handle === path[1].personHandle) : null;
-        const parentOfB = path.length >= 2 ? people.find(p => p.handle === path[path.length - 2].personHandle) : null;
-        let parentAIsOlder = aIsOlder;
-        if (parentOfA && parentOfB && parentOfA.handle !== parentOfB.handle) {
-            if (parentOfA.birthOrder != null && parentOfB.birthOrder != null) {
-                parentAIsOlder = parentOfA.birthOrder < parentOfB.birthOrder;
-            } else if (parentOfA.birthYear && parentOfB.birthYear && parentOfA.birthYear !== parentOfB.birthYear) {
-                parentAIsOlder = parentOfA.birthYear < parentOfB.birthYear;
+        if (genGap === 1) {
+            // 1 generation gap — distant uncle/aunt type
+            // Use branch seniority from LCA to determine Bác vs Chú/Cô/Cậu/Dì
+            const branchAIsOlder = determineBranchSeniority(path, info.lcaHandle, people, families, false);
+            // branchAIsOlder → A's branch is from older child of LCA → B's branch is younger → Chú/Cô
+            // !branchAIsOlder → B's branch is from older child of LCA → Bác
+            const bBranchIsOlder = !branchAIsOlder;
+            if (isPaternal) {
+                if (genderB === 1) {
+                    const title = bBranchIsOlder ? 'Bác' : 'Chú';
+                    return { aCallsB: title, bCallsA: 'Cháu', relationship: `${title} họ — Cháu` };
+                } else {
+                    const title = bBranchIsOlder ? 'Bác' : 'Cô';
+                    return { aCallsB: title, bCallsA: 'Cháu', relationship: `${title} họ — Cháu` };
+                }
             } else {
-                for (const fam of families) {
-                    const aIdx = fam.children.indexOf(parentOfA.handle);
-                    const bIdx = fam.children.indexOf(parentOfB.handle);
-                    if (aIdx >= 0 && bIdx >= 0) {
-                        parentAIsOlder = aIdx < bIdx;
-                        break;
-                    }
+                if (genderB === 1) {
+                    return { aCallsB: 'Cậu', bCallsA: 'Cháu', relationship: 'Cậu họ — Cháu' };
+                } else {
+                    const title = bBranchIsOlder ? 'Bác' : 'Dì';
+                    return { aCallsB: title, bCallsA: 'Cháu', relationship: `${title} họ — Cháu` };
                 }
             }
         }
-        return getCousinTerms(personA, personB, parentAIsOlder, isPaternal);
+        return getDistantRelationTerms(genGap, genderA, genderB, 'B_is_senior', isPaternal);
+    } else if (genGap < 0) {
+        // A is senior (higher generation)
+        if (genGap === -1) {
+            // 1 generation gap — A is distant uncle/aunt type
+            const branchAIsOlder = determineBranchSeniority(path, info.lcaHandle, people, families, true);
+            // branchAIsOlder → A's branch is from older child of LCA → A is "Bác"
+            // !branchAIsOlder → A's branch is from younger child → A is "Chú/Cô/Cậu/Dì"
+            if (isPaternal) {
+                if (genderA === 1) {
+                    const title = branchAIsOlder ? 'Bác' : 'Chú';
+                    return { aCallsB: 'Cháu', bCallsA: title, relationship: `${title} họ — Cháu` };
+                } else {
+                    const title = branchAIsOlder ? 'Bác' : 'Cô';
+                    return { aCallsB: 'Cháu', bCallsA: title, relationship: `${title} họ — Cháu` };
+                }
+            } else {
+                if (genderA === 1) {
+                    return { aCallsB: 'Cháu', bCallsA: 'Cậu', relationship: 'Cậu họ — Cháu' };
+                } else {
+                    const title = branchAIsOlder ? 'Bác' : 'Dì';
+                    return { aCallsB: 'Cháu', bCallsA: title, relationship: `${title} họ — Cháu` };
+                }
+            }
+        }
+        return getDistantRelationTerms(-genGap, genderA, genderB, 'A_is_senior', isPaternal);
+    } else {
+        // Same generation, distant — determine seniority from LCA branch
+        const branchAIsOlder = determineBranchSeniority(path, info.lcaHandle, people, families, aIsOlder);
+        return getCousinTerms(personA, personB, branchAIsOlder, isPaternal);
     }
 }
 
