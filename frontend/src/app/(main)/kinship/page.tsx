@@ -9,8 +9,11 @@ import { fetchTreeData } from '@/lib/supabase-data';
 import { getMockTreeData } from '@/lib/mock-data';
 import { determineKinship, type KinshipResult, type PathStep } from '@/lib/kinship';
 import type { TreeNode, TreeFamily } from '@/lib/tree-layout';
+import { RequireAuth } from '@/components/require-auth';
+import { useAuth } from '@/components/auth-provider';
 
 export default function KinshipPage() {
+    const { isLoggedIn, loading: authLoading } = useAuth();
     const [people, setPeople] = useState<TreeNode[]>([]);
     const [families, setFamilies] = useState<TreeFamily[]>([]);
     const [loading, setLoading] = useState(true);
@@ -80,7 +83,12 @@ export default function KinshipPage() {
         setNoResult(false);
     };
 
-    if (loading) {
+    // Auth guard
+    if (!authLoading && !isLoggedIn) {
+        return <RequireAuth>{null}</RequireAuth>;
+    }
+
+    if (loading || authLoading) {
         return (
             <div className="flex items-center justify-center h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

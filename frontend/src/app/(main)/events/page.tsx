@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { MOCK_MEMORIALS, type MemorialEvent } from '@/lib/mock-data';
+import { RequireAuth } from '@/components/require-auth';
 
 /* ── Constants ── */
 const WEEKDAY_HEADERS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
@@ -396,6 +397,7 @@ export default function EventsPage() {
     };
 
     return (
+        <RequireAuth>
         <div className="space-y-6">
             {/* Header */}
             <div>
@@ -571,5 +573,6 @@ export default function EventsPage() {
                 </div>
             </div>
         </div>
+        </RequireAuth>
     );
 }

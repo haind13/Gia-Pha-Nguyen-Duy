@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/components/auth-provider';
 import { supabase } from '@/lib/supabase';
+import { RequireAuth } from '@/components/require-auth';
 
 // === Types ===
 
@@ -282,6 +283,7 @@ export default function FeedPage() {
     useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
     return (
+        <RequireAuth>
         <div className="max-w-2xl mx-auto space-y-6">
             <div>
                 <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -312,5 +314,6 @@ export default function FeedPage() {
                 </div>
             )}
         </div>
+        </RequireAuth>
     );
 }

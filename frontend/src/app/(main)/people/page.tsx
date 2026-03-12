@@ -23,6 +23,7 @@ import {
 import { PersonDetailPanel } from '@/components/person-detail-panel';
 import { useAuth } from '@/components/auth-provider';
 import { useRouter } from 'next/navigation';
+import { RequireAuth } from '@/components/require-auth';
 
 interface Person {
     handle: string;
@@ -42,7 +43,7 @@ export default function PeopleListPage() {
     const [livingFilter, setLivingFilter] = useState<boolean | null>(null);
     const [selectedHandle, setSelectedHandle] = useState<string | null>(null);
     const [editHandle, setEditHandle] = useState<string | null>(null);
-    const { canEdit } = useAuth();
+    const { canEdit, isLoggedIn, loading: authLoading } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -69,6 +70,11 @@ export default function PeopleListPage() {
         };
         fetchPeople();
     }, []);
+
+    // Auth guard
+    if (!authLoading && !isLoggedIn) {
+        return <RequireAuth>{null}</RequireAuth>;
+    }
 
     const filtered = people.filter((p) => {
         if (search && !p.displayName.toLowerCase().includes(search.toLowerCase())) return false;

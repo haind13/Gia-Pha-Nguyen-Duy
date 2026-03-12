@@ -1,16 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { TreePine, Eye, EyeOff, LogIn } from 'lucide-react';
+import { TreePine, Eye, EyeOff, LogIn, Mail, CheckCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/lib/supabase';
 
 const registerSchema = z.object({
     email: z.string().email('Email không hợp lệ'),
@@ -25,10 +23,10 @@ const registerSchema = z.object({
 type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
-    const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [emailSent, setEmailSent] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState('');
     const [loading, setLoading] = useState(false);
 
     const {
@@ -40,10 +38,8 @@ export default function RegisterPage() {
     const onSubmit = async (data: RegisterForm) => {
         try {
             setError('');
-            setSuccess('');
             setLoading(true);
 
-            // Register via server API (uses service role, auto-confirms email, sets admin role)
             const res = await fetch('/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -60,24 +56,65 @@ export default function RegisterPage() {
                 return;
             }
 
-            // Auto sign-in after successful registration
-            const { error: signInErr } = await supabase.auth.signInWithPassword({
-                email: data.email,
-                password: data.password,
-            });
-
-            if (signInErr) {
-                setSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
-                return;
-            }
-
-            router.push('/tree');
+            // Show email confirmation screen
+            setRegisteredEmail(data.email);
+            setEmailSent(true);
         } catch {
             setError('Đăng ký thất bại. Vui lòng thử lại.');
         } finally {
             setLoading(false);
         }
     };
+
+    // Email confirmation success screen
+    if (emailSent) {
+        return (
+            <Card className="border-0 shadow-2xl">
+                <CardHeader className="text-center space-y-4">
+                    <div className="flex justify-center">
+                        <div className="rounded-full bg-green-100 dark:bg-green-950/30 p-4">
+                            <Mail className="h-10 w-10 text-green-600 dark:text-green-400" />
+                        </div>
+                    </div>
+                    <CardTitle className="text-2xl font-bold">Kiểm tra email của bạn</CardTitle>
+                    <CardDescription className="text-base">
+                        Chúng tôi đã gửi email xác nhận đến
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="text-center">
+                        <p className="font-semibold text-lg text-primary">{registeredEmail}</p>
+                    </div>
+
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                            <CheckCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                            <div className="text-sm text-amber-800 dark:text-amber-200 space-y-1">
+                                <p className="font-medium">Hướng dẫn xác nhận:</p>
+                                <ol className="list-decimal list-inside space-y-1 text-amber-700 dark:text-amber-300">
+                                    <li>Mở hộp thư email <strong>{registeredEmail}</strong></li>
+                                    <li>Tìm email từ <strong>Gia Phả Họ Nguyễn Duy</strong></li>
+                                    <li>Nhấn vào nút <strong>&quot;Xác nhận tài khoản&quot;</strong> trong email</li>
+                                    <li>Quay lại đây để đăng nhập</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground text-center">
+                        Không nhận được email? Kiểm tra thư mục Spam/Junk hoặc chờ vài phút.
+                    </p>
+
+                    <Link href="/login">
+                        <Button className="w-full" size="lg">
+                            <LogIn className="h-4 w-4 mr-2" />
+                            Đi đến trang Đăng nhập
+                        </Button>
+                    </Link>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card className="border-0 shadow-2xl">
@@ -94,9 +131,6 @@ export default function RegisterPage() {
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     {error && (
                         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
-                    )}
-                    {success && (
-                        <div className="rounded-md bg-green-50 dark:bg-green-950/30 p-3 text-sm text-green-700 dark:text-green-400">{success}</div>
                     )}
 
                     <div className="space-y-2">

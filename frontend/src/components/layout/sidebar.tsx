@@ -18,22 +18,29 @@ import {
     Newspaper,
     CalendarDays,
     MessageCircle,
+    LogIn,
+    UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
 
-const navItems = [
+/* Public navigation — always visible */
+const publicNavItems = [
     { href: '/', label: 'Trang chủ', icon: Home },
+    { href: '/tree', label: 'Cây gia phả', icon: TreePine },
+    { href: '/media', label: 'Thư viện', icon: Image },
+];
+
+/* Auth-required navigation — only when logged in */
+const authNavItems = [
     { href: '/feed', label: 'Bảng tin', icon: Newspaper },
     { href: '/directory', label: 'Danh bạ', icon: Contact },
     { href: '/events', label: 'Sự kiện', icon: CalendarDays },
-    { href: '/tree', label: 'Cây gia phả', icon: TreePine },
     { href: '/book', label: 'Sách gia phả', icon: BookOpen },
     { href: '/kinship', label: 'Xưng hô', icon: MessageCircle },
     { href: '/people', label: 'Thành viên', icon: Users },
-    { href: '/media', label: 'Thư viện', icon: Image },
 ];
 
 const adminItems = [
@@ -46,7 +53,26 @@ const adminItems = [
 export function Sidebar() {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
-    const { isAdmin } = useAuth();
+    const { isAdmin, isLoggedIn } = useAuth();
+
+    const renderNavItem = (item: { href: string; label: string; icon: React.ElementType }) => {
+        const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+        return (
+            <Link key={item.href} href={item.href}>
+                <span
+                    className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                        isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    )}
+                >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && item.label}
+                </span>
+            </Link>
+        );
+    };
 
     return (
         <aside
@@ -63,24 +89,50 @@ export function Sidebar() {
 
             {/* Navigation */}
             <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-                {navItems.map((item) => {
-                    const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
-                    return (
-                        <Link key={item.href} href={item.href}>
-                            <span
-                                className={cn(
-                                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                                    isActive
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                                )}
-                            >
-                                <item.icon className="h-4 w-4 shrink-0" />
-                                {!collapsed && item.label}
+                {/* Public items — always visible */}
+                {publicNavItems.map(renderNavItem)}
+
+                {/* Auth-required items — only when logged in */}
+                {isLoggedIn && (
+                    <>
+                        {!collapsed && (
+                            <div className="pt-3 pb-1">
+                                <span className="px-3 text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                                    Tính năng
+                                </span>
+                            </div>
+                        )}
+                        {collapsed && <div className="border-t my-2" />}
+                        {authNavItems.map(renderNavItem)}
+                    </>
+                )}
+
+                {/* Login prompt — when NOT logged in */}
+                {!isLoggedIn && (
+                    <>
+                        {collapsed ? (
+                            <div className="border-t my-2" />
+                        ) : (
+                            <div className="pt-4 pb-2">
+                                <span className="px-3 text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                                    Tài khoản
+                                </span>
+                            </div>
+                        )}
+                        <Link href="/login">
+                            <span className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+                                <LogIn className="h-4 w-4 shrink-0" />
+                                {!collapsed && 'Đăng nhập'}
                             </span>
                         </Link>
-                    );
-                })}
+                        <Link href="/register">
+                            <span className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+                                <UserPlus className="h-4 w-4 shrink-0" />
+                                {!collapsed && 'Đăng ký'}
+                            </span>
+                        </Link>
+                    </>
+                )}
 
                 {/* Admin section — only visible for admin users */}
                 {isAdmin && (

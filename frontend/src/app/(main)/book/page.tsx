@@ -7,6 +7,8 @@ import { fetchTreeData } from '@/lib/supabase-data';
 import { generateBookData, type BookData, type BookPerson, type BookChapter } from '@/lib/book-generator';
 import type { TreeNode, TreeFamily } from '@/lib/tree-layout';
 import Link from 'next/link';
+import { RequireAuth } from '@/components/require-auth';
+import { useAuth } from '@/components/auth-provider';
 
 // ═══ Color Themes ═══
 interface Theme {
@@ -51,6 +53,7 @@ const THEMES: Record<string, Theme> = {
 type ThemeKey = keyof typeof THEMES;
 
 export default function BookPage() {
+    const { isLoggedIn, loading: authLoading } = useAuth();
     const [bookData, setBookData] = useState<BookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [previewMode, setPreviewMode] = useState(false);
@@ -93,7 +96,12 @@ export default function BookPage() {
         fetchAndGenerate();
     }, []);
 
-    if (loading) {
+    // Auth guard
+    if (!authLoading && !isLoggedIn) {
+        return <RequireAuth>{null}</RequireAuth>;
+    }
+
+    if (loading || authLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <div className="animate-pulse text-muted-foreground flex items-center gap-2">
