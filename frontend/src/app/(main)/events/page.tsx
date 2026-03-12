@@ -174,7 +174,7 @@ function BigCalendar({
             {/* Weekday headers */}
             <div className="grid grid-cols-7 bg-gradient-to-r from-amber-50 to-orange-50 border-b">
                 {WEEKDAY_HEADERS.map(d => (
-                    <div key={d} className={`text-center text-sm font-semibold py-2.5
+                    <div key={d} className={`text-center text-xs sm:text-sm font-semibold py-1.5 sm:py-2.5
                         ${d === 'CN' ? 'text-red-500' : d === 'T7' ? 'text-blue-500' : 'text-stone-600'}`}>
                         {d}
                     </div>
@@ -185,7 +185,7 @@ function BigCalendar({
             <div className="grid grid-cols-7">
                 {cells.map((day, i) => {
                     if (day === null) {
-                        return <div key={`empty-${i}`} className="border-b border-r border-stone-100 min-h-[70px] lg:min-h-[80px]" />;
+                        return <div key={`empty-${i}`} className="border-b border-r border-stone-100 min-h-[50px] sm:min-h-[70px] lg:min-h-[80px]" />;
                     }
 
                     const key = `${year}-${month}-${day}`;
@@ -202,7 +202,7 @@ function BigCalendar({
                             key={day}
                             onClick={() => hasEvents && onSelectDay(year, month, day)}
                             className={`
-                                relative border-b border-r border-stone-100 min-h-[70px] lg:min-h-[80px]
+                                relative border-b border-r border-stone-100 min-h-[50px] sm:min-h-[70px] lg:min-h-[80px]
                                 p-1 text-left transition-all duration-150 flex flex-col
                                 ${hasEvents ? 'cursor-pointer hover:bg-amber-50/80' : 'cursor-default'}
                                 ${isSelected ? 'bg-amber-100 ring-2 ring-amber-400 ring-inset z-10' : ''}
@@ -401,17 +401,18 @@ export default function EventsPage() {
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                    <CalendarDays className="h-6 w-6" />
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
+                    <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6" />
                     Ngày Giỗ Trong Họ Tộc
                 </h1>
-                <p className="text-muted-foreground">
-                    Lịch ngày giỗ {MOCK_MEMORIALS.length} vị tiền nhân và thân quyến dòng họ Nguyễn Duy
+                <p className="text-sm sm:text-base text-muted-foreground">
+                    <span className="hidden sm:inline">Lịch ngày giỗ {MOCK_MEMORIALS.length} vị tiền nhân và thân quyến dòng họ Nguyễn Duy</span>
+                    <span className="sm:hidden">Lịch ngày giỗ {MOCK_MEMORIALS.length} vị tiền nhân</span>
                 </p>
             </div>
 
             {/* Two-column layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 lg:gap-6">
 
                 {/* ══════ LEFT: Single Month Calendar ══════ */}
                 <div className="space-y-3">

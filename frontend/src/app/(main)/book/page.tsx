@@ -329,8 +329,8 @@ export default function BookPage() {
 
             {/* ═══ PRINT PREVIEW GALLERY ═══ */}
             {previewMode && (
-                <div className="no-print bg-slate-100 min-h-screen p-6">
-                    <div ref={pagesRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                <div className="no-print bg-slate-100 min-h-screen p-3 sm:p-6">
+                    <div ref={pagesRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-7xl mx-auto">
                         {sections.map(s => (
                             <div key={s.id} id={`preview-${s.id}`} className="relative">
                                 <div className="preview-card-inner bg-white rounded-lg shadow-md border overflow-hidden hover:shadow-xl transition-shadow">
@@ -360,39 +360,39 @@ export default function BookPage() {
 
             {/* ═══ NORMAL READING MODE ═══ */}
             {!previewMode && (
-                <div className="book-content max-w-[210mm] mx-auto bg-white"
+                <div className="book-content max-w-full sm:max-w-[210mm] mx-auto bg-white"
                     style={{ fontFamily: "'Noto Serif', Georgia, serif", color: t.text }}>
 
                     <CoverPage bookData={bookData} theme={t} />
 
                     {/* Custom: Preface (Lời nói đầu) — before TOC */}
                     {bookSections.filter(s => s.sectionKey === 'preface').map(s => (
-                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-8 py-12">
+                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-4 sm:px-8 py-8 sm:py-12">
                             <CustomSectionContent section={s} theme={t} />
                         </section>
                     ))}
 
                     {/* Custom: Family origin — before TOC */}
                     {bookSections.filter(s => s.sectionKey === 'family_origin').map(s => (
-                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-8 py-12">
+                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-4 sm:px-8 py-8 sm:py-12">
                             <CustomSectionContent section={s} theme={t} />
                         </section>
                     ))}
 
-                    <section id="toc" className="page-break px-8 py-12">
+                    <section id="toc" className="page-break px-4 sm:px-8 py-8 sm:py-12">
                         <span className="page-label">Trang 2</span>
                         <TocContent bookData={bookData} theme={t} />
                     </section>
 
                     {/* Custom: Traditions — after TOC, before chapters */}
                     {bookSections.filter(s => s.sectionKey === 'traditions').map(s => (
-                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-8 py-12">
+                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-4 sm:px-8 py-8 sm:py-12">
                             <CustomSectionContent section={s} theme={t} />
                         </section>
                     ))}
 
                     {bookData.chapters.map((ch, ci) => (
-                        <section key={ch.generation} id={`gen-${ch.generation}`} className="page-break px-8 py-12">
+                        <section key={ch.generation} id={`gen-${ch.generation}`} className="page-break px-4 sm:px-8 py-8 sm:py-12">
                             <span className="page-label">Trang {ci + 3}</span>
                             {/* Custom chapter intro */}
                             {bookSections.filter(s => s.sectionKey === `chapter_intro_${ch.generation}`).map(s => (
@@ -404,7 +404,7 @@ export default function BookPage() {
                         </section>
                     ))}
 
-                    <section id="appendix" className="page-break px-8 py-12">
+                    <section id="appendix" className="page-break px-4 sm:px-8 py-8 sm:py-12">
                         <span className="page-label">Trang {bookData.chapters.length + 3}</span>
                         <AppendixContent bookData={bookData} theme={t} />
                     </section>
@@ -413,7 +413,7 @@ export default function BookPage() {
                     {bookSections
                         .filter(s => !['preface', 'family_origin', 'traditions', 'closing'].includes(s.sectionKey) && !s.sectionKey.startsWith('chapter_intro_'))
                         .map(s => (
-                            <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-8 py-12">
+                            <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-4 sm:px-8 py-8 sm:py-12">
                                 <CustomSectionContent section={s} theme={t} />
                             </section>
                         ))}

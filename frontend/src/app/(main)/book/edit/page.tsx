@@ -136,56 +136,56 @@ export default function BookEditPage() {
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-20">
-                <div className="flex items-center gap-3">
+            <div className="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-20">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     <Link href="/book">
-                        <Button variant="ghost" size="sm" className="gap-1.5">
+                        <Button variant="ghost" size="sm" className="gap-1 sm:gap-1.5 shrink-0">
                             <ArrowLeft className="w-4 h-4" />
-                            Sách gia phả
+                            <span className="hidden sm:inline">Sách gia phả</span>
                         </Button>
                     </Link>
-                    <div className="h-5 w-px bg-slate-200" />
-                    <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-amber-600" />
-                        <span className="font-semibold text-slate-800">Chỉnh sửa nội dung sách</span>
+                    <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+                    <div className="flex items-center gap-2 min-w-0">
+                        <BookOpen className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span className="font-semibold text-slate-800 text-sm sm:text-base truncate">Chỉnh sửa nội dung sách</span>
                     </div>
                 </div>
                 {selectedKey && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={handleToggleVisibility}
-                            className="gap-1.5 text-slate-600"
+                            className="gap-1 sm:gap-1.5 text-slate-600 h-8 px-2 sm:px-3"
                         >
                             {selectedSection?.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                            {selectedSection?.isVisible ? 'Hiện' : 'Ẩn'}
+                            <span className="hidden sm:inline">{selectedSection?.isVisible ? 'Hiện' : 'Ẩn'}</span>
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={handleDelete}
-                            className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="gap-1 sm:gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2 sm:px-3"
                         >
                             <Trash2 className="w-4 h-4" />
-                            Xóa
+                            <span className="hidden sm:inline">Xóa</span>
                         </Button>
                         <Button
                             size="sm"
                             onClick={handleSave}
                             disabled={!dirty || saving}
-                            className="gap-1.5 bg-amber-600 hover:bg-amber-700"
+                            className="gap-1 sm:gap-1.5 bg-amber-600 hover:bg-amber-700 h-8 px-2 sm:px-3"
                         >
                             <Save className="w-4 h-4" />
-                            {saving ? 'Đang lưu...' : 'Lưu'}
+                            <span className="hidden sm:inline">{saving ? 'Đang lưu...' : 'Lưu'}</span>
                         </Button>
                     </div>
                 )}
             </div>
 
-            <div className="flex h-[calc(100vh-57px)]">
+            <div className="flex flex-col md:flex-row h-[calc(100vh-57px)]">
                 {/* Sidebar: Section List */}
-                <div className="w-72 bg-white border-r border-slate-200 flex flex-col">
+                <div className="w-full md:w-72 bg-white border-r border-slate-200 flex flex-col max-h-[40vh] md:max-h-none overflow-y-auto md:overflow-y-visible">
                     <div className="p-4 border-b border-slate-100">
                         <h3 className="text-sm font-semibold text-slate-700 mb-1">Mục lục sách</h3>
                         <p className="text-[11px] text-slate-400">Chọn mục để chỉnh sửa nội dung</p>
@@ -296,7 +296,7 @@ export default function BookEditPage() {
                                         DEFAULT_SECTIONS.find(d => d.key === selectedKey)?.hint
                                         || 'Viết nội dung cho mục này...'
                                     }
-                                    className="min-h-[500px] text-sm leading-relaxed resize-none border-slate-200 focus:ring-amber-400"
+                                    className="min-h-[250px] md:min-h-[500px] text-sm leading-relaxed resize-none border-slate-200 focus:ring-amber-400"
                                 />
                                 <p className="text-[10px] text-slate-400 mt-2">
                                     Hỗ trợ định dạng văn bản thuần. Nội dung sẽ hiển thị trong sách gia phả.

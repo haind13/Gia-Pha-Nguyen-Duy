@@ -249,12 +249,12 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
         <div className="fixed inset-0 z-[60] flex justify-end" onClick={onClose}>
             <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
             <div
-                className="relative w-full max-w-md bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto
+                className="relative w-full max-w-[100vw] sm:max-w-md bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto
                     animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-700"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className={`sticky top-0 z-10 bg-gradient-to-r ${genderColor === 'blue' ? 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20' : 'from-pink-50 to-pink-100/50 dark:from-pink-950/40 dark:to-pink-900/20'} border-b border-slate-200 dark:border-slate-700 px-5 py-4`}>
+                <div className={`sticky top-0 z-10 bg-gradient-to-r ${genderColor === 'blue' ? 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20' : 'from-pink-50 to-pink-100/50 dark:from-pink-950/40 dark:to-pink-900/20'} border-b border-slate-200 dark:border-slate-700 px-3 sm:px-5 py-3 sm:py-4`}>
                     <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold

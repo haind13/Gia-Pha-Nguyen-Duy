@@ -98,7 +98,7 @@ export default function DirectoryPage() {
                 <p className="text-muted-foreground">Thành viên đã đăng ký</p>
             </div>
 
-            <div className="relative max-w-sm">
+            <div className="relative w-full sm:max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Tìm theo tên, email..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
             </div>

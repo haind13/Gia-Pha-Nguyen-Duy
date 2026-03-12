@@ -48,11 +48,14 @@ export default function HomePage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-2xl font-bold tracking-tight">Trang chủ</h1>
-                <p className="text-muted-foreground">Chào mừng đến với Gia phả dòng họ Nguyễn Duy - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình</p>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Trang chủ</h1>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                    <span className="hidden sm:inline">Chào mừng đến với Gia phả dòng họ Nguyễn Duy - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình</span>
+                    <span className="sm:hidden">Gia phả dòng họ Nguyễn Duy</span>
+                </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
                 {cards.map(c => (
                     <Link key={c.title} href={c.href}>
                         <Card className="hover:shadow-md transition-shadow cursor-pointer">

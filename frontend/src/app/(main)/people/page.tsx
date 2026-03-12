@@ -94,32 +94,32 @@ export default function PeopleListPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-3 items-center">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
+                <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Tìm theo tên..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
                 </div>
-                <div className="flex gap-2">
-                    <Button variant={genderFilter === null ? 'default' : 'outline'} size="sm" onClick={() => setGenderFilter(null)}>Tất cả</Button>
-                    <Button variant={genderFilter === 1 ? 'default' : 'outline'} size="sm" onClick={() => setGenderFilter(1)}>Nam</Button>
-                    <Button variant={genderFilter === 2 ? 'default' : 'outline'} size="sm" onClick={() => setGenderFilter(2)}>Nữ</Button>
+                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                    <Button variant={genderFilter === null ? 'default' : 'outline'} size="sm" className="h-8 text-xs sm:text-sm" onClick={() => setGenderFilter(null)}>Tất cả</Button>
+                    <Button variant={genderFilter === 1 ? 'default' : 'outline'} size="sm" className="h-8 text-xs sm:text-sm" onClick={() => setGenderFilter(1)}>Nam</Button>
+                    <Button variant={genderFilter === 2 ? 'default' : 'outline'} size="sm" className="h-8 text-xs sm:text-sm" onClick={() => setGenderFilter(2)}>Nữ</Button>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant={livingFilter === null ? 'default' : 'outline'} size="sm" onClick={() => setLivingFilter(null)}>Tất cả</Button>
-                    <Button variant={livingFilter === true ? 'default' : 'outline'} size="sm" onClick={() => setLivingFilter(true)}>Còn sống</Button>
-                    <Button variant={livingFilter === false ? 'default' : 'outline'} size="sm" onClick={() => setLivingFilter(false)}>Đã mất</Button>
+                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                    <Button variant={livingFilter === null ? 'default' : 'outline'} size="sm" className="h-8 text-xs sm:text-sm" onClick={() => setLivingFilter(null)}>Tất cả</Button>
+                    <Button variant={livingFilter === true ? 'default' : 'outline'} size="sm" className="h-8 text-xs sm:text-sm" onClick={() => setLivingFilter(true)}>Còn sống</Button>
+                    <Button variant={livingFilter === false ? 'default' : 'outline'} size="sm" className="h-8 text-xs sm:text-sm" onClick={() => setLivingFilter(false)}>Đã mất</Button>
                 </div>
             </div>
 
             {/* Table */}
             <Card>
-                <CardContent className="p-0">
+                <CardContent className="p-0 overflow-x-auto">
                     {loading ? (
                         <div className="flex items-center justify-center h-48">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                         </div>
                     ) : (
-                        <Table>
+                        <Table className="min-w-[500px]">
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Họ tên</TableHead>

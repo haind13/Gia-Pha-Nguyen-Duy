@@ -1137,11 +1137,11 @@ export default function TreeViewPage() {
         <div className="flex flex-col h-[calc(100vh-80px)]">
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-2 px-1 pb-2">
-                <div>
-                    <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-                        <TreePine className="h-5 w-5" /> Phả đồ
+                <div className="min-w-0">
+                    <h1 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-2">
+                        <TreePine className="h-5 w-5 shrink-0" /> Phả đồ
                     </h1>
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-muted-foreground text-xs truncate">
                         {layout ? `${layout.nodes.length} thành viên` : 'Đang tải...'}
                         {viewMode !== 'full' && focusPerson && (
                             <span className="ml-1 text-blue-500">
@@ -1151,19 +1151,19 @@ export default function TreeViewPage() {
                         )}
                     </p>
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                     {/* View modes */}
                     <div className="flex rounded-lg border overflow-hidden text-xs">
                         {([['full', 'Toàn cảnh', Eye], ['ancestor', 'Tổ tiên', Users], ['descendant', 'Hậu duệ', GitBranch]] as const).map(([mode, label, Icon]) => (
                             <button key={mode} onClick={() => changeViewMode(mode)}
-                                className={`px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors ${mode !== 'full' ? 'border-l' : ''} ${viewMode === mode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
-                                <Icon className="h-3.5 w-3.5" /> {label}
+                                className={`px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors ${mode !== 'full' ? 'border-l' : ''} ${viewMode === mode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                                <Icon className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{label}</span>
                             </button>
                         ))}
                     </div>
                     {/* Search */}
                     <div className="relative">
-                        <div className="relative w-44">
+                        <div className="relative w-32 sm:w-44">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                             <Input placeholder="Tìm kiếm..." value={searchQuery}
                                 onChange={e => { setSearchQuery(e.target.value); setShowSearch(true); }}
@@ -1191,9 +1191,9 @@ export default function TreeViewPage() {
                     </div>
                     {/* Controls */}
                     <div className="flex gap-0.5">
-                        <Button variant="outline" size="icon" className="h-8 w-8" title="Thu gọn tất cả" onClick={collapseAll}><ChevronsDownUp className="h-3.5 w-3.5" /></Button>
-                        <Button variant="outline" size="icon" className="h-8 w-8" title="Mở rộng tất cả" onClick={expandAll}><ChevronsUpDown className="h-3.5 w-3.5" /></Button>
-                        <div className="w-px bg-border mx-0.5" />
+                        <Button variant="outline" size="icon" className="h-8 w-8 hidden sm:inline-flex" title="Thu gọn tất cả" onClick={collapseAll}><ChevronsDownUp className="h-3.5 w-3.5" /></Button>
+                        <Button variant="outline" size="icon" className="h-8 w-8 hidden sm:inline-flex" title="Mở rộng tất cả" onClick={expandAll}><ChevronsUpDown className="h-3.5 w-3.5" /></Button>
+                        <div className="w-px bg-border mx-0.5 hidden sm:block" />
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setTransform(t => {
                             const vw = viewportRef.current?.clientWidth ?? 0; const vh = viewportRef.current?.clientHeight ?? 0;
                             const cx = vw / 2; const cy = vh / 2;
@@ -1918,7 +1918,7 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
             onMouseDown={(e) => e.stopPropagation()}
         >
             <div className="bg-white/95 backdrop-blur-lg border border-slate-200 rounded-xl shadow-2xl
-                py-4 px-5 w-[480px] max-h-[calc(100vh-40px)] overflow-y-auto">
+                py-4 px-3 sm:px-5 w-[calc(100vw-24px)] sm:w-[480px] max-h-[calc(100vh-40px)] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -2396,7 +2396,7 @@ function StatsOverlay({ stats, onClose }: { stats: TreeStats; onClose: () => voi
     const maxCount = Math.max(...stats.perGeneration.map(g => g.count));
 
     return (
-        <div className="absolute top-3 right-3 w-64 bg-white/95 backdrop-blur-lg border border-slate-200
+        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 w-56 sm:w-64 bg-white/95 backdrop-blur-lg border border-slate-200
             rounded-xl shadow-xl animate-in slide-in-from-right-5 fade-in duration-300 z-40 pointer-events-auto">
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
@@ -2684,7 +2684,7 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
     };
 
     return (
-        <div className="w-80 bg-background border-l flex flex-col overflow-hidden flex-shrink-0">
+        <div className="w-72 sm:w-80 bg-background border-l flex flex-col overflow-hidden flex-shrink-0">
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-2 border-b bg-blue-50">
                 <div className="flex items-center gap-2">
