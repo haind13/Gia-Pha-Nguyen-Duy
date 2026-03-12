@@ -1226,7 +1226,7 @@ export default function TreeViewPage() {
             {/* Tree viewport + Editor panel row */}
             <div className="flex-1 flex gap-0 min-h-0">
                 <div ref={viewportRef}
-                    className="flex-1 relative overflow-hidden rounded-xl border-2 bg-gradient-to-br from-background to-muted/30 cursor-grab active:cursor-grabbing select-none"
+                    className={`flex-1 relative overflow-hidden rounded-xl border-2 bg-gradient-to-br from-background to-muted/30 select-none touch-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                     onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
                     onClick={() => { setShowSearch(false); setContextMenu(null); setQuickAdd(null); if (editorMode) setSelectedCard(null); }}
