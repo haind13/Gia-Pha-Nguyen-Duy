@@ -216,13 +216,16 @@ function analyzeRelationship(
     }
 
     // Determine who is older
+    // Priority: birthOrder (explicit) > birthYear > children array position
     let aIsOlder = false;
     if (sameFather || sameMother) {
-        // Same parents: use birth year or position in children array
-        if (personA.birthYear && personB.birthYear) {
+        // Same parents — check birthOrder first (most reliable)
+        if (personA.birthOrder != null && personB.birthOrder != null) {
+            aIsOlder = personA.birthOrder < personB.birthOrder;
+        } else if (personA.birthYear && personB.birthYear && personA.birthYear !== personB.birthYear) {
             aIsOlder = personA.birthYear < personB.birthYear;
         } else {
-            // Use position in children array
+            // Fallback: use position in children array
             for (const fam of families) {
                 if (fam.children.includes(personA.handle) && fam.children.includes(personB.handle)) {
                     aIsOlder = fam.children.indexOf(personA.handle) < fam.children.indexOf(personB.handle);
@@ -230,8 +233,13 @@ function analyzeRelationship(
                 }
             }
         }
-    } else if (personA.birthYear && personB.birthYear) {
-        aIsOlder = personA.birthYear < personB.birthYear;
+    } else {
+        // Not same parents (cousins, etc.) — use birthOrder or birthYear
+        if (personA.birthOrder != null && personB.birthOrder != null) {
+            aIsOlder = personA.birthOrder < personB.birthOrder;
+        } else if (personA.birthYear && personB.birthYear) {
+            aIsOlder = personA.birthYear < personB.birthYear;
+        }
     }
 
     return {
@@ -303,15 +311,19 @@ function getKinshipTerms(
         // Need to compare A with B's parent (the sibling of A) to determine Bác vs Chú/Cô
         const parentOfB = path.length >= 3 ? people.find(p => p.handle === path[path.length - 2].personHandle) : null;
         let aIsOlderThanParentOfB = false;
-        if (parentOfB && personA.birthYear && parentOfB.birthYear) {
-            aIsOlderThanParentOfB = personA.birthYear < parentOfB.birthYear;
-        } else if (parentOfB) {
-            for (const fam of families) {
-                const aIdx = fam.children.indexOf(personA.handle);
-                const pIdx = fam.children.indexOf(parentOfB.handle);
-                if (aIdx >= 0 && pIdx >= 0) {
-                    aIsOlderThanParentOfB = aIdx < pIdx;
-                    break;
+        if (parentOfB) {
+            if (personA.birthOrder != null && parentOfB.birthOrder != null) {
+                aIsOlderThanParentOfB = personA.birthOrder < parentOfB.birthOrder;
+            } else if (personA.birthYear && parentOfB.birthYear && personA.birthYear !== parentOfB.birthYear) {
+                aIsOlderThanParentOfB = personA.birthYear < parentOfB.birthYear;
+            } else {
+                for (const fam of families) {
+                    const aIdx = fam.children.indexOf(personA.handle);
+                    const pIdx = fam.children.indexOf(parentOfB.handle);
+                    if (aIdx >= 0 && pIdx >= 0) {
+                        aIsOlderThanParentOfB = aIdx < pIdx;
+                        break;
+                    }
                 }
             }
         }
@@ -324,16 +336,19 @@ function getKinshipTerms(
         // Need to compare B with A's parent (the sibling of B) to determine Bác vs Chú/Cô
         const parentOfA = path.length >= 2 ? people.find(p => p.handle === path[1].personHandle) : null;
         let uncleIsOlderThanParent = false;
-        if (parentOfA && personB.birthYear && parentOfA.birthYear) {
-            uncleIsOlderThanParent = personB.birthYear < parentOfA.birthYear;
-        } else if (parentOfA) {
-            // Fallback: check children array order in shared family
-            for (const fam of families) {
-                const bIdx = fam.children.indexOf(personB.handle);
-                const pIdx = fam.children.indexOf(parentOfA.handle);
-                if (bIdx >= 0 && pIdx >= 0) {
-                    uncleIsOlderThanParent = bIdx < pIdx;
-                    break;
+        if (parentOfA) {
+            if (personB.birthOrder != null && parentOfA.birthOrder != null) {
+                uncleIsOlderThanParent = personB.birthOrder < parentOfA.birthOrder;
+            } else if (personB.birthYear && parentOfA.birthYear && personB.birthYear !== parentOfA.birthYear) {
+                uncleIsOlderThanParent = personB.birthYear < parentOfA.birthYear;
+            } else {
+                for (const fam of families) {
+                    const bIdx = fam.children.indexOf(personB.handle);
+                    const pIdx = fam.children.indexOf(parentOfA.handle);
+                    if (bIdx >= 0 && pIdx >= 0) {
+                        uncleIsOlderThanParent = bIdx < pIdx;
+                        break;
+                    }
                 }
             }
         }
@@ -342,8 +357,31 @@ function getKinshipTerms(
     }
 
     // Cousins: 2 up, 2 down (same generation, grandparent is LCA)
+    // IMPORTANT: For cousins, seniority is determined by PARENT's birth order,
+    // not the cousins' own age. E.g. if A's parent is older sibling of B's parent,
+    // then A is "anh/chị" of B regardless of actual birth years.
     if (stepsUp === 2 && stepsDown === 2) {
-        return getCousinTerms(personA, personB, aIsOlder, isPaternal);
+        const parentOfA = people.find(p => p.handle === path[1].personHandle);
+        const parentOfB = people.find(p => p.handle === path[path.length - 2].personHandle);
+        let parentAIsOlder = aIsOlder; // fallback
+        if (parentOfA && parentOfB) {
+            if (parentOfA.birthOrder != null && parentOfB.birthOrder != null) {
+                parentAIsOlder = parentOfA.birthOrder < parentOfB.birthOrder;
+            } else if (parentOfA.birthYear && parentOfB.birthYear && parentOfA.birthYear !== parentOfB.birthYear) {
+                parentAIsOlder = parentOfA.birthYear < parentOfB.birthYear;
+            } else {
+                // Check position in shared family's children array
+                for (const fam of families) {
+                    const aIdx = fam.children.indexOf(parentOfA.handle);
+                    const bIdx = fam.children.indexOf(parentOfB.handle);
+                    if (aIdx >= 0 && bIdx >= 0) {
+                        parentAIsOlder = aIdx < bIdx;
+                        break;
+                    }
+                }
+            }
+        }
+        return getCousinTerms(personA, personB, parentAIsOlder, isPaternal);
     }
 
     // Great uncle/aunt: stepsUp=1, stepsDown=3 or stepsUp=3, stepsDown=1
@@ -365,8 +403,27 @@ function getKinshipTerms(
         // A is senior
         return getDistantRelationTerms(-genGap, genderA, genderB, 'A_is_senior', isPaternal);
     } else {
-        // Same generation, distant
-        return getCousinTerms(personA, personB, aIsOlder, isPaternal);
+        // Same generation, distant — use parent seniority like cousins
+        const parentOfA = path.length >= 2 ? people.find(p => p.handle === path[1].personHandle) : null;
+        const parentOfB = path.length >= 2 ? people.find(p => p.handle === path[path.length - 2].personHandle) : null;
+        let parentAIsOlder = aIsOlder;
+        if (parentOfA && parentOfB && parentOfA.handle !== parentOfB.handle) {
+            if (parentOfA.birthOrder != null && parentOfB.birthOrder != null) {
+                parentAIsOlder = parentOfA.birthOrder < parentOfB.birthOrder;
+            } else if (parentOfA.birthYear && parentOfB.birthYear && parentOfA.birthYear !== parentOfB.birthYear) {
+                parentAIsOlder = parentOfA.birthYear < parentOfB.birthYear;
+            } else {
+                for (const fam of families) {
+                    const aIdx = fam.children.indexOf(parentOfA.handle);
+                    const bIdx = fam.children.indexOf(parentOfB.handle);
+                    if (aIdx >= 0 && bIdx >= 0) {
+                        parentAIsOlder = aIdx < bIdx;
+                        break;
+                    }
+                }
+            }
+        }
+        return getCousinTerms(personA, personB, parentAIsOlder, isPaternal);
     }
 }
 
@@ -402,9 +459,9 @@ function getAncestorTerms(
 
     if (stepsUp === 3) {
         if (genderB === 1) {
-            return { aCallsB: `Cụ ông ${side}`, bCallsA: 'Chắt', relationship: `Cụ — Chắt` };
+            return { aCallsB: 'Cụ ông', bCallsA: 'Chắt', relationship: 'Cụ — Chắt' };
         }
-        return { aCallsB: `Cụ bà ${side}`, bCallsA: 'Chắt', relationship: `Cụ — Chắt` };
+        return { aCallsB: 'Cụ bà', bCallsA: 'Chắt', relationship: 'Cụ — Chắt' };
     }
 
     if (stepsUp === 4) {
@@ -472,35 +529,22 @@ function getSiblingTerms(
     const suffix = halfSibling ? ' (cùng cha khác mẹ)' : sameParents ? ' (ruột)' : ' (họ)';
 
     if (aIsOlder) {
-        // A is older
-        if (personB.gender === 1) {
-            return {
-                aCallsB: 'Em',
-                bCallsA: personA.gender === 1 ? 'Anh' : 'Chị',
-                relationship: `${personA.gender === 1 ? 'Anh' : 'Chị'} em${suffix}`,
-            };
-        } else {
-            return {
-                aCallsB: 'Em',
-                bCallsA: personA.gender === 1 ? 'Anh' : 'Chị',
-                relationship: `${personA.gender === 1 ? 'Anh' : 'Chị'} em${suffix}`,
-            };
-        }
+        // A is older → A calls B "Em trai" or "Em gái"
+        const emB = personB.gender === 1 ? 'Em trai' : 'Em gái';
+        const emA = personA.gender === 1 ? 'Em trai' : 'Em gái';
+        const bCallsA = personA.gender === 1 ? 'Anh' : 'Chị';
+        const relationship = personA.gender === 1
+            ? (personB.gender === 1 ? `Anh em trai${suffix}` : `Anh em gái${suffix}`)
+            : (personB.gender === 2 ? `Chị em gái${suffix}` : `Chị em trai${suffix}`);
+        return { aCallsB: emB, bCallsA, relationship };
     } else {
-        // A is younger
-        if (personB.gender === 1) {
-            return {
-                aCallsB: 'Anh',
-                bCallsA: personA.gender === 1 ? 'Em' : 'Em',
-                relationship: `Anh em${suffix}`,
-            };
-        } else {
-            return {
-                aCallsB: 'Chị',
-                bCallsA: 'Em',
-                relationship: `Chị em${suffix}`,
-            };
-        }
+        // A is younger → A calls B "Anh" or "Chị"
+        const aCallsB = personB.gender === 1 ? 'Anh' : 'Chị';
+        const bCallsA = personA.gender === 1 ? 'Em trai' : 'Em gái';
+        const relationship = personB.gender === 1
+            ? (personA.gender === 1 ? `Anh em trai${suffix}` : `Anh em gái${suffix}`)
+            : (personA.gender === 2 ? `Chị em gái${suffix}` : `Chị em trai${suffix}`);
+        return { aCallsB, bCallsA, relationship };
     }
 }
 
@@ -554,33 +598,15 @@ function getCousinTerms(
     const side = isPaternal ? 'bên nội' : 'bên ngoại';
 
     if (aIsOlder) {
-        if (personB.gender === 1) {
-            return {
-                aCallsB: 'Em',
-                bCallsA: personA.gender === 1 ? 'Anh' : 'Chị',
-                relationship: `Anh chị em họ (${side})`,
-            };
-        } else {
-            return {
-                aCallsB: 'Em',
-                bCallsA: personA.gender === 1 ? 'Anh' : 'Chị',
-                relationship: `Anh chị em họ (${side})`,
-            };
-        }
+        // A is older → A calls B "Em trai" or "Em gái"
+        const emB = personB.gender === 1 ? 'Em trai' : 'Em gái';
+        const bCallsA = personA.gender === 1 ? 'Anh' : 'Chị';
+        return { aCallsB: emB, bCallsA, relationship: `Anh chị em họ (${side})` };
     } else {
-        if (personB.gender === 1) {
-            return {
-                aCallsB: 'Anh',
-                bCallsA: 'Em',
-                relationship: `Anh chị em họ (${side})`,
-            };
-        } else {
-            return {
-                aCallsB: 'Chị',
-                bCallsA: 'Em',
-                relationship: `Anh chị em họ (${side})`,
-            };
-        }
+        // A is younger → A calls B "Anh" or "Chị"
+        const aCallsB = personB.gender === 1 ? 'Anh' : 'Chị';
+        const bCallsA = personA.gender === 1 ? 'Em trai' : 'Em gái';
+        return { aCallsB, bCallsA, relationship: `Anh chị em họ (${side})` };
     }
 }
 

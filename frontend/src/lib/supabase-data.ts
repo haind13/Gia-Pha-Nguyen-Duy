@@ -21,6 +21,7 @@ function dbRowToTreeNode(row: Record<string, unknown>): TreeNode {
         isLiving: row.is_living as boolean,
         isPrivacyFiltered: row.is_privacy_filtered as boolean,
         isPatrilineal: row.is_patrilineal as boolean,
+        birthOrder: row.birth_order as number | undefined,
         families: (row.families as string[]) || [],
         parentFamilies: (row.parent_families as string[]) || [],
     };
@@ -41,7 +42,7 @@ function dbRowToTreeFamily(row: Record<string, unknown>): TreeFamily {
 export async function fetchPeople(): Promise<TreeNode[]> {
     const { data, error } = await supabase
         .from('people')
-        .select('handle, display_name, gender, birth_year, death_year, generation, is_living, is_privacy_filtered, is_patrilineal, families, parent_families')
+        .select('handle, display_name, gender, birth_year, death_year, generation, is_living, is_privacy_filtered, is_patrilineal, birth_order, families, parent_families')
         .order('generation')
         .order('handle');
 

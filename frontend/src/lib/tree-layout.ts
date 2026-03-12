@@ -20,6 +20,7 @@ export interface TreeNode {
     isLiving: boolean;
     isPrivacyFiltered: boolean;
     isPatrilineal: boolean;
+    birthOrder?: number;
     families: string[];
     parentFamilies: string[];
 }
