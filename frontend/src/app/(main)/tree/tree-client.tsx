@@ -636,14 +636,29 @@ export default function TreeViewPage() {
     }, []);
 
     // === Handle generators (shared between EditorPanel and QuickAddDialog) ===
-    const nextHandle = useCallback(() => {
-        if (!treeData) return 'P001';
-        const maxNum = treeData.people.reduce((max, p) => {
-            const num = parseInt(p.handle.replace(/\D/g, '')) || 0;
-            return Math.max(max, num);
-        }, 0);
-        return `P${String(maxNum + 1).padStart(3, '0')}`;
+    // Handle format: Dxx-yyy (patrilineal child), S_Dxx-yyy (spouse)
+    const nextChildHandle = useCallback((generation: number) => {
+        if (!treeData) return `D${String(generation).padStart(2, '0')}-001`;
+        const genStr = String(generation).padStart(2, '0');
+        const prefix = `D${genStr}-`;
+        const maxIdx = treeData.people
+            .filter(p => p.handle.startsWith(prefix))
+            .reduce((max, p) => {
+                const idx = parseInt(p.handle.replace(prefix, '')) || 0;
+                return Math.max(max, idx);
+            }, 0);
+        return `${prefix}${String(maxIdx + 1).padStart(3, '0')}`;
     }, [treeData]);
+
+    const nextSpouseHandle = useCallback((contextPersonHandle: string) => {
+        return `S_${contextPersonHandle}`;
+    }, []);
+
+    // Legacy nextHandle for EditorPanel compatibility (generates Dxx-yyy for given gen)
+    const nextHandle = useCallback((generation?: number) => {
+        const gen = generation ?? 1;
+        return nextChildHandle(gen);
+    }, [nextChildHandle]);
 
     const nextFamilyHandle = useCallback(() => {
         if (!treeData) return 'F001';
@@ -655,7 +670,15 @@ export default function TreeViewPage() {
     }, [treeData]);
 
     // === Quick add person handler (from context menu) ===
-    const handleQuickAddPerson = useCallback(async (newPerson: { handle: string; displayName: string; gender: number; generation: number; birthYear?: number; parentFamilyHandle?: string }, contextPerson: TreeNode) => {
+    const handleQuickAddPerson = useCallback(async (newPerson: {
+        handle: string; displayName: string; gender: number; generation: number;
+        birthYear?: number; parentFamilyHandle?: string;
+        // Extended fields
+        nickName?: string; birthDate?: string; phone?: string;
+        currentAddress?: string; education?: string; occupation?: string;
+        notes?: string; title?: string; birthOrder?: number;
+        maritalStatus?: string; bloodType?: string; isLiving?: boolean;
+    }, contextPerson: TreeNode) => {
         if (!treeData) return;
         const treeNode: TreeNode = {
             handle: newPerson.handle,
@@ -663,7 +686,7 @@ export default function TreeViewPage() {
             gender: newPerson.gender,
             generation: newPerson.generation,
             birthYear: newPerson.birthYear,
-            isLiving: true,
+            isLiving: newPerson.isLiving ?? true,
             isPrivacyFiltered: false,
             isPatrilineal: newPerson.gender === 1,
             families: [],
@@ -739,16 +762,27 @@ export default function TreeViewPage() {
             return { people: newPeople, families: newFamilies };
         });
 
-        // Persist to Supabase
+        // Persist to Supabase (with all extended fields)
         await supaAddPerson({
             handle: treeNode.handle,
             displayName: treeNode.displayName,
             gender: treeNode.gender,
             generation: treeNode.generation,
             birthYear: treeNode.birthYear,
-            isLiving: true,
+            isLiving: newPerson.isLiving ?? true,
             families: treeNode.families,
             parentFamilies: treeNode.parentFamilies,
+            nickName: newPerson.nickName || null,
+            birthDate: newPerson.birthDate || null,
+            phone: newPerson.phone || null,
+            currentAddress: newPerson.currentAddress || null,
+            education: newPerson.education || null,
+            occupation: newPerson.occupation || null,
+            notes: newPerson.notes || null,
+            title: newPerson.title || null,
+            birthOrder: newPerson.birthOrder ?? null,
+            maritalStatus: newPerson.maritalStatus || null,
+            bloodType: newPerson.bloodType || null,
         });
 
         // Persist new family if created
@@ -1316,7 +1350,8 @@ export default function TreeViewPage() {
                                 setQuickAdd(null);
                             }}
                             onClose={() => setQuickAdd(null)}
-                            nextHandle={nextHandle}
+                            nextChildHandle={nextChildHandle}
+                            nextSpouseHandle={nextSpouseHandle}
                             nextFamilyHandle={nextFamilyHandle}
                             treeData={treeData}
                         />
@@ -1754,23 +1789,44 @@ function MenuAction({ icon, label, desc, onClick }: { icon: React.ReactNode; lab
     );
 }
 
-// === Quick Add Person Dialog (popup from context menu) ===
-function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, onClose, nextHandle, nextFamilyHandle, treeData }: {
+// === Quick Add Person Dialog (full form from context menu) ===
+function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, onClose, nextChildHandle, nextSpouseHandle, nextFamilyHandle, treeData }: {
     person: TreeNode;
     x: number;
     y: number;
     viewportRef: React.RefObject<HTMLDivElement | null>;
     transform: { x: number; y: number; scale: number };
-    onSubmit: (data: { handle: string; displayName: string; gender: number; generation: number; birthYear?: number; parentFamilyHandle?: string }) => void;
+    onSubmit: (data: {
+        handle: string; displayName: string; gender: number; generation: number;
+        birthYear?: number; parentFamilyHandle?: string;
+        nickName?: string; birthDate?: string; phone?: string;
+        currentAddress?: string; education?: string; occupation?: string;
+        notes?: string; title?: string; birthOrder?: number;
+        maritalStatus?: string; bloodType?: string; isLiving?: boolean;
+    }) => void;
     onClose: () => void;
-    nextHandle: () => string;
+    nextChildHandle: (generation: number) => string;
+    nextSpouseHandle: (contextPersonHandle: string) => string;
     nextFamilyHandle: () => string;
     treeData: { people: TreeNode[]; families: TreeFamily[] } | null;
 }) {
     const [type, setType] = useState<'child' | 'spouse'>('child');
     const [name, setName] = useState('');
     const [gender, setGender] = useState(1);
+    const [birthDay, setBirthDay] = useState('');
+    const [birthMonth, setBirthMonth] = useState('');
     const [birthYear, setBirthYear] = useState('');
+    const [nickName, setNickName] = useState('');
+    const [titleField, setTitleField] = useState('');
+    const [phone, setPhone] = useState('');
+    const [currentAddress, setCurrentAddress] = useState('');
+    const [education, setEducation] = useState('');
+    const [occupation, setOccupation] = useState('');
+    const [maritalStatus, setMaritalStatus] = useState('');
+    const [bloodType, setBloodType] = useState('');
+    const [birthOrder, setBirthOrder] = useState('');
+    const [notes, setNotes] = useState('');
+    const [isDead, setIsDead] = useState(false);
     const dialogRef = useRef<HTMLDivElement>(null);
     const [pos, setPos] = useState({ left: 0, top: 0 });
 
@@ -1792,8 +1848,8 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
         const vpH = vp.clientHeight;
         let posX = x * transform.scale + transform.x + 8;
         let posY = y * transform.scale + transform.y + 8;
-        const dW = dialog.offsetWidth || 280;
-        const dH = dialog.offsetHeight || 380;
+        const dW = dialog.offsetWidth || 480;
+        const dH = dialog.offsetHeight || 600;
         if (posX + dW > vpW - 8) posX = vpW - dW - 8;
         if (posX < 8) posX = 8;
         if (posY + dH > vpH - 8) posY = vpH - dH - 8;
@@ -1805,8 +1861,10 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
         e.preventDefault();
         if (!name.trim() || !treeData) return;
 
-        const handle = nextHandle();
         const generation = type === 'child' ? person.generation + 1 : person.generation;
+        const handle = type === 'spouse'
+            ? nextSpouseHandle(person.handle)
+            : nextChildHandle(generation);
 
         let familyHandle: string | undefined;
         if (type === 'child') {
@@ -1816,6 +1874,16 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
             familyHandle = nextFamilyHandle();
         }
 
+        // Build birthDate string from day/month/year
+        let birthDate: string | undefined;
+        if (birthDay || birthMonth || birthYear) {
+            const parts = [];
+            if (birthDay) parts.push(birthDay.padStart(2, '0'));
+            if (birthMonth) parts.push(birthMonth.padStart(2, '0'));
+            if (birthYear) parts.push(birthYear);
+            birthDate = parts.join('/');
+        }
+
         onSubmit({
             handle,
             displayName: name.trim(),
@@ -1823,8 +1891,23 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
             generation,
             birthYear: birthYear ? parseInt(birthYear) : undefined,
             parentFamilyHandle: familyHandle,
+            nickName: nickName || undefined,
+            birthDate,
+            phone: phone || undefined,
+            currentAddress: currentAddress || undefined,
+            education: education || undefined,
+            occupation: occupation || undefined,
+            notes: notes || undefined,
+            title: titleField || undefined,
+            birthOrder: birthOrder ? parseInt(birthOrder) : undefined,
+            maritalStatus: maritalStatus || undefined,
+            bloodType: bloodType || undefined,
+            isLiving: !isDead,
         });
     };
+
+    const inputCls = "w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-300 bg-white";
+    const labelCls = "text-[11px] font-medium text-slate-600 block mb-1";
 
     return (
         <div
@@ -1834,120 +1917,183 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
         >
-            <div className="bg-white/95 backdrop-blur-lg border border-slate-200 rounded-xl shadow-xl
-                py-3 px-4 w-[280px]">
+            <div className="bg-white/95 backdrop-blur-lg border border-slate-200 rounded-xl shadow-2xl
+                py-4 px-5 w-[480px] max-h-[calc(100vh-40px)] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                         <UserPlus className="w-4 h-4 text-blue-600" />
                         <span className="text-sm font-semibold text-slate-800">Thêm người thân</span>
                     </div>
-                    <button onClick={onClose} className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
-                        <X className="w-3.5 h-3.5" />
+                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
                 {/* Person info */}
-                <div className="text-[11px] text-slate-500 mb-3 px-2 py-1.5 bg-slate-50 rounded-lg">
-                    Người thân của{' '}
+                <div className="text-[11px] text-slate-500 mb-3 px-2.5 py-2 bg-slate-50 rounded-lg">
+                    {type === 'child' ? 'Con' : 'Vợ/Chồng'} của{' '}
                     <span className="font-semibold text-slate-700">{person.displayName}</span>
                     <span className="text-slate-400"> · Đời {person.generation}</span>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-2.5">
-                    {/* Relationship type selector */}
+                <form onSubmit={handleSubmit} className="space-y-3">
+                    {/* Row 1: Relationship type */}
                     <div>
-                        <label className="text-[11px] font-medium text-slate-600 block mb-1">Quan hệ</label>
-                        <div className="flex gap-1">
+                        <label className={labelCls}>Quan hệ</label>
+                        <div className="flex gap-1.5">
                             <button
                                 type="button"
-                                className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors flex items-center justify-center gap-1 ${
+                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors flex items-center justify-center gap-1.5 ${
                                     type === 'child' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                                 }`}
                                 onClick={() => setType('child')}
                             >
-                                <Baby className="w-3 h-3" />
+                                <Baby className="w-3.5 h-3.5" />
                                 Con
                             </button>
                             <button
                                 type="button"
-                                className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors flex items-center justify-center gap-1 ${
+                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors flex items-center justify-center gap-1.5 ${
                                     type === 'spouse' ? 'bg-rose-50 border-rose-300 text-rose-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                                 }`}
                                 onClick={() => setType('spouse')}
                             >
-                                <Heart className="w-3 h-3" />
+                                <Heart className="w-3.5 h-3.5" />
                                 Vợ/Chồng
                             </button>
                         </div>
                     </div>
 
-                    {/* Name */}
+                    {/* Row 2: Full name */}
                     <div>
-                        <label className="text-[11px] font-medium text-slate-600 block mb-1">Họ và tên *</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Nguyễn Duy..."
-                            className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                            autoFocus
+                        <label className={labelCls}>Họ và tên <span className="text-red-400">*</span></label>
+                        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Duy..." className={inputCls} autoFocus />
+                    </div>
+
+                    {/* Row 3: Nick name + Title */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Tên gọi khác</label>
+                            <input type="text" value={nickName} onChange={(e) => setNickName(e.target.value)} placeholder="Biệt danh..." className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Chức danh</label>
+                            <input type="text" value={titleField} onChange={(e) => setTitleField(e.target.value)} placeholder="Trưởng tộc..." className={inputCls} />
+                        </div>
+                    </div>
+
+                    {/* Row 4: Birth date (day/month/year) */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className={labelCls}>Sinh ngày</label>
+                            <input type="number" value={birthDay} onChange={(e) => setBirthDay(e.target.value)} placeholder="DD" min="1" max="31" className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Tháng</label>
+                            <input type="number" value={birthMonth} onChange={(e) => setBirthMonth(e.target.value)} placeholder="MM" min="1" max="12" className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Năm</label>
+                            <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} placeholder="YYYY" className={inputCls} />
+                        </div>
+                    </div>
+
+                    {/* Row 5: Gender + Birth order */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Giới tính</label>
+                            <div className="flex gap-1">
+                                <button type="button"
+                                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg border transition-colors ${gender === 1 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    onClick={() => setGender(1)}>Nam</button>
+                                <button type="button"
+                                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg border transition-colors ${gender === 2 ? 'bg-pink-50 border-pink-300 text-pink-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    onClick={() => setGender(2)}>Nữ</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className={labelCls}>Thứ tự (con thứ)</label>
+                            <input type="number" value={birthOrder} onChange={(e) => setBirthOrder(e.target.value)} placeholder="1, 2, 3..." min="1" className={inputCls} />
+                        </div>
+                    </div>
+
+                    {/* Row 6: Address + Phone */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Địa chỉ</label>
+                            <input type="text" value={currentAddress} onChange={(e) => setCurrentAddress(e.target.value)} placeholder="Số nhà, đường..." className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Số điện thoại</label>
+                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912..." className={inputCls} />
+                        </div>
+                    </div>
+
+                    {/* Row 7: Marital status + Education */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Tình trạng hôn nhân</label>
+                            <select value={maritalStatus} onChange={(e) => setMaritalStatus(e.target.value)} className={inputCls}>
+                                <option value="">— Chọn —</option>
+                                <option value="single">Độc thân</option>
+                                <option value="married">Đã kết hôn</option>
+                                <option value="divorced">Đã ly hôn</option>
+                                <option value="widowed">Góa</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className={labelCls}>Học vấn</label>
+                            <input type="text" value={education} onChange={(e) => setEducation(e.target.value)} placeholder="Đại học..." className={inputCls} />
+                        </div>
+                    </div>
+
+                    {/* Row 8: Blood type + Occupation */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Nhóm máu</label>
+                            <select value={bloodType} onChange={(e) => setBloodType(e.target.value)} className={inputCls}>
+                                <option value="">— Chọn —</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="AB">AB</option>
+                                <option value="O">O</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className={labelCls}>Nghề nghiệp</label>
+                            <input type="text" value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="Giáo viên..." className={inputCls} />
+                        </div>
+                    </div>
+
+                    {/* Row 9: Notes/Biography */}
+                    <div>
+                        <label className={labelCls}>Tiểu sử</label>
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Ghi chú về tiểu sử, thành tựu..."
+                            rows={3}
+                            className={`${inputCls} resize-none`}
                         />
                     </div>
 
-                    {/* Gender + Birth year row */}
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <label className="text-[11px] font-medium text-slate-600 block mb-1">Giới tính</label>
-                            <div className="flex gap-1">
-                                <button
-                                    type="button"
-                                    className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
-                                        gender === 1 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                    }`}
-                                    onClick={() => setGender(1)}
-                                >
-                                    Nam
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
-                                        gender === 2 ? 'bg-pink-50 border-pink-300 text-pink-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                    }`}
-                                    onClick={() => setGender(2)}
-                                >
-                                    Nữ
-                                </button>
-                            </div>
-                        </div>
-                        <div className="w-20">
-                            <label className="text-[11px] font-medium text-slate-600 block mb-1">Năm sinh</label>
-                            <input
-                                type="number"
-                                value={birthYear}
-                                onChange={(e) => setBirthYear(e.target.value)}
-                                placeholder="1990"
-                                className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
+                    {/* Row 10: Is dead checkbox */}
+                    <label className="flex items-center gap-2 cursor-pointer py-1">
+                        <input type="checkbox" checked={isDead} onChange={(e) => setIsDead(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-400" />
+                        <span className="text-xs text-slate-600">Đã mất</span>
+                    </label>
 
-                    {/* Submit */}
-                    <div className="flex gap-2 pt-1">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex-1 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                        >
-                            Hủy
+                    {/* Submit buttons */}
+                    <div className="flex gap-2 pt-1 border-t border-slate-100">
+                        <button type="button" onClick={onClose}
+                            className="flex-1 px-3 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                            Hủy bỏ
                         </button>
-                        <button
-                            type="submit"
-                            disabled={!name.trim()}
-                            className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
-                        >
-                            <UserPlus className="w-3 h-3" />
-                            Thêm
+                        <button type="submit" disabled={!name.trim()}
+                            className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5">
+                            <Save className="w-3.5 h-3.5" />
+                            Lưu lại
                         </button>
                     </div>
                 </form>
@@ -2444,13 +2590,21 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
         )
         : parentFamiliesWithLabels;
 
-    // Generate next handle
-    const nextHandle = () => {
-        const maxNum = treeData.people.reduce((max, p) => {
-            const num = parseInt(p.handle.replace(/\D/g, '')) || 0;
-            return Math.max(max, num);
-        }, 0);
-        return `P${String(maxNum + 1).padStart(3, '0')}`;
+    // Generate next handle (Dxx-yyy format for children, S_Dxx-yyy for spouses)
+    const nextChildHandleEditor = (generation: number) => {
+        const genStr = String(generation).padStart(2, '0');
+        const prefix = `D${genStr}-`;
+        const maxIdx = treeData.people
+            .filter(p => p.handle.startsWith(prefix))
+            .reduce((max, p) => {
+                const idx = parseInt(p.handle.replace(prefix, '')) || 0;
+                return Math.max(max, idx);
+            }, 0);
+        return `${prefix}${String(maxIdx + 1).padStart(3, '0')}`;
+    };
+
+    const nextSpouseHandleEditor = (contextPersonHandle: string) => {
+        return `S_${contextPersonHandle}`;
     };
 
     const nextFamilyHandle = () => {
@@ -2485,8 +2639,8 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
 
     const handleAddChild = () => {
         if (!person || !newChildName.trim()) return;
-        const handle = nextHandle();
         const generation = (person as any).generation + 1;
+        const handle = nextChildHandleEditor(generation);
         let familyHandle = parentFamily?.handle;
 
         // If person has no family yet, create one
@@ -2511,8 +2665,8 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
 
     const handleAddSpouse = () => {
         if (!person || !newSpouseName.trim()) return;
-        const handle = nextHandle();
         const generation = (person as any).generation;
+        const handle = nextSpouseHandleEditor(person.handle);
         const familyHandle = parentFamily?.handle || nextFamilyHandle();
 
         onAddPerson({

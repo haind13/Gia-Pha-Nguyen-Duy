@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Printer, ArrowLeft, BookOpen, Eye, Palette, Check } from 'lucide-react';
+import { Printer, ArrowLeft, BookOpen, Eye, Palette, Check, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { fetchTreeData } from '@/lib/supabase-data';
+import { fetchTreeData, fetchBookSections } from '@/lib/supabase-data';
 import { generateBookData, type BookData, type BookPerson, type BookChapter } from '@/lib/book-generator';
 import type { TreeNode, TreeFamily } from '@/lib/tree-layout';
+import type { BookSection as BookSectionType } from '@/lib/genealogy-types';
 import Link from 'next/link';
 import { RequireAuth } from '@/components/require-auth';
 import { useAuth } from '@/components/auth-provider';
@@ -53,8 +54,9 @@ const THEMES: Record<string, Theme> = {
 type ThemeKey = keyof typeof THEMES;
 
 export default function BookPage() {
-    const { isLoggedIn, loading: authLoading } = useAuth();
+    const { isLoggedIn, isAdmin, loading: authLoading } = useAuth();
     const [bookData, setBookData] = useState<BookData | null>(null);
+    const [bookSections, setBookSections] = useState<BookSectionType[]>([]);
     const [loading, setLoading] = useState(true);
     const [previewMode, setPreviewMode] = useState(false);
     const [theme, setTheme] = useState<ThemeKey>('amber');
@@ -91,6 +93,11 @@ export default function BookPage() {
             const familyName = people.length > 0 ? (people[0].displayName?.split(' ').slice(0, 2).join(' ') || 'Dòng Họ') : 'Dòng Họ';
             const data = generateBookData(people, families, familyName);
             setBookData(data);
+            // Fetch custom book sections
+            try {
+                const bSections = await fetchBookSections();
+                setBookSections(bSections.filter(s => s.isVisible));
+            } catch { /* ignore */ }
             setLoading(false);
         };
         fetchAndGenerate();
@@ -289,6 +296,16 @@ export default function BookPage() {
                             <Printer className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline text-xs">In sách</span>
                         </Button>
+
+                        {/* Edit (admin only) */}
+                        {isAdmin && (
+                            <Link href="/book/edit">
+                                <Button variant="outline" size="sm" className="gap-1.5">
+                                    <Pencil className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline text-xs">Chỉnh sửa</span>
+                                </Button>
+                            </Link>
+                        )}
                     </div>
                 </div>
 
@@ -348,14 +365,41 @@ export default function BookPage() {
 
                     <CoverPage bookData={bookData} theme={t} />
 
+                    {/* Custom: Preface (Lời nói đầu) — before TOC */}
+                    {bookSections.filter(s => s.sectionKey === 'preface').map(s => (
+                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-8 py-12">
+                            <CustomSectionContent section={s} theme={t} />
+                        </section>
+                    ))}
+
+                    {/* Custom: Family origin — before TOC */}
+                    {bookSections.filter(s => s.sectionKey === 'family_origin').map(s => (
+                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-8 py-12">
+                            <CustomSectionContent section={s} theme={t} />
+                        </section>
+                    ))}
+
                     <section id="toc" className="page-break px-8 py-12">
                         <span className="page-label">Trang 2</span>
                         <TocContent bookData={bookData} theme={t} />
                     </section>
 
+                    {/* Custom: Traditions — after TOC, before chapters */}
+                    {bookSections.filter(s => s.sectionKey === 'traditions').map(s => (
+                        <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-8 py-12">
+                            <CustomSectionContent section={s} theme={t} />
+                        </section>
+                    ))}
+
                     {bookData.chapters.map((ch, ci) => (
                         <section key={ch.generation} id={`gen-${ch.generation}`} className="page-break px-8 py-12">
                             <span className="page-label">Trang {ci + 3}</span>
+                            {/* Custom chapter intro */}
+                            {bookSections.filter(s => s.sectionKey === `chapter_intro_${ch.generation}`).map(s => (
+                                <div key={s.sectionKey} className="mb-8 p-6 rounded-lg" style={{ background: t.primaryBg, borderLeft: `3px solid ${t.primary}` }}>
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: t.text }}>{s.content}</p>
+                                </div>
+                            ))}
                             <ChapterContent chapter={ch} theme={t} />
                         </section>
                     ))}
@@ -365,9 +409,23 @@ export default function BookPage() {
                         <AppendixContent bookData={bookData} theme={t} />
                     </section>
 
+                    {/* Custom sections (non-standard keys) — before closing */}
+                    {bookSections
+                        .filter(s => !['preface', 'family_origin', 'traditions', 'closing'].includes(s.sectionKey) && !s.sectionKey.startsWith('chapter_intro_'))
+                        .map(s => (
+                            <section key={s.sectionKey} id={`custom-${s.sectionKey}`} className="page-break px-8 py-12">
+                                <CustomSectionContent section={s} theme={t} />
+                            </section>
+                        ))}
+
                     <section id="closing" className="page-break px-8 py-16 text-center" style={{ fontFamily: "'Noto Serif', Georgia, serif" }}>
                         <span className="page-label">Trang {bookData.chapters.length + 4}</span>
-                        <ClosingContent bookData={bookData} theme={t} />
+                        {/* Use custom closing if available, otherwise default */}
+                        {bookSections.find(s => s.sectionKey === 'closing') ? (
+                            <CustomSectionContent section={bookSections.find(s => s.sectionKey === 'closing')!} theme={t} />
+                        ) : (
+                            <ClosingContent bookData={bookData} theme={t} />
+                        )}
                     </section>
                 </div>
             )}
@@ -664,6 +722,23 @@ function AppendixContent({ bookData, theme: t, startIdx, endIdx, showHeader }: {
                     );
                 })}
             </div>
+        </>
+    );
+}
+
+// ═══ Custom Section Content (from book_sections table) ═══
+function CustomSectionContent({ section, theme: t }: { section: BookSectionType; theme: Theme }) {
+    return (
+        <>
+            <h2 className="text-2xl font-bold mb-2 text-center" style={{ color: t.primary }}>
+                {section.title}
+            </h2>
+            <div className="w-16 h-0.5 mx-auto mb-8" style={{ background: t.border }} />
+            {section.content && (
+                <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: t.text }}>
+                    {section.content}
+                </div>
+            )}
         </>
     );
 }

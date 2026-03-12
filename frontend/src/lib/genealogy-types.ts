@@ -37,7 +37,23 @@ export interface PersonDetail {
     notes?: string;
     biography?: string;
     tags?: string[];
+    title?: string;
+    birthOrder?: number;
+    maritalStatus?: string;
+    bloodType?: string;
     _privacyNote?: string;
+}
+
+// ═══ BookSection Type ═══
+export interface BookSection {
+    id: string;
+    sectionKey: string;
+    title: string;
+    content?: string;
+    sortOrder: number;
+    isVisible: boolean;
+    updatedAt?: string;
+    updatedBy?: string;
 }
 
 // ═══ Zodiac Year Helper ═══

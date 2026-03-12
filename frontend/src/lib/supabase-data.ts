@@ -4,7 +4,7 @@
  */
 import { supabase } from './supabase';
 import type { TreeNode, TreeFamily } from './tree-layout';
-import type { PersonDetail } from './genealogy-types';
+import type { PersonDetail, BookSection } from './genealogy-types';
 
 export type { TreeNode, TreeFamily };
 
@@ -196,6 +196,10 @@ export interface PersonEditFields {
     education?: string | null;
     nickName?: string | null;
     notes?: string | null;
+    title?: string | null;
+    birthOrder?: number | null;
+    maritalStatus?: string | null;
+    bloodType?: string | null;
 }
 
 /** Update a person's editable fields */
@@ -224,6 +228,10 @@ export async function updatePerson(
     if (fields.education !== undefined) dbFields.education = fields.education;
     if (fields.nickName !== undefined) dbFields.nick_name = fields.nickName;
     if (fields.notes !== undefined) dbFields.notes = fields.notes;
+    if (fields.title !== undefined) dbFields.title = fields.title;
+    if (fields.birthOrder !== undefined) dbFields.birth_order = fields.birthOrder;
+    if (fields.maritalStatus !== undefined) dbFields.marital_status = fields.maritalStatus;
+    if (fields.bloodType !== undefined) dbFields.blood_type = fields.bloodType;
     dbFields.updated_at = new Date().toISOString();
 
     const { error } = await supabase
@@ -249,22 +257,56 @@ export async function addPerson(person: {
     isLiving?: boolean;
     families?: string[];
     parentFamilies?: string[];
+    // Extended fields
+    nickName?: string | null;
+    birthDate?: string | null;
+    birthPlace?: string | null;
+    deathDate?: string | null;
+    deathPlace?: string | null;
+    phone?: string | null;
+    currentAddress?: string | null;
+    education?: string | null;
+    occupation?: string | null;
+    company?: string | null;
+    notes?: string | null;
+    title?: string | null;
+    birthOrder?: number | null;
+    maritalStatus?: string | null;
+    bloodType?: string | null;
 }): Promise<{ error: string | null }> {
+    const dbRow: Record<string, unknown> = {
+        handle: person.handle,
+        display_name: person.displayName,
+        gender: person.gender,
+        generation: person.generation,
+        birth_year: person.birthYear || null,
+        death_year: person.deathYear || null,
+        is_living: person.isLiving ?? true,
+        is_privacy_filtered: false,
+        is_patrilineal: person.gender === 1,
+        families: person.families || [],
+        parent_families: person.parentFamilies || [],
+    };
+    // Add optional extended fields only if provided
+    if (person.nickName) dbRow.nick_name = person.nickName;
+    if (person.birthDate) dbRow.birth_date = person.birthDate;
+    if (person.birthPlace) dbRow.birth_place = person.birthPlace;
+    if (person.deathDate) dbRow.death_date = person.deathDate;
+    if (person.deathPlace) dbRow.death_place = person.deathPlace;
+    if (person.phone) dbRow.phone = person.phone;
+    if (person.currentAddress) dbRow.current_address = person.currentAddress;
+    if (person.education) dbRow.education = person.education;
+    if (person.occupation) dbRow.occupation = person.occupation;
+    if (person.company) dbRow.company = person.company;
+    if (person.notes) dbRow.notes = person.notes;
+    if (person.title) dbRow.title = person.title;
+    if (person.birthOrder != null) dbRow.birth_order = person.birthOrder;
+    if (person.maritalStatus) dbRow.marital_status = person.maritalStatus;
+    if (person.bloodType) dbRow.blood_type = person.bloodType;
+
     const { error } = await supabase
         .from('people')
-        .insert({
-            handle: person.handle,
-            display_name: person.displayName,
-            gender: person.gender,
-            generation: person.generation,
-            birth_year: person.birthYear || null,
-            death_year: person.deathYear || null,
-            is_living: person.isLiving ?? true,
-            is_privacy_filtered: false,
-            is_patrilineal: person.gender === 1,
-            families: person.families || [],
-            parent_families: person.parentFamilies || [],
-        });
+        .insert(dbRow);
 
     if (error) {
         console.error('Failed to add person:', error.message);
@@ -354,5 +396,101 @@ export async function fetchPersonDetail(handle: string): Promise<PersonDetail | 
         company: row.company as string | undefined,
         education: row.education as string | undefined,
         notes: row.notes as string | undefined,
+        title: row.title as string | undefined,
+        birthOrder: row.birth_order as number | undefined,
+        maritalStatus: row.marital_status as string | undefined,
+        bloodType: row.blood_type as string | undefined,
     };
+}
+
+// ── Book sections CRUD ──
+
+function dbRowToBookSection(row: Record<string, unknown>): BookSection {
+    return {
+        id: row.id as string,
+        sectionKey: row.section_key as string,
+        title: row.title as string,
+        content: row.content as string | undefined,
+        sortOrder: (row.sort_order as number) ?? 0,
+        isVisible: (row.is_visible as boolean) ?? true,
+        updatedAt: row.updated_at as string | undefined,
+        updatedBy: row.updated_by as string | undefined,
+    };
+}
+
+/** Fetch all book sections */
+export async function fetchBookSections(): Promise<BookSection[]> {
+    const { data, error } = await supabase
+        .from('book_sections')
+        .select('*')
+        .order('sort_order');
+
+    if (error) {
+        console.error('Failed to fetch book sections:', error.message);
+        return [];
+    }
+    return (data || []).map(dbRowToBookSection);
+}
+
+/** Create or update a book section */
+export async function upsertBookSection(
+    sectionKey: string,
+    title: string,
+    content: string,
+    sortOrder?: number
+): Promise<{ error: string | null }> {
+    const { error } = await supabase
+        .from('book_sections')
+        .upsert({
+            section_key: sectionKey,
+            title,
+            content,
+            sort_order: sortOrder ?? 0,
+            is_visible: true,
+            updated_at: new Date().toISOString(),
+        }, { onConflict: 'section_key' });
+
+    if (error) {
+        console.error('Failed to upsert book section:', error.message);
+        return { error: error.message };
+    }
+    return { error: null };
+}
+
+/** Update a book section by section_key */
+export async function updateBookSection(
+    sectionKey: string,
+    fields: Partial<{ title: string; content: string; sortOrder: number; isVisible: boolean }>
+): Promise<{ error: string | null }> {
+    const dbFields: Record<string, unknown> = {};
+    if (fields.title !== undefined) dbFields.title = fields.title;
+    if (fields.content !== undefined) dbFields.content = fields.content;
+    if (fields.sortOrder !== undefined) dbFields.sort_order = fields.sortOrder;
+    if (fields.isVisible !== undefined) dbFields.is_visible = fields.isVisible;
+    dbFields.updated_at = new Date().toISOString();
+
+    const { error } = await supabase
+        .from('book_sections')
+        .update(dbFields)
+        .eq('section_key', sectionKey);
+
+    if (error) {
+        console.error('Failed to update book section:', error.message);
+        return { error: error.message };
+    }
+    return { error: null };
+}
+
+/** Delete a book section */
+export async function deleteBookSection(sectionKey: string): Promise<{ error: string | null }> {
+    const { error } = await supabase
+        .from('book_sections')
+        .delete()
+        .eq('section_key', sectionKey);
+
+    if (error) {
+        console.error('Failed to delete book section:', error.message);
+        return { error: error.message };
+    }
+    return { error: null };
 }
