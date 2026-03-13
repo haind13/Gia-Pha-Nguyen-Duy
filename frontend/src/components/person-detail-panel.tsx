@@ -199,12 +199,12 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
             const fam = treeData.families.find(f => f.id === pfId);
             if (!fam) continue;
             if (fam.fatherId) {
-                const father = treeData.people.find(p => p.id === fam.fatherId);
-                if (father) result.push({ label: 'Cha', person: father });
+                const parent = treeData.people.find(p => p.id === fam.fatherId);
+                if (parent) result.push({ label: parent.gender === 2 ? 'Mẹ' : 'Cha', person: parent });
             }
             if (fam.motherId) {
-                const mother = treeData.people.find(p => p.id === fam.motherId);
-                if (mother) result.push({ label: 'Mẹ', person: mother });
+                const parent = treeData.people.find(p => p.id === fam.motherId);
+                if (parent) result.push({ label: parent.gender === 1 ? 'Cha' : 'Mẹ', person: parent });
             }
         }
         return result;
