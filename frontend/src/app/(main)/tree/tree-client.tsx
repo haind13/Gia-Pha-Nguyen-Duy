@@ -204,7 +204,7 @@ export default function TreeViewPage() {
     // Editor mode state
     const [editorMode, setEditorMode] = useState(false);
     const [selectedCard, setSelectedCard] = useState<string | null>(null);
-    const { isAdmin, canEdit } = useAuth();
+    const { isAdmin, canEdit, isLoggedIn } = useAuth();
 
     // Quick add person from context menu
     const [quickAdd, setQuickAdd] = useState<{ person: TreeNode; x: number; y: number } | null>(null);
@@ -1329,6 +1329,7 @@ export default function TreeViewPage() {
                                 x={contextMenu.x}
                                 y={contextMenu.y}
                                 canEdit={canEdit}
+                                isLoggedIn={isLoggedIn}
                                 viewportRef={viewportRef}
                                 transform={transform}
                                 onViewDetail={() => { setDetailPerson(person.handle); setContextMenu(null); }}
@@ -1679,11 +1680,12 @@ export default function TreeViewPage() {
 }
 
 // === Card Context Menu ===
-function CardContextMenu({ person, x, y, canEdit, viewportRef, transform, onViewDetail, onShowDescendants, onShowAncestors, onSetFocus, onShowFull, onCopyLink, onContribute, onAddPerson, onClose }: {
+function CardContextMenu({ person, x, y, canEdit, isLoggedIn, viewportRef, transform, onViewDetail, onShowDescendants, onShowAncestors, onSetFocus, onShowFull, onCopyLink, onContribute, onAddPerson, onClose }: {
     person: TreeNode;
     x: number;
     y: number;
     canEdit: boolean;
+    isLoggedIn: boolean;
     viewportRef: React.RefObject<HTMLDivElement | null>;
     transform: { x: number; y: number; scale: number };
     onViewDetail: () => void;
@@ -1765,7 +1767,9 @@ function CardContextMenu({ person, x, y, canEdit, viewportRef, transform, onView
 
                 {/* Actions — scrollable */}
                 <div className="py-1 overflow-y-auto flex-1">
-                    <MenuAction icon={<User className="w-4 h-4" />} label="Xem chi tiết" desc="Thông tin cá nhân & quan hệ" onClick={onViewDetail} />
+                    {isLoggedIn && (
+                        <MenuAction icon={<User className="w-4 h-4" />} label="Xem chi tiết" desc="Thông tin cá nhân & quan hệ" onClick={onViewDetail} />
+                    )}
                     <MenuAction icon={<ArrowDownToLine className="w-4 h-4" />} label="Hậu duệ từ đây" desc="Hiển thị cây con cháu" onClick={onShowDescendants} />
                     <MenuAction icon={<ArrowUpFromLine className="w-4 h-4" />} label="Tổ tiên" desc="Hiển thị dòng tổ tiên" onClick={onShowAncestors} />
                     <MenuAction icon={<Crosshair className="w-4 h-4" />} label="Căn giữa" desc="Di chuyển tới vị trí" onClick={onSetFocus} />
