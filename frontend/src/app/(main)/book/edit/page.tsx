@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import {
     BookOpen, Save, Trash2, Plus, ArrowLeft, Eye, EyeOff,
     GripVertical, ChevronRight, FileText, Pencil, MonitorPlay,
+    CheckCircle2, AlertCircle,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import dynamic from 'next/dynamic';
@@ -47,6 +48,7 @@ export default function BookEditPage() {
     const [showNewForm, setShowNewForm] = useState(false);
     const [newKey, setNewKey] = useState('');
     const [newTitle, setNewTitle] = useState('');
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
     // Fetch sections
     const loadSections = useCallback(async () => {
@@ -84,15 +86,24 @@ export default function BookEditPage() {
         setEditContent(section?.content || '');
         setDirty(false);
         setShowNewForm(false);
+        setSaveStatus('idle');
     };
 
     const handleSave = async () => {
         if (!selectedKey) return;
         setSaving(true);
-        await upsertBookSection(selectedKey, editTitle, editContent, selectedSection?.sortOrder ?? sections.length);
+        setSaveStatus('idle');
+        const result = await upsertBookSection(selectedKey, editTitle, editContent, selectedSection?.sortOrder ?? sections.length);
         await loadSections();
         setDirty(false);
         setSaving(false);
+        if (result.error) {
+            setSaveStatus('error');
+        } else {
+            setSaveStatus('success');
+        }
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => setSaveStatus('idle'), 3000);
     };
 
     const handleDelete = async () => {
@@ -185,6 +196,16 @@ export default function BookEditPage() {
                             <Save className="w-4 h-4" />
                             <span className="hidden sm:inline">{saving ? 'Đang lưu...' : 'Lưu'}</span>
                         </Button>
+                        {saveStatus === 'success' && (
+                            <span className="flex items-center gap-1 text-xs text-emerald-600 animate-in fade-in">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Đã lưu
+                            </span>
+                        )}
+                        {saveStatus === 'error' && (
+                            <span className="flex items-center gap-1 text-xs text-red-600 animate-in fade-in">
+                                <AlertCircle className="w-3.5 h-3.5" /> Lỗi!
+                            </span>
+                        )}
                     </div>
                 )}
             </div>

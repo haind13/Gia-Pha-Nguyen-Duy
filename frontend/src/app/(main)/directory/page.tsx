@@ -40,6 +40,24 @@ interface GenealogyContact {
     company?: string;
 }
 
+// Map snake_case DB row to camelCase
+function dbRowToContact(row: Record<string, unknown>): GenealogyContact {
+    return {
+        handle: row.handle as string,
+        displayName: row.display_name as string,
+        gender: row.gender as number,
+        generation: row.generation as number,
+        isLiving: row.is_living as boolean,
+        phone: row.phone as string | undefined,
+        email: row.email as string | undefined,
+        zalo: row.zalo as string | undefined,
+        facebook: row.facebook as string | undefined,
+        currentAddress: row.current_address as string | undefined,
+        occupation: row.occupation as string | undefined,
+        company: row.company as string | undefined,
+    };
+}
+
 // ─── Main Page ──────────────────────────────────────────────────
 export default function DirectoryPage() {
     const router = useRouter();
@@ -62,17 +80,15 @@ export default function DirectoryPage() {
                     .order('created_at', { ascending: true }),
                 supabase
                     .from('people')
-                    .select('handle, displayName, gender, generation, isLiving, phone, email, zalo, facebook, currentAddress, occupation, company')
+                    .select('handle, display_name, gender, generation, is_living, phone, email, zalo, facebook, current_address, occupation, company')
                     .order('generation', { ascending: true })
-                    .order('displayName', { ascending: true }),
+                    .order('display_name', { ascending: true }),
             ]);
             if (profilesRes.data) setMembers(profilesRes.data);
             if (peopleRes.data) {
-                // Only show people who have at least one contact field
-                const withContact = (peopleRes.data as GenealogyContact[]).filter(
-                    (p) => p.phone || p.email || p.zalo || p.facebook || p.currentAddress
-                );
-                setContacts(withContact);
+                // Show all living people (contact info may be added later)
+                const mapped = (peopleRes.data as Record<string, unknown>[]).map(dbRowToContact);
+                setContacts(mapped.filter((p) => p.isLiving));
             }
         } catch { /* ignore */ }
         finally { setLoading(false); }
@@ -246,6 +262,9 @@ export default function DirectoryPage() {
                                                     <Briefcase className="h-3.5 w-3.5 shrink-0" />
                                                     <span className="truncate">{c.company}</span>
                                                 </div>
+                                            )}
+                                            {!c.phone && !c.email && !c.zalo && !c.facebook && !c.currentAddress && !c.company && (
+                                                <p className="text-xs text-muted-foreground/60 italic">Chưa cập nhật thông tin liên lạc</p>
                                             )}
                                         </div>
                                     </CardContent>

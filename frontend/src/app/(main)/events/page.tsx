@@ -301,7 +301,6 @@ function BigCalendar({
 
 /* ── Event card ── */
 function EventCard({ event }: { event: CalendarEvent }) {
-    const isSpouse = !event.isPatrilineal;
     const isBirthday = event.type === 'birthday';
     return (
         <div className={`flex items-center gap-3 p-3 rounded-xl bg-card border shadow-sm
@@ -327,7 +326,6 @@ function EventCard({ event }: { event: CalendarEvent }) {
                 <div className="flex items-center gap-1.5 flex-wrap">
                     <h3 className="font-semibold text-sm">{event.personName}</h3>
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Đời {event.generation}</Badge>
-                    {isSpouse && <Badge variant="outline" className="text-[9px] px-1 py-0 text-pink-600 border-pink-200 dark:text-pink-400 dark:border-pink-700">Thân quyến</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                     {isBirthday ? 'Sinh nhật' : 'Giỗ'}: {event.day}/{event.month} {event.isLunar ? 'ÂL' : 'DL'}

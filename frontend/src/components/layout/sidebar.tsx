@@ -90,14 +90,6 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
             {/* Auth-required items — only when logged in */}
             {isLoggedIn && (
                 <>
-                    {!collapsed && (
-                        <div className="pt-3 pb-1">
-                            <span className="px-3 text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-                                Tính năng
-                            </span>
-                        </div>
-                    )}
-                    {collapsed && <div className="border-t my-2" />}
                     {authNavItems.map(renderNavItem)}
                 </>
             )}
