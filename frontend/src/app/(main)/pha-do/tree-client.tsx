@@ -1284,14 +1284,21 @@ export default function TreeViewPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
-                    {/* View modes */}
+                    {/* View modes + Xưng hô */}
                     <div className="flex rounded-lg border overflow-hidden text-xs">
                         {([['full', 'Toàn cảnh', Eye], ['ancestor', 'Tổ tiên', Users], ['descendant', 'Hậu duệ', GitBranch]] as const).map(([mode, label, Icon]) => (
-                            <button key={mode} onClick={() => changeViewMode(mode)}
-                                className={`px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors ${mode !== 'full' ? 'border-l' : ''} ${viewMode === mode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                            <button key={mode} onClick={() => { if (kinshipMode) { setKinshipMode(false); setKinshipSelected([]); setKinshipResult(null); } changeViewMode(mode); }}
+                                className={`px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors ${mode !== 'full' ? 'border-l' : ''} ${!kinshipMode && viewMode === mode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
                                 <Icon className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{label}</span>
                             </button>
                         ))}
+                        <button onClick={() => {
+                            if (kinshipMode) { setKinshipMode(false); setKinshipSelected([]); setKinshipResult(null); }
+                            else { setKinshipMode(true); setEditorMode(false); setSelectedCard(null); }
+                        }}
+                            className={`px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors border-l ${kinshipMode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                            <ArrowLeftRight className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Xưng hô</span>
+                        </button>
                     </div>
                     {/* Search */}
                     <div className="relative">
@@ -1337,24 +1344,6 @@ export default function TreeViewPage() {
                             return { scale: ns, x: cx - (cx - t.x) * r, y: cy - (cy - t.y) * r };
                         })}><ZoomOut className="h-3.5 w-3.5" /></Button>
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={fitAll}><Maximize2 className="h-3.5 w-3.5" /></Button>
-                        <div className="w-px bg-border mx-0.5" />
-                        {isLoggedIn && (
-                            <Button
-                                variant={kinshipMode ? 'default' : 'outline'}
-                                size="icon"
-                                className={`h-8 w-8 ${kinshipMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
-                                title={kinshipMode ? 'Tắt xưng hô' : 'Xưng hô — chọn 2 người'}
-                                onClick={() => {
-                                    if (kinshipMode) {
-                                        setKinshipMode(false); setKinshipSelected([]); setKinshipResult(null);
-                                    } else {
-                                        setKinshipMode(true); setEditorMode(false); setSelectedCard(null);
-                                    }
-                                }}
-                            >
-                                <ArrowLeftRight className="h-3.5 w-3.5" />
-                            </Button>
-                        )}
                         {canEdit && (
                             <Button
                                 variant={editorMode ? 'default' : 'outline'}
@@ -1930,15 +1919,11 @@ function CardContextMenu({ person, x, y, canEdit, isLoggedIn, viewportRef, trans
 
                 {/* Actions — scrollable */}
                 <div className="py-1 overflow-y-auto flex-1">
-                    {isLoggedIn && (
-                        <MenuAction icon={<User className="w-4 h-4" />} label="Xem chi tiết" desc="Thông tin cá nhân & quan hệ" onClick={onViewDetail} />
-                    )}
+                    <MenuAction icon={<User className="w-4 h-4" />} label="Xem chi tiết" desc="Thông tin cá nhân & quan hệ" onClick={onViewDetail} />
                     <MenuAction icon={<ArrowDownToLine className="w-4 h-4" />} label="Hậu duệ từ đây" desc="Hiển thị cây con cháu" onClick={onShowDescendants} />
                     <MenuAction icon={<ArrowUpFromLine className="w-4 h-4" />} label="Tổ tiên" desc="Hiển thị dòng tổ tiên" onClick={onShowAncestors} />
                     <MenuAction icon={<Crosshair className="w-4 h-4" />} label="Căn giữa" desc="Di chuyển tới vị trí" onClick={onSetFocus} />
-                    {isLoggedIn && (
-                        <MenuAction icon={<ArrowLeftRight className="w-4 h-4" />} label="Xưng hô" desc="Xác định cách gọi với người khác" onClick={onKinship} />
-                    )}
+                    <MenuAction icon={<ArrowLeftRight className="w-4 h-4" />} label="Xưng hô" desc="Xác định cách gọi với người khác" onClick={onKinship} />
                     <div className="border-t border-slate-100 my-1" />
                     {canEdit && (
                         <>
@@ -2359,7 +2344,7 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 onClick={(e) => { e.stopPropagation(); onClick(node.handle, x + CARD_W, y + CARD_H / 2); }}
             >
                 <div className={`w-3 h-3 rounded-full shadow-sm ${isKinshipA ? 'ring-2 ring-emerald-400 ring-offset-1' : ''}`} style={{ backgroundColor: dotColor }} />
-                {isKinshipA && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white" />}
+                {isKinshipA && <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-md"><span className="text-white text-[8px] font-bold">✓</span></div>}
                 {/* Tooltip on hover */}
                 <div className="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 z-50
                     bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap pointer-events-none">
@@ -2430,8 +2415,8 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 </div>
                 {/* Kinship tick badge */}
                 {isKinshipA && (
-                    <div className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
-                        <span className="text-white text-[9px] font-bold">✓</span>
+                    <div className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shadow-md border-2 border-white">
+                        <span className="text-white text-sm font-bold">✓</span>
                     </div>
                 )}
                 {/* Collapse toggle */}
@@ -2498,8 +2483,8 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
 
             {/* Kinship tick badge */}
             {isKinshipA && (
-                <div className="absolute -top-2 -right-2 z-10 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-md border-2 border-white">
-                    <span className="text-white text-[10px] font-bold">✓</span>
+                <div className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg border-2 border-white">
+                    <span className="text-white text-base font-bold">✓</span>
                 </div>
             )}
 
@@ -3232,101 +3217,112 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
                 </div>
             </div>
 
-            {/* Result panel — bottom right */}
+            {/* Result panel — centered, large */}
             {result && personA && personB && (
-                <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300 w-[360px] max-w-[calc(100vw-2rem)]">
-                    <Card className="border-2 border-emerald-200 shadow-xl bg-white/95 backdrop-blur-lg">
-                        <CardContent className="p-4 space-y-3">
-                            {/* Relationship title */}
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Heart className="w-4 h-4 text-emerald-600" />
-                                    <span className="font-semibold text-emerald-700 text-sm">{result.relationship}</span>
+                <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none animate-in fade-in duration-300">
+                    <div className="pointer-events-auto w-[480px] max-w-[calc(100vw-2rem)]">
+                        <Card className="border-2 border-emerald-200 shadow-2xl bg-white/95 backdrop-blur-lg">
+                            <CardContent className="p-6 space-y-4">
+                                {/* Relationship title */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Heart className="w-5 h-5 text-emerald-600" />
+                                        <span className="font-bold text-emerald-700 text-base">{result.relationship}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button onClick={onSwap} className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600" title="Đổi chỗ">
+                                            <ArrowLeftRight className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={onClose} className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    <button onClick={onSwap} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600" title="Đổi chỗ">
-                                        <ArrowLeftRight className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button onClick={onClose} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
-                                        <X className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            </div>
 
-                            {/* Addressing cards */}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-blue-50 rounded-lg p-2.5 text-center space-y-1">
-                                    <div className="text-[10px] text-slate-500">
-                                        <span className="font-semibold text-slate-700">{personA.displayName}</span> gọi
+                                {/* Addressing cards */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-blue-50 rounded-xl p-4 text-center space-y-1.5">
+                                        <div className="text-xs text-slate-500">
+                                            <span className="font-semibold text-slate-700">{personA.displayName}</span> gọi
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            <span className="font-semibold text-slate-700">{personB.displayName}</span> là
+                                        </div>
+                                        <div className="text-2xl font-bold text-blue-600">
+                                            {result.aCallsB}
+                                        </div>
                                     </div>
-                                    <div className="text-[10px] text-slate-500">
-                                        <span className="font-semibold text-slate-700">{personB.displayName}</span> là
-                                    </div>
-                                    <div className="text-lg font-bold text-blue-600">
-                                        {result.aCallsB}
+                                    <div className="bg-pink-50 rounded-xl p-4 text-center space-y-1.5">
+                                        <div className="text-xs text-slate-500">
+                                            <span className="font-semibold text-slate-700">{personB.displayName}</span> gọi
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            <span className="font-semibold text-slate-700">{personA.displayName}</span> là
+                                        </div>
+                                        <div className="text-2xl font-bold text-pink-600">
+                                            {result.bCallsA}
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="bg-pink-50 rounded-lg p-2.5 text-center space-y-1">
-                                    <div className="text-[10px] text-slate-500">
-                                        <span className="font-semibold text-slate-700">{personB.displayName}</span> gọi
-                                    </div>
-                                    <div className="text-[10px] text-slate-500">
-                                        <span className="font-semibold text-slate-700">{personA.displayName}</span> là
-                                    </div>
-                                    <div className="text-lg font-bold text-pink-600">
-                                        {result.bCallsA}
-                                    </div>
-                                </div>
-                            </div>
 
-                            {/* Path visualization */}
-                            {result.path.length > 1 && (
-                                <div>
-                                    <p className="text-[10px] font-semibold text-slate-400 mb-1.5">Đường đi trong gia phả</p>
-                                    <div className="flex flex-wrap items-center gap-0.5">
-                                        {result.path.map((step, i) => (
-                                            <div key={step.personHandle} className="flex items-center gap-0.5">
-                                                <span
-                                                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium border
-                                                        ${i === 0 ? 'bg-blue-100 border-blue-300 text-blue-700' :
-                                                        i === result.path.length - 1 ? 'bg-pink-100 border-pink-300 text-pink-700' :
-                                                        'bg-slate-50 border-slate-200 text-slate-600'}`}
-                                                >
-                                                    <span className={`mr-0.5 ${step.gender === 1 ? 'text-blue-500' : 'text-pink-500'}`}>
-                                                        {step.gender === 1 ? '♂' : '♀'}
+                                {/* Generation gap */}
+                                {result.generationGap !== 0 && (
+                                    <div className="text-center text-xs text-slate-500">
+                                        Cách nhau <strong className="text-slate-700">{Math.abs(result.generationGap)}</strong> đời
+                                    </div>
+                                )}
+
+                                {/* Path visualization */}
+                                {result.path.length > 1 && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-slate-400 mb-2">Đường đi trong gia phả</p>
+                                        <div className="flex flex-wrap items-center gap-1">
+                                            {result.path.map((step, i) => (
+                                                <div key={step.personHandle} className="flex items-center gap-1">
+                                                    <span
+                                                        className={`px-2 py-1 rounded-md text-xs font-medium border
+                                                            ${i === 0 ? 'bg-blue-100 border-blue-300 text-blue-700' :
+                                                            i === result.path.length - 1 ? 'bg-pink-100 border-pink-300 text-pink-700' :
+                                                            'bg-slate-50 border-slate-200 text-slate-600'}`}
+                                                    >
+                                                        <span className={`mr-0.5 ${step.gender === 1 ? 'text-blue-500' : 'text-pink-500'}`}>
+                                                            {step.gender === 1 ? '♂' : '♀'}
+                                                        </span>
+                                                        {step.personName}
                                                     </span>
-                                                    {step.personName}
-                                                </span>
-                                                {i < result.path.length - 1 && (
-                                                    <span className="text-[8px] text-slate-400">
-                                                        {result.path[i + 1].edgeType === 'parent' ? '↑' :
-                                                            result.path[i + 1].edgeType === 'child' ? '↓' : '♥'}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        ))}
+                                                    {i < result.path.length - 1 && (
+                                                        <span className="text-xs text-slate-400">
+                                                            {result.path[i + 1].edgeType === 'parent' ? '↑' :
+                                                                result.path[i + 1].edgeType === 'child' ? '↓' : '♥'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Hint to change selection */}
-                            <p className="text-[10px] text-slate-400 text-center">
-                                Nhấn vào người khác trên phả đồ để thay đổi
-                            </p>
-                        </CardContent>
-                    </Card>
+                                {/* Hint to change selection */}
+                                <p className="text-xs text-slate-400 text-center">
+                                    Nhấn vào người khác trên phả đồ để thay đổi
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             )}
 
-            {/* No result found */}
+            {/* No result found — centered */}
             {selected.length === 2 && !result && (
-                <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300 w-[340px]">
-                    <Card className="border-2 border-orange-200 shadow-xl bg-white/95 backdrop-blur-lg">
-                        <CardContent className="p-4 text-center text-sm text-muted-foreground">
-                            <p>Không tìm thấy mối quan hệ giữa hai người này.</p>
-                            <p className="text-xs mt-1">Có thể họ thuộc các nhánh không liên kết.</p>
-                        </CardContent>
-                    </Card>
+                <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none animate-in fade-in duration-300">
+                    <div className="pointer-events-auto w-[420px] max-w-[calc(100vw-2rem)]">
+                        <Card className="border-2 border-orange-200 shadow-2xl bg-white/95 backdrop-blur-lg">
+                            <CardContent className="p-6 text-center space-y-2">
+                                <p className="text-sm text-muted-foreground">Không tìm thấy mối quan hệ giữa hai người này.</p>
+                                <p className="text-xs text-muted-foreground">Có thể họ thuộc các nhánh không liên kết.</p>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             )}
         </>
