@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { ContributeDialog } from '@/components/contribute-dialog';
-import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight } from 'lucide-react';
+import { determineKinship, type KinshipResult } from '@/lib/kinship';
 import { PersonDetailPanel } from '@/components/person-detail-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -210,6 +211,11 @@ export default function TreeViewPage() {
     // Quick add person from context menu
     const [quickAdd, setQuickAdd] = useState<{ person: TreeNode; x: number; y: number } | null>(null);
 
+    // Kinship mode: toolbar toggle, tick-select up to 2 people
+    const [kinshipMode, setKinshipMode] = useState(false);
+    const [kinshipSelected, setKinshipSelected] = useState<string[]>([]); // max 2 handles
+    const [kinshipResult, setKinshipResult] = useState<KinshipResult | null>(null);
+
     // Drag-and-drop state (editor mode only)
     const [dragState, setDragState] = useState<{
         handle: string;
@@ -219,6 +225,16 @@ export default function TreeViewPage() {
         currentY: number;
     } | null>(null);
     const [dropTarget, setDropTarget] = useState<string | null>(null);
+
+    // Auto-compute kinship when exactly 2 people are selected
+    useEffect(() => {
+        if (kinshipSelected.length === 2 && treeData) {
+            const result = determineKinship(kinshipSelected[0], kinshipSelected[1], treeData.people, treeData.families);
+            setKinshipResult(result);
+        } else {
+            setKinshipResult(null);
+        }
+    }, [kinshipSelected, treeData]);
 
     // URL query param initialization + auto-collapse on initial load
     const urlInitialized = useRef(false);
@@ -632,8 +648,23 @@ export default function TreeViewPage() {
             setSelectedCard(handle);
             return;
         }
+        // Kinship mode: tick/untick select (max 2)
+        if (kinshipMode) {
+            setKinshipSelected(prev => {
+                if (prev.includes(handle)) {
+                    // Untick
+                    return prev.filter(h => h !== handle);
+                }
+                if (prev.length >= 2) {
+                    // Replace the second selection
+                    return [prev[0], handle];
+                }
+                return [...prev, handle];
+            });
+            return;
+        }
         setContextMenu({ handle, x, y });
-    }, [editorMode]);
+    }, [editorMode, kinshipMode]);
     const handleCardFocus = useCallback((handle: string) => {
         setFocusPerson(handle);
     }, []);
@@ -1307,13 +1338,30 @@ export default function TreeViewPage() {
                         })}><ZoomOut className="h-3.5 w-3.5" /></Button>
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={fitAll}><Maximize2 className="h-3.5 w-3.5" /></Button>
                         <div className="w-px bg-border mx-0.5" />
+                        {isLoggedIn && (
+                            <Button
+                                variant={kinshipMode ? 'default' : 'outline'}
+                                size="icon"
+                                className={`h-8 w-8 ${kinshipMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                                title={kinshipMode ? 'Tắt xưng hô' : 'Xưng hô — chọn 2 người'}
+                                onClick={() => {
+                                    if (kinshipMode) {
+                                        setKinshipMode(false); setKinshipSelected([]); setKinshipResult(null);
+                                    } else {
+                                        setKinshipMode(true); setEditorMode(false); setSelectedCard(null);
+                                    }
+                                }}
+                            >
+                                <ArrowLeftRight className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
                         {canEdit && (
                             <Button
                                 variant={editorMode ? 'default' : 'outline'}
                                 size="icon"
                                 className={`h-8 w-8 ${editorMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}
                                 title={editorMode ? 'Tắt chỉnh sửa' : 'Chế độ chỉnh sửa'}
-                                onClick={() => { setEditorMode(m => !m); setSelectedCard(null); }}
+                                onClick={() => { setEditorMode(m => !m); setSelectedCard(null); setKinshipMode(false); setKinshipSelected([]); }}
                             >
                                 <Pencil className="h-3.5 w-3.5" />
                             </Button>
@@ -1360,12 +1408,15 @@ export default function TreeViewPage() {
                                     isFocused={focusPerson === item.node.handle}
                                     isHovered={hoveredHandle === item.node.handle}
                                     isSelected={editorMode && selectedCard === item.node.handle}
+                                    isKinshipA={kinshipSelected.includes(item.node.handle)}
+                                    isKinshipPath={kinshipResult ? kinshipResult.path.some(s => s.personHandle === item.node.handle) : false}
                                     zoomLevel={zoomLevel}
                                     showCollapseToggle={hasChildren(item.node.handle)}
                                     isCollapsed={collapsedBranches.has(item.node.handle)}
                                     isDragging={dragState?.handle === item.node.handle}
                                     isDropTarget={dropTarget === item.node.handle}
                                     editorMode={editorMode}
+                                    kinshipMode={kinshipMode}
                                     onHover={handleCardHover}
                                     onClick={handleCardClick}
                                     onSetFocus={handleCardFocus}
@@ -1432,6 +1483,7 @@ export default function TreeViewPage() {
                                 onCopyLink={() => { copyTreeLink(person.handle); setContextMenu(null); }}
                                 onContribute={() => { setContributePerson({ handle: person.handle, name: person.displayName }); setContextMenu(null); }}
                                 onAddPerson={() => { setQuickAdd({ person, x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
+                                onKinship={() => { setKinshipMode(true); setKinshipSelected([person.handle]); setContextMenu(null); }}
                                 onClose={() => setContextMenu(null)}
                             />
                         );
@@ -1767,12 +1819,30 @@ export default function TreeViewPage() {
                     }}
                 />
             )}
+
+            {/* Kinship mode: banner + result panel */}
+            {kinshipMode && (
+                <KinshipOverlay
+                    selected={kinshipSelected}
+                    result={kinshipResult}
+                    people={treeData?.people || []}
+                    onSwap={() => {
+                        if (kinshipSelected.length === 2) {
+                            setKinshipSelected([kinshipSelected[1], kinshipSelected[0]]);
+                        }
+                    }}
+                    onDeselect={(handle) => {
+                        setKinshipSelected(prev => prev.filter(h => h !== handle));
+                    }}
+                    onClose={() => { setKinshipMode(false); setKinshipSelected([]); setKinshipResult(null); }}
+                />
+            )}
         </div>
     );
 }
 
 // === Card Context Menu ===
-function CardContextMenu({ person, x, y, canEdit, isLoggedIn, viewportRef, transform, onViewDetail, onShowDescendants, onShowAncestors, onSetFocus, onShowFull, onCopyLink, onContribute, onAddPerson, onClose }: {
+function CardContextMenu({ person, x, y, canEdit, isLoggedIn, viewportRef, transform, onViewDetail, onShowDescendants, onShowAncestors, onSetFocus, onShowFull, onCopyLink, onContribute, onAddPerson, onKinship, onClose }: {
     person: TreeNode;
     x: number;
     y: number;
@@ -1788,6 +1858,7 @@ function CardContextMenu({ person, x, y, canEdit, isLoggedIn, viewportRef, trans
     onCopyLink: () => void;
     onContribute: () => void;
     onAddPerson: () => void;
+    onKinship: () => void;
     onClose: () => void;
 }) {
     const menuRef = useRef<HTMLDivElement>(null);
@@ -1865,6 +1936,9 @@ function CardContextMenu({ person, x, y, canEdit, isLoggedIn, viewportRef, trans
                     <MenuAction icon={<ArrowDownToLine className="w-4 h-4" />} label="Hậu duệ từ đây" desc="Hiển thị cây con cháu" onClick={onShowDescendants} />
                     <MenuAction icon={<ArrowUpFromLine className="w-4 h-4" />} label="Tổ tiên" desc="Hiển thị dòng tổ tiên" onClick={onShowAncestors} />
                     <MenuAction icon={<Crosshair className="w-4 h-4" />} label="Căn giữa" desc="Di chuyển tới vị trí" onClick={onSetFocus} />
+                    {isLoggedIn && (
+                        <MenuAction icon={<ArrowLeftRight className="w-4 h-4" />} label="Xưng hô" desc="Xác định cách gọi với người khác" onClick={onKinship} />
+                    )}
                     <div className="border-t border-slate-100 my-1" />
                     {canEdit && (
                         <>
@@ -2233,6 +2307,9 @@ const MemoPersonCard = memo(PersonCard, (prev, next) =>
     prev.isFocused === next.isFocused &&
     prev.isHovered === next.isHovered &&
     prev.isSelected === next.isSelected &&
+    prev.isKinshipA === next.isKinshipA &&
+    prev.isKinshipPath === next.isKinshipPath &&
+    prev.kinshipMode === next.kinshipMode &&
     prev.zoomLevel === next.zoomLevel &&
     prev.showCollapseToggle === next.showCollapseToggle &&
     prev.isCollapsed === next.isCollapsed &&
@@ -2241,12 +2318,15 @@ const MemoPersonCard = memo(PersonCard, (prev, next) =>
     prev.editorMode === next.editorMode
 );
 
-function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoomLevel, showCollapseToggle, isCollapsed, isDragging, isDropTarget, editorMode, onHover, onClick, onSetFocus, onToggleCollapse, onDragStart }: {
+function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isKinshipA, isKinshipPath, kinshipMode, zoomLevel, showCollapseToggle, isCollapsed, isDragging, isDropTarget, editorMode, onHover, onClick, onSetFocus, onToggleCollapse, onDragStart }: {
     item: PositionedNode;
     isHighlighted: boolean;
     isFocused: boolean;
     isHovered: boolean;
     isSelected: boolean;
+    isKinshipA: boolean;
+    isKinshipPath: boolean;
+    kinshipMode: boolean;
     zoomLevel: ZoomLevel;
     showCollapseToggle: boolean;
     isCollapsed: boolean;
@@ -2278,7 +2358,8 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoo
                 onMouseLeave={() => onHover(null)}
                 onClick={(e) => { e.stopPropagation(); onClick(node.handle, x + CARD_W, y + CARD_H / 2); }}
             >
-                <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: dotColor }} />
+                <div className={`w-3 h-3 rounded-full shadow-sm ${isKinshipA ? 'ring-2 ring-emerald-400 ring-offset-1' : ''}`} style={{ backgroundColor: dotColor }} />
+                {isKinshipA && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white" />}
                 {/* Tooltip on hover */}
                 <div className="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 z-50
                     bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap pointer-events-none">
@@ -2316,9 +2397,12 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoo
 
     const glowClass = isDropTarget ? 'ring-2 ring-green-500 ring-offset-2 shadow-green-200 shadow-lg scale-105'
         : isDragging ? 'opacity-40 ring-2 ring-blue-300 ring-dashed'
+        : isKinshipA ? 'ring-2 ring-emerald-500 ring-offset-2 shadow-emerald-200 shadow-lg'
+        : isKinshipPath ? 'ring-2 ring-amber-400 ring-offset-1 shadow-amber-100 shadow-md'
         : isSelected ? 'ring-2 ring-blue-500 ring-offset-2 shadow-blue-200 shadow-lg'
         : isHighlighted ? 'ring-2 ring-amber-400 ring-offset-2'
             : isFocused ? 'ring-2 ring-indigo-400 ring-offset-2'
+                : kinshipMode && isHovered ? 'ring-2 ring-emerald-300 ring-offset-1 cursor-crosshair'
                 : isHovered ? 'ring-1 ring-indigo-200' : '';
 
     // F1: COMPACT zoom → smaller card with just name + gen
@@ -2344,6 +2428,12 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoo
                         <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-700">Đời {node.generation}</span>
                     </div>
                 </div>
+                {/* Kinship tick badge */}
+                {isKinshipA && (
+                    <div className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
+                        <span className="text-white text-[9px] font-bold">✓</span>
+                    </div>
+                )}
                 {/* Collapse toggle */}
                 {showCollapseToggle && (
                     <button
@@ -2405,6 +2495,13 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, zoo
                     </div>
                 </div>
             </div>
+
+            {/* Kinship tick badge */}
+            {isKinshipA && (
+                <div className="absolute -top-2 -right-2 z-10 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-md border-2 border-white">
+                    <span className="text-white text-[10px] font-bold">✓</span>
+                </div>
+            )}
 
             {/* F4: Collapse toggle button */}
             {showCollapseToggle && (
@@ -3097,5 +3194,141 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                 </div>
             )}
         </div>
+    );
+}
+
+// === Kinship Overlay: banner + result panel ===
+function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose }: {
+    selected: string[];
+    result: KinshipResult | null;
+    people: TreeNode[];
+    onSwap: () => void;
+    onDeselect: (handle: string) => void;
+    onClose: () => void;
+}) {
+    const personA = selected[0] ? people.find(p => p.handle === selected[0]) : null;
+    const personB = selected[1] ? people.find(p => p.handle === selected[1]) : null;
+
+    return (
+        <>
+            {/* Top banner — kinship mode indicator */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="bg-emerald-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-medium">
+                    <ArrowLeftRight className="w-4 h-4" />
+                    {selected.length === 0 && <span>Xưng hô — Nhấn chọn 2 người trên phả đồ</span>}
+                    {selected.length === 1 && (
+                        <span>
+                            Đã chọn: <strong>{personA?.displayName}</strong>
+                            <button onClick={() => onDeselect(selected[0])} className="ml-1 underline text-emerald-200 hover:text-white">✕</button>
+                            {' → Chọn thêm 1 người'}
+                        </span>
+                    )}
+                    {selected.length === 2 && result && (
+                        <span>{personA?.displayName} ↔ {personB?.displayName}</span>
+                    )}
+                    <button onClick={onClose} className="ml-2 p-0.5 rounded-full hover:bg-emerald-500 transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Result panel — bottom right */}
+            {result && personA && personB && (
+                <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300 w-[360px] max-w-[calc(100vw-2rem)]">
+                    <Card className="border-2 border-emerald-200 shadow-xl bg-white/95 backdrop-blur-lg">
+                        <CardContent className="p-4 space-y-3">
+                            {/* Relationship title */}
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Heart className="w-4 h-4 text-emerald-600" />
+                                    <span className="font-semibold text-emerald-700 text-sm">{result.relationship}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button onClick={onSwap} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600" title="Đổi chỗ">
+                                        <ArrowLeftRight className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={onClose} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Addressing cards */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-blue-50 rounded-lg p-2.5 text-center space-y-1">
+                                    <div className="text-[10px] text-slate-500">
+                                        <span className="font-semibold text-slate-700">{personA.displayName}</span> gọi
+                                    </div>
+                                    <div className="text-[10px] text-slate-500">
+                                        <span className="font-semibold text-slate-700">{personB.displayName}</span> là
+                                    </div>
+                                    <div className="text-lg font-bold text-blue-600">
+                                        {result.aCallsB}
+                                    </div>
+                                </div>
+                                <div className="bg-pink-50 rounded-lg p-2.5 text-center space-y-1">
+                                    <div className="text-[10px] text-slate-500">
+                                        <span className="font-semibold text-slate-700">{personB.displayName}</span> gọi
+                                    </div>
+                                    <div className="text-[10px] text-slate-500">
+                                        <span className="font-semibold text-slate-700">{personA.displayName}</span> là
+                                    </div>
+                                    <div className="text-lg font-bold text-pink-600">
+                                        {result.bCallsA}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Path visualization */}
+                            {result.path.length > 1 && (
+                                <div>
+                                    <p className="text-[10px] font-semibold text-slate-400 mb-1.5">Đường đi trong gia phả</p>
+                                    <div className="flex flex-wrap items-center gap-0.5">
+                                        {result.path.map((step, i) => (
+                                            <div key={step.personHandle} className="flex items-center gap-0.5">
+                                                <span
+                                                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium border
+                                                        ${i === 0 ? 'bg-blue-100 border-blue-300 text-blue-700' :
+                                                        i === result.path.length - 1 ? 'bg-pink-100 border-pink-300 text-pink-700' :
+                                                        'bg-slate-50 border-slate-200 text-slate-600'}`}
+                                                >
+                                                    <span className={`mr-0.5 ${step.gender === 1 ? 'text-blue-500' : 'text-pink-500'}`}>
+                                                        {step.gender === 1 ? '♂' : '♀'}
+                                                    </span>
+                                                    {step.personName}
+                                                </span>
+                                                {i < result.path.length - 1 && (
+                                                    <span className="text-[8px] text-slate-400">
+                                                        {result.path[i + 1].edgeType === 'parent' ? '↑' :
+                                                            result.path[i + 1].edgeType === 'child' ? '↓' : '♥'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Hint to change selection */}
+                            <p className="text-[10px] text-slate-400 text-center">
+                                Nhấn vào người khác trên phả đồ để thay đổi
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* No result found */}
+            {selected.length === 2 && !result && (
+                <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300 w-[340px]">
+                    <Card className="border-2 border-orange-200 shadow-xl bg-white/95 backdrop-blur-lg">
+                        <CardContent className="p-4 text-center text-sm text-muted-foreground">
+                            <p>Không tìm thấy mối quan hệ giữa hai người này.</p>
+                            <p className="text-xs mt-1">Có thể họ thuộc các nhánh không liên kết.</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+        </>
     );
 }

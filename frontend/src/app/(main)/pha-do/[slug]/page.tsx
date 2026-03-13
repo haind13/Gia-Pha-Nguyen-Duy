@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import TreeViewPage from '../../tree/tree-client';
+import TreeViewPage from '../tree-client';
 
 export const dynamic = 'force-dynamic';
 
