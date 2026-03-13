@@ -86,11 +86,9 @@ export default function DirectoryPage() {
             ]);
             if (profilesRes.data) setMembers(profilesRes.data);
             if (peopleRes.data) {
-                // Only show living people who have at least one contact field
+                // Show all living people (contact info may be added later)
                 const mapped = (peopleRes.data as Record<string, unknown>[]).map(dbRowToContact);
-                setContacts(
-                    mapped.filter((p) => p.isLiving && (p.phone || p.email || p.zalo || p.facebook))
-                );
+                setContacts(mapped.filter((p) => p.isLiving));
             }
         } catch { /* ignore */ }
         finally { setLoading(false); }
@@ -186,7 +184,7 @@ export default function DirectoryPage() {
                     </TabsTrigger>
                 </TabsList>
 
-                {/* ── Tab 1: Genealogy Contacts (List) ── */}
+                {/* ── Tab 1: Genealogy Contacts ── */}
                 <TabsContent value="contacts" className="mt-4">
                     {loading ? (
                         <div className="flex items-center justify-center h-48">
@@ -202,58 +200,75 @@ export default function DirectoryPage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        <div className="border rounded-lg divide-y bg-card">
+                        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                             {filteredContacts.map((c) => (
-                                <div key={c.handle} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors">
-                                    {/* Avatar */}
-                                    <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${
-                                        c.gender === 1 ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-pink-100 dark:bg-pink-900/30'
-                                    }`}>
-                                        <User className={`h-4 w-4 ${
-                                            c.gender === 1 ? 'text-blue-600 dark:text-blue-400' : 'text-pink-600 dark:text-pink-400'
-                                        }`} />
-                                    </div>
+                                <Card key={c.handle} className="hover:shadow-md transition-shadow">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
+                                                c.gender === 1 ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-pink-100 dark:bg-pink-900/30'
+                                            }`}>
+                                                <User className={`h-5 w-5 ${
+                                                    c.gender === 1 ? 'text-blue-600 dark:text-blue-400' : 'text-pink-600 dark:text-pink-400'
+                                                }`} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium truncate">{c.displayName}</p>
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <span>Đời {c.generation}</span>
+                                                    {c.occupation && (
+                                                        <>
+                                                            <span>·</span>
+                                                            <span className="truncate">{c.occupation}</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                    {/* Name + generation */}
-                                    <div className="min-w-0 w-36 sm:w-44 shrink-0">
-                                        <p className="font-medium text-sm truncate">{c.displayName}</p>
-                                        <p className="text-xs text-muted-foreground">Đời {c.generation}{c.occupation ? ` · ${c.occupation}` : ''}</p>
-                                    </div>
-
-                                    {/* Contact info — inline */}
-                                    <div className="flex-1 flex items-center gap-3 sm:gap-4 flex-wrap text-sm text-muted-foreground min-w-0">
-                                        {c.phone && (
-                                            <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
-                                                <Phone className="h-3.5 w-3.5" />
-                                                <span className="hidden sm:inline">{c.phone}</span>
-                                            </a>
-                                        )}
-                                        {c.zalo && (
-                                            <span className="flex items-center gap-1.5 shrink-0">
-                                                <MessageCircle className="h-3.5 w-3.5" />
-                                                <span className="hidden sm:inline">{c.zalo}</span>
-                                            </span>
-                                        )}
-                                        {c.email && (
-                                            <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
-                                                <Mail className="h-3.5 w-3.5" />
-                                                <span className="hidden lg:inline truncate max-w-[180px]">{c.email}</span>
-                                            </a>
-                                        )}
-                                        {c.facebook && (
-                                            <a href={c.facebook.startsWith('http') ? c.facebook : `https://facebook.com/${c.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
-                                                <ExternalLink className="h-3.5 w-3.5" />
-                                                <span className="hidden sm:inline">Facebook</span>
-                                            </a>
-                                        )}
-                                        {c.currentAddress && (
-                                            <span className="flex items-center gap-1.5 shrink-0 hidden lg:flex">
-                                                <MapPin className="h-3.5 w-3.5" />
-                                                <span className="truncate max-w-[200px]">{c.currentAddress}</span>
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
+                                        <div className="space-y-1.5 text-sm">
+                                            {c.phone && (
+                                                <a href={`tel:${c.phone}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+                                                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">{c.phone}</span>
+                                                </a>
+                                            )}
+                                            {c.email && (
+                                                <a href={`mailto:${c.email}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+                                                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">{c.email}</span>
+                                                </a>
+                                            )}
+                                            {c.zalo && (
+                                                <div className="flex items-center gap-2 text-muted-foreground">
+                                                    <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">Zalo: {c.zalo}</span>
+                                                </div>
+                                            )}
+                                            {c.facebook && (
+                                                <a href={c.facebook.startsWith('http') ? c.facebook : `https://facebook.com/${c.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+                                                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">Facebook</span>
+                                                </a>
+                                            )}
+                                            {c.currentAddress && (
+                                                <div className="flex items-start gap-2 text-muted-foreground">
+                                                    <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                    <span className="line-clamp-2">{c.currentAddress}</span>
+                                                </div>
+                                            )}
+                                            {c.company && (
+                                                <div className="flex items-center gap-2 text-muted-foreground">
+                                                    <Briefcase className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">{c.company}</span>
+                                                </div>
+                                            )}
+                                            {!c.phone && !c.email && !c.zalo && !c.facebook && !c.currentAddress && !c.company && (
+                                                <p className="text-xs text-muted-foreground/60 italic">Chưa cập nhật thông tin liên lạc</p>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             ))}
                         </div>
                     )}
