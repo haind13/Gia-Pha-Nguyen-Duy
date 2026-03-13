@@ -222,13 +222,15 @@ export default function TreeViewPage() {
     // URL query param initialization + auto-collapse on initial load
     const urlInitialized = useRef(false);
     const initialFocusFromUrl = useRef<string | null>(null);
+    const initialViewFromUrl = useRef<string | null>(null);
     useEffect(() => {
         if (urlInitialized.current || !treeData) return;
         urlInitialized.current = true;
         const viewParam = searchParams.get('view') as ViewMode | null;
         const personParam = searchParams.get('person') || searchParams.get('focus');
-        // Store initial focus for centering effect (before URL sync strips it)
+        // Store initial focus + view for centering effect (before URL sync strips it)
         initialFocusFromUrl.current = personParam;
+        initialViewFromUrl.current = viewParam;
         if (viewParam && ['full', 'ancestor', 'descendant'].includes(viewParam)) {
             setViewMode(viewParam);
         }
@@ -252,7 +254,9 @@ export default function TreeViewPage() {
             setCollapsedBranches(toCollapse);
         } else if (viewParam === 'descendant' && personParam) {
             // Descendant: collapse by relative depth from focus person
-            const personMap = new Map(treeData.people.map(p => [p.handle, p]));
+            // Use families TABLE (source of truth), not person.families (denormalized)
+            const parentFamiliesMap = buildParentToFamiliesMap(treeData.families);
+            const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
             const toCollapse = new Set<string>();
             const depthMap = new Map<string, number>();
             const queue: string[] = [personParam];
@@ -260,10 +264,8 @@ export default function TreeViewPage() {
             while (queue.length > 0) {
                 const h = queue.shift()!;
                 const depth = depthMap.get(h)!;
-                const p = personMap.get(h);
-                if (!p) continue;
-                for (const fId of p.families) {
-                    const fam = treeData.families.find(f => f.handle === fId);
+                for (const fId of (parentFamiliesMap.get(h) || [])) {
+                    const fam = familyMap.get(fId);
                     if (!fam || fam.children.length === 0) continue;
                     if (depth >= AUTO_COLLAPSE_GEN) {
                         toCollapse.add(h);
@@ -917,6 +919,10 @@ export default function TreeViewPage() {
     useEffect(() => {
         if (!layout || loading) return;
         if (initialFitDone.current) return;
+        // If URL requested a specific view mode, wait until layout matches that mode
+        const urlView = initialViewFromUrl.current;
+        if (urlView === 'descendant' && viewMode !== 'descendant') return;
+        if (urlView === 'ancestor' && viewMode !== 'ancestor') return;
         initialFitDone.current = true;
         setTimeout(() => {
             if (!viewportRef.current) return;
@@ -926,12 +932,37 @@ export default function TreeViewPage() {
             const urlFocus = initialFocusFromUrl.current;
             const focusNode = urlFocus ? layout.nodes.find(n => n.node.handle === urlFocus) : null;
             if (focusNode) {
-                const targetScale = 0.8;
-                setTransform({
-                    x: vw / 2 - (focusNode.x + CARD_W / 2) * targetScale,
-                    y: vh * 0.3 - focusNode.y * targetScale,
-                    scale: targetScale,
-                });
+                // For descendant view: use smart zoom (fitAll if small, center on person if large)
+                if (urlView === 'descendant') {
+                    const pad = 40;
+                    const tw = layout.width + pad * 2;
+                    const th = layout.height + pad * 2;
+                    const fitScale = Math.min(vw / tw, vh / th, 1.2);
+                    const MIN_READABLE_SCALE = 0.45;
+                    const scale = Math.max(fitScale, MIN_READABLE_SCALE);
+                    if (fitScale >= MIN_READABLE_SCALE) {
+                        // Tree fits at readable zoom — center entire tree
+                        setTransform({
+                            x: (vw - layout.width * scale) / 2,
+                            y: (vh - layout.height * scale) / 2,
+                            scale,
+                        });
+                    } else {
+                        // Tree too large — center on focus person at readable zoom
+                        setTransform({
+                            x: vw / 2 - (focusNode.x + CARD_W / 2) * scale,
+                            y: vh * 0.3 - (focusNode.y + CARD_H / 2) * scale,
+                            scale,
+                        });
+                    }
+                } else {
+                    const targetScale = 0.8;
+                    setTransform({
+                        x: vw / 2 - (focusNode.x + CARD_W / 2) * targetScale,
+                        y: vh * 0.3 - focusNode.y * targetScale,
+                        scale: targetScale,
+                    });
+                }
                 return;
             }
             // Default: center on cụ Khoan Giản (the branch root) or the earliest patrilineal ancestor
@@ -950,7 +981,7 @@ export default function TreeViewPage() {
                 fitAll();
             }
         }, 50);
-    }, [layout, loading, fitAll]);
+    }, [layout, loading, fitAll, viewMode]);
 
     // === Mouse handlers ===
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -1072,9 +1103,11 @@ export default function TreeViewPage() {
 
     // Pending fitAll flag — triggers fitAll after layout recalculates from view mode change
     const pendingFitAll = useRef(false);
+    // Pending center-on-person — used by descendant mode to center on focus person at readable zoom
+    const pendingCenterPerson = useRef<string | null>(null);
 
-    // View mode
-    const changeViewMode = (mode: ViewMode) => {
+    // View mode — targetPerson overrides focusPerson for context-menu / search triggers
+    const changeViewMode = (mode: ViewMode, targetPerson?: string) => {
         if (mode === 'full') {
             // Toàn cảnh: show FULL tree overview — expand all, then fit entire tree
             setViewMode('full');
@@ -1085,9 +1118,14 @@ export default function TreeViewPage() {
             // Tổ tiên: show patrilineal ancestor chain, collapsed per generation
             // Each generation shows 1 person; expand to reveal next generation
             if (treeData) {
-                const patrilineals = treeData.people.filter(p => p.isPatrilineal);
-                const latestPatrilineal = patrilineals.sort((a, b) => b.generation - a.generation)[0];
-                const person = latestPatrilineal?.handle || focusPerson || treeData.people[0]?.handle || null;
+                let person: string | null;
+                if (targetPerson) {
+                    person = targetPerson;
+                } else {
+                    const patrilineals = treeData.people.filter(p => p.isPatrilineal);
+                    const latestPatrilineal = patrilineals.sort((a, b) => b.generation - a.generation)[0];
+                    person = latestPatrilineal?.handle || focusPerson || treeData.people[0]?.handle || null;
+                }
                 if (person) {
                     setFocusPerson(person);
                     setViewMode('ancestor');
@@ -1106,11 +1144,13 @@ export default function TreeViewPage() {
                 }
             }
         } else if (mode === 'descendant') {
-            if (!focusPerson && treeData?.people[0]) setFocusPerson(treeData.people[0].handle);
-            setViewMode('descendant');
-            const person = focusPerson || treeData?.people[0]?.handle;
-            if (person) autoCollapseForDescendant(person);
-            pendingFitAll.current = true;
+            const person = targetPerson || focusPerson || treeData?.people[0]?.handle;
+            if (person) {
+                setFocusPerson(person);
+                setViewMode('descendant');
+                autoCollapseForDescendant(person);
+                pendingCenterPerson.current = person;
+            }
         }
     };
 
@@ -1120,6 +1160,41 @@ export default function TreeViewPage() {
         pendingFitAll.current = false;
         // Small delay to ensure DOM has updated
         setTimeout(() => fitAll(), 50);
+    }, [layout, fitAll]);
+
+    // Effect: center on focus person at readable zoom (descendant mode)
+    useEffect(() => {
+        if (!pendingCenterPerson.current || !layout || !viewportRef.current) return;
+        const handle = pendingCenterPerson.current;
+        pendingCenterPerson.current = null;
+        const node = layout.nodes.find(n => n.node.handle === handle);
+        if (!node) { setTimeout(() => fitAll(), 50); return; } // fallback
+        const vw = viewportRef.current.clientWidth;
+        const vh = viewportRef.current.clientHeight;
+        // Compute fitAll scale, but clamp to a minimum readable level
+        const pad = 40;
+        const tw = layout.width + pad * 2;
+        const th = layout.height + pad * 2;
+        const fitScale = Math.min(vw / tw, vh / th, 1.2);
+        const MIN_READABLE_SCALE = 0.45;
+        const scale = Math.max(fitScale, MIN_READABLE_SCALE);
+        setTimeout(() => {
+            if (fitScale >= MIN_READABLE_SCALE) {
+                // Tree fits at readable zoom — center entire tree
+                setTransform({
+                    x: (vw - layout.width * scale) / 2,
+                    y: (vh - layout.height * scale) / 2,
+                    scale,
+                });
+            } else {
+                // Tree too large — center on focus person at readable zoom
+                setTransform({
+                    x: vw / 2 - (node.x + CARD_W / 2) * scale,
+                    y: vh * 0.3 - (node.y + CARD_H / 2) * scale,
+                    scale,
+                });
+            }
+        }, 50);
     }, [layout, fitAll]);
 
     // Copy shareable link
@@ -1181,9 +1256,7 @@ export default function TreeViewPage() {
                                 <CardContent className="p-1 max-h-52 overflow-y-auto">
                                     {searchResults.map(p => (
                                         <button key={p.handle} onClick={() => {
-                                            setFocusPerson(p.handle);
-                                            setViewMode('descendant');
-                                            autoCollapseForDescendant(p.handle);
+                                            changeViewMode('descendant', p.handle);
                                             setShowSearch(false);
                                             setSearchQuery('');
                                         }}
@@ -1333,8 +1406,8 @@ export default function TreeViewPage() {
                                 viewportRef={viewportRef}
                                 transform={transform}
                                 onViewDetail={() => { setDetailPerson(person.handle); setContextMenu(null); }}
-                                onShowDescendants={() => { setFocusPerson(person.handle); setViewMode('descendant'); setContextMenu(null); }}
-                                onShowAncestors={() => { setFocusPerson(person.handle); setViewMode('ancestor'); setContextMenu(null); }}
+                                onShowDescendants={() => { changeViewMode('descendant', person.handle); setContextMenu(null); }}
+                                onShowAncestors={() => { changeViewMode('ancestor', person.handle); setContextMenu(null); }}
                                 onSetFocus={() => { panToPerson(person.handle); setContextMenu(null); }}
                                 onShowFull={() => { setViewMode('full'); setContextMenu(null); }}
                                 onCopyLink={() => { copyTreeLink(person.handle); setContextMenu(null); }}
