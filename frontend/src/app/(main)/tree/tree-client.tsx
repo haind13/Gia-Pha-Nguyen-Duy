@@ -21,6 +21,7 @@ import {
     addPerson as supaAddPerson,
     deletePerson as supaDeletePerson,
     addFamily as supaAddFamily,
+    updatePersonFamilies as supaUpdatePersonFamilies,
 } from '@/lib/supabase-data';
 import type { PersonDetail } from '@/lib/genealogy-types';
 import { zodiacYear } from '@/lib/genealogy-types';
@@ -30,6 +31,7 @@ import {
     type TreeNode, type TreeFamily, type LayoutResult, type PositionedNode, type PositionedCouple, type Connection,
 } from '@/lib/tree-layout';
 import { getMockTreeData } from '@/lib/mock-data';
+import { buildParentToFamiliesMap } from '@/lib/tree-utils';
 
 type ViewMode = 'full' | 'ancestor' | 'descendant';
 type ZoomLevel = 'full' | 'compact' | 'mini';
@@ -57,6 +59,7 @@ function computeBranchSummary(
 ): BranchSummary {
     const personMap = new Map(people.map(p => [p.handle, p]));
     const familyMap = new Map(families.map(f => [f.handle, f]));
+    const parentFamiliesMap = buildParentToFamiliesMap(families);
     const visited = new Set<string>();
     let livingCount = 0, deceasedCount = 0, patrilinealCount = 0;
     let minGen = Infinity, maxGen = -Infinity;
@@ -71,7 +74,7 @@ function computeBranchSummary(
         if (gen > maxGen) maxGen = gen;
         if (person.isLiving) livingCount++; else deceasedCount++;
         if (person.isPatrilineal) patrilinealCount++;
-        for (const fId of person.families) {
+        for (const fId of (parentFamiliesMap.get(h) || [])) {
             const fam = familyMap.get(fId);
             if (!fam) continue;
             for (const ch of fam.children) walk(ch);
@@ -79,22 +82,19 @@ function computeBranchSummary(
     }
 
     // Walk from this person's children (not including the person itself)
-    const person = personMap.get(handle);
-    if (person) {
-        for (const fId of person.families) {
-            const fam = familyMap.get(fId);
-            if (!fam) continue;
-            // Also count spouse
-            if (fam.motherHandle && fam.motherHandle !== handle && !visited.has(fam.motherHandle)) {
-                const spouse = personMap.get(fam.motherHandle);
-                if (spouse) { visited.add(fam.motherHandle); if (spouse.isLiving) livingCount++; else deceasedCount++; }
-            }
-            if (fam.fatherHandle && fam.fatherHandle !== handle && !visited.has(fam.fatherHandle)) {
-                const spouse = personMap.get(fam.fatherHandle);
-                if (spouse) { visited.add(fam.fatherHandle); if (spouse.isLiving) livingCount++; else deceasedCount++; }
-            }
-            for (const ch of fam.children) walk(ch);
+    for (const fId of (parentFamiliesMap.get(handle) || [])) {
+        const fam = familyMap.get(fId);
+        if (!fam) continue;
+        // Also count spouse
+        if (fam.motherHandle && fam.motherHandle !== handle && !visited.has(fam.motherHandle)) {
+            const spouse = personMap.get(fam.motherHandle);
+            if (spouse) { visited.add(fam.motherHandle); if (spouse.isLiving) livingCount++; else deceasedCount++; }
         }
+        if (fam.fatherHandle && fam.fatherHandle !== handle && !visited.has(fam.fatherHandle)) {
+            const spouse = personMap.get(fam.fatherHandle);
+            if (spouse) { visited.add(fam.fatherHandle); if (spouse.isLiving) livingCount++; else deceasedCount++; }
+        }
+        for (const ch of fam.children) walk(ch);
     }
 
     return {
@@ -347,13 +347,11 @@ export default function TreeViewPage() {
     // F4: Get all descendants of collapsed branches
     const getDescendantHandles = useCallback((handle: string): Set<string> => {
         if (!treeData) return new Set();
-        const personMap = new Map(treeData.people.map(p => [p.handle, p]));
         const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
+        const parentFamiliesMap = buildParentToFamiliesMap(treeData.families);
         const result = new Set<string>();
         function walk(h: string) {
-            const person = personMap.get(h);
-            if (!person) return;
-            for (const fId of person.families) {
+            for (const fId of (parentFamiliesMap.get(h) || [])) {
                 const fam = familyMap.get(fId);
                 if (!fam) continue;
                 // Include spouse
@@ -377,6 +375,12 @@ export default function TreeViewPage() {
             const descendants = getDescendantHandles(h);
             for (const d of descendants) hidden.add(d);
         }
+        // Collapsed persons must stay visible to show their summary card.
+        // (getDescendantHandles includes spouses, so when both parents are collapsed,
+        // each marks the other as a "descendant" → both get hidden. Fix: un-hide them.)
+        for (const h of collapsedBranches) {
+            hidden.delete(h);
+        }
         // Cascade: hide people whose ALL parent families have hidden fathers
         // This catches nodes that leaked through (e.g., gen 13 whose gen 12 parents are hidden)
         const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
@@ -385,6 +389,7 @@ export default function TreeViewPage() {
             changed = false;
             for (const p of treeData.people) {
                 if (hidden.has(p.handle)) continue;
+                if (collapsedBranches.has(p.handle)) continue; // collapsed persons stay visible
                 if (p.parentFamilies.length === 0) continue;
                 // Check if ALL parent families have their father/mother hidden
                 const allParentsHidden = p.parentFamilies.every(pfId => {
@@ -416,29 +421,25 @@ export default function TreeViewPage() {
     // F4: Toggle collapse — reveals one level at a time when expanding
     const toggleCollapse = useCallback((handle: string) => {
         if (!treeData) return;
+        const parentFamiliesMap = buildParentToFamiliesMap(treeData.families);
+        const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
         setCollapsedBranches(prev => {
             const next = new Set(prev);
             if (next.has(handle)) {
                 // Expanding: remove this person's collapse, but auto-collapse their
                 // direct children who have descendants (progressive reveal)
                 next.delete(handle);
-                const person = treeData.people.find(p => p.handle === handle);
-                if (person) {
-                    for (const fId of person.families) {
-                        const fam = treeData.families.find(f => f.handle === fId);
-                        if (!fam) continue;
-                        for (const ch of fam.children) {
-                            // Check if child has their own children
-                            const childPerson = treeData.people.find(p => p.handle === ch);
-                            if (childPerson) {
-                                const childHasChildren = childPerson.families.some(cfId => {
-                                    const cf = treeData.families.find(f => f.handle === cfId);
-                                    return cf && cf.children.length > 0;
-                                });
-                                if (childHasChildren) {
-                                    next.add(ch);
-                                }
-                            }
+                for (const fId of (parentFamiliesMap.get(handle) || [])) {
+                    const fam = familyMap.get(fId);
+                    if (!fam) continue;
+                    for (const ch of fam.children) {
+                        // Check if child has their own children (using families table)
+                        const childHasChildren = (parentFamiliesMap.get(ch) || []).some(cfId => {
+                            const cf = familyMap.get(cfId);
+                            return cf && cf.children.length > 0;
+                        });
+                        if (childHasChildren) {
+                            next.add(ch);
                         }
                     }
                 }
@@ -486,7 +487,8 @@ export default function TreeViewPage() {
     // Auto-collapse for Hậu duệ view: collapse branches beyond AUTO_COLLAPSE_GEN relative depth from focus
     const autoCollapseForDescendant = useCallback((person: string) => {
         if (!treeData) return;
-        const personMap = new Map(treeData.people.map(p => [p.handle, p]));
+        const parentFamiliesMap = buildParentToFamiliesMap(treeData.families);
+        const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
         const toCollapse = new Set<string>();
         // BFS from person to compute relative depth
         const depthMap = new Map<string, number>();
@@ -495,10 +497,8 @@ export default function TreeViewPage() {
         while (queue.length > 0) {
             const h = queue.shift()!;
             const depth = depthMap.get(h)!;
-            const p = personMap.get(h);
-            if (!p) continue;
-            for (const fId of p.families) {
-                const fam = treeData.families.find(f => f.handle === fId);
+            for (const fId of (parentFamiliesMap.get(h) || [])) {
+                const fam = familyMap.get(fId);
                 if (!fam || fam.children.length === 0) continue;
                 if (depth >= AUTO_COLLAPSE_GEN) {
                     toCollapse.add(h);
@@ -695,7 +695,7 @@ export default function TreeViewPage() {
 
         setTreeData(prev => {
             if (!prev) return null;
-            const newPeople = [...prev.people, treeNode];
+            let newPeople = [...prev.people, treeNode];
             let newFamilies = [...prev.families];
 
             if (newPerson.parentFamilyHandle) {
@@ -733,11 +733,12 @@ export default function TreeViewPage() {
                             children: [],
                         };
                         newFamilies.push(newFamily);
-                        newPeople.forEach(p => {
-                            if (p.handle === contextPerson.handle) {
-                                p.families = [...(p.families || []), newPerson.parentFamilyHandle!];
-                            }
-                        });
+                        // Immutable update: create new object for contextPerson
+                        newPeople = newPeople.map(p =>
+                            p.handle === contextPerson.handle
+                                ? { ...p, families: [...(p.families || []), newPerson.parentFamilyHandle!] }
+                                : p
+                        );
                         treeNode.families = [newPerson.parentFamilyHandle!];
                         treeNode.parentFamilies = [];
                         treeNode.isPatrilineal = false;
@@ -750,11 +751,12 @@ export default function TreeViewPage() {
                             children: [newPerson.handle],
                         };
                         newFamilies.push(newFamily);
-                        newPeople.forEach(p => {
-                            if (p.handle === contextPerson.handle) {
-                                p.families = [...(p.families || []), newPerson.parentFamilyHandle!];
-                            }
-                        });
+                        // Immutable update: create new object for contextPerson
+                        newPeople = newPeople.map(p =>
+                            p.handle === contextPerson.handle
+                                ? { ...p, families: [...(p.families || []), newPerson.parentFamilyHandle!] }
+                                : p
+                        );
                     }
                 }
             }
@@ -804,6 +806,11 @@ export default function TreeViewPage() {
                         children: [newPerson.handle],
                     });
                 }
+                // Persist parent's updated families to Supabase (fixes collapse bug after reload)
+                await supaUpdatePersonFamilies(
+                    contextPerson.handle,
+                    [...(contextPerson.families || []), newPerson.parentFamilyHandle],
+                );
             } else {
                 if (newPerson.generation !== contextPerson.generation) {
                     await supaUpdateFamilyChildren(newPerson.parentFamilyHandle, [...existingFamily.children, newPerson.handle]);
@@ -1467,7 +1474,7 @@ export default function TreeViewPage() {
 
                             setTreeData(prev => {
                                 if (!prev) return null;
-                                const newPeople = [...prev.people, treeNode];
+                                let newPeople = [...prev.people, treeNode];
                                 let newFamilies = [...prev.families];
 
                                 if (newPerson.parentFamilyHandle) {
@@ -1511,12 +1518,12 @@ export default function TreeViewPage() {
                                                     children: [],
                                                 };
                                                 newFamilies.push(newFamily);
-                                                // Update families reference on selected person
-                                                newPeople.forEach(p => {
-                                                    if (p.handle === selectedPerson.handle) {
-                                                        p.families = [...(p.families || []), newPerson.parentFamilyHandle!];
-                                                    }
-                                                });
+                                                // Immutable update: create new object for selectedPerson
+                                                newPeople = newPeople.map(p =>
+                                                    p.handle === selectedPerson.handle
+                                                        ? { ...p, families: [...(p.families || []), newPerson.parentFamilyHandle!] }
+                                                        : p
+                                                );
                                                 treeNode.families = [newPerson.parentFamilyHandle];
                                                 treeNode.parentFamilies = [];
                                                 treeNode.isPatrilineal = false;
@@ -1529,11 +1536,12 @@ export default function TreeViewPage() {
                                                     children: [newPerson.handle],
                                                 };
                                                 newFamilies.push(newFamily);
-                                                newPeople.forEach(p => {
-                                                    if (p.handle === selectedPerson.handle) {
-                                                        p.families = [...(p.families || []), newPerson.parentFamilyHandle!];
-                                                    }
-                                                });
+                                                // Immutable update: create new object for selectedPerson
+                                                newPeople = newPeople.map(p =>
+                                                    p.handle === selectedPerson.handle
+                                                        ? { ...p, families: [...(p.families || []), newPerson.parentFamilyHandle!] }
+                                                        : p
+                                                );
                                             }
                                         }
                                     }
@@ -1576,6 +1584,11 @@ export default function TreeViewPage() {
                                                 children: [newPerson.handle],
                                             });
                                         }
+                                        // Persist parent's updated families to Supabase (fixes collapse bug after reload)
+                                        await supaUpdatePersonFamilies(
+                                            selectedPerson.handle,
+                                            [...(selectedPerson.families || []), newPerson.parentFamilyHandle],
+                                        );
                                     }
                                 } else {
                                     // Existing family - update children or spouse

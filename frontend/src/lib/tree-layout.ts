@@ -1,3 +1,5 @@
+import { buildParentToFamiliesMap } from './tree-utils';
+
 /**
  * Anchor-Based Tree Layout — Strict Vertical Lines
  *
@@ -598,14 +600,13 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
 function assignGenerations(people: TreeNode[], families: TreeFamily[]): Map<string, number> {
     const gens = new Map<string, number>();
     const familyMap = new Map(families.map(f => [f.handle, f]));
+    const parentFamiliesMap = buildParentToFamiliesMap(families);
 
     function setGen(handle: string, gen: number) {
         const current = gens.get(handle);
         if (current !== undefined && current <= gen) return;
         gens.set(handle, gen);
-        const person = people.find(p => p.handle === handle);
-        if (!person) return;
-        for (const famId of person.families) {
+        for (const famId of (parentFamiliesMap.get(handle) || [])) {
             const fam = familyMap.get(famId);
             if (!fam) continue;
             if (fam.fatherHandle && fam.fatherHandle !== handle) setGen(fam.fatherHandle, gen);
@@ -659,15 +660,13 @@ export function filterAncestors(handle: string, people: TreeNode[], families: Tr
 export function filterDescendants(handle: string, people: TreeNode[], families: TreeFamily[]) {
     const result = new Set<string>();
     const familyMap = new Map(families.map(f => [f.handle, f]));
-    const personMap = new Map(people.map(p => [p.handle, p]));
+    const parentFamiliesMap = buildParentToFamiliesMap(families);
     const includedFamilies = new Set<string>();
 
     function walk(h: string) {
         if (result.has(h)) return;
         result.add(h);
-        const person = personMap.get(h);
-        if (!person) return;
-        for (const fId of person.families) {
+        for (const fId of (parentFamiliesMap.get(h) || [])) {
             const fam = familyMap.get(fId);
             if (fam) {
                 includedFamilies.add(fam.handle);

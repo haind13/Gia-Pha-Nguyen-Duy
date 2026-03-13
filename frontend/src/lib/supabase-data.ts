@@ -353,6 +353,20 @@ export async function addFamily(family: {
     return { error: null };
 }
 
+/** Update a person's families array (denormalized field on people table) */
+export async function updatePersonFamilies(handle: string, families: string[]): Promise<{ error: string | null }> {
+    const { error } = await supabase
+        .from('people')
+        .update({ families })
+        .eq('handle', handle);
+
+    if (error) {
+        console.error('Failed to update person families:', error.message);
+        return { error: error.message };
+    }
+    return { error: null };
+}
+
 /** Fetch full person detail by handle */
 export async function fetchPersonDetail(handle: string): Promise<PersonDetail | null> {
     const { data, error } = await supabase
