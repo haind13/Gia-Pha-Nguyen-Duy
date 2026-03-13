@@ -78,7 +78,7 @@ export default function EventDetailPage() {
 
     return (
         <div className="max-w-2xl mx-auto space-y-6">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/events')}>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/su-kien')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />Quay lại
             </Button>
 

@@ -61,7 +61,7 @@ export default function MemberDetailPage() {
 
     return (
         <div className="max-w-xl mx-auto space-y-6">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/directory')}>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/danh-ba')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />Quay lại
             </Button>
             <Card>

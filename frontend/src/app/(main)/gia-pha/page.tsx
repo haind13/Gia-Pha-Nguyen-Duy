@@ -299,7 +299,7 @@ export default function BookPage() {
 
                         {/* Edit (admin only) */}
                         {isAdmin && (
-                            <Link href="/book/edit">
+                            <Link href="/gia-pha/edit">
                                 <Button variant="outline" size="sm" className="gap-1.5">
                                     <Pencil className="w-3.5 h-3.5" />
                                     <span className="hidden sm:inline text-xs">Chỉnh sửa</span>

@@ -43,9 +43,9 @@ const publicNavItems = [
 /* Auth-required navigation — only when logged in */
 const authNavItems = [
     { href: '/feed', label: 'Bảng tin', icon: Newspaper },
-    { href: '/directory', label: 'Danh bạ', icon: Contact },
-    { href: '/events', label: 'Sự kiện', icon: CalendarDays },
-    { href: '/book', label: 'Sách gia phả', icon: BookOpen },
+    { href: '/danh-ba', label: 'Danh bạ', icon: Contact },
+    { href: '/su-kien', label: 'Sự kiện', icon: CalendarDays },
+    { href: '/gia-pha', label: 'Sách gia phả', icon: BookOpen },
     { href: '/kinship', label: 'Xưng hô', icon: MessageCircle },
     { href: '/people', label: 'Thành viên', icon: Users },
 ];

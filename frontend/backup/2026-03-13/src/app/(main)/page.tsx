@@ -255,7 +255,7 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                                 <ArrowRight className="h-4 w-4" />
                             </Button>
                         </Link>
-                        <Link href="/book">
+                        <Link href="/gia-pha">
                             <Button size="lg" variant="outline" className="gap-2 border-amber-300/80 text-amber-800 hover:bg-amber-100/50 dark:border-amber-600/40 dark:text-amber-300 dark:hover:bg-amber-900/20 backdrop-blur-sm transition-all duration-300">
                                 <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
                                 Sách gia phả
