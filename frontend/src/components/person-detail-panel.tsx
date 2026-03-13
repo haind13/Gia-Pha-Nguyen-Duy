@@ -248,23 +248,24 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
         <div className="fixed inset-0 z-[60] flex justify-end" onClick={onClose}>
             <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
             <div
-                className="relative w-full max-w-[100vw] sm:max-w-md bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto
+                className="relative w-full max-w-[100vw] landscape:max-w-sm sm:max-w-md h-full bg-white dark:bg-slate-900 shadow-2xl
+                    overflow-y-auto overscroll-y-contain touch-pan-y
                     animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-700"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className={`sticky top-0 z-10 bg-gradient-to-r ${genderColor === 'blue' ? 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20' : 'from-pink-50 to-pink-100/50 dark:from-pink-950/40 dark:to-pink-900/20'} border-b border-slate-200 dark:border-slate-700 px-3 sm:px-5 py-3 sm:py-4`}>
+                <div className={`sticky top-0 z-10 bg-gradient-to-r ${genderColor === 'blue' ? 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20' : 'from-pink-50 to-pink-100/50 dark:from-pink-950/40 dark:to-pink-900/20'} border-b border-slate-200 dark:border-slate-700 px-3 sm:px-5 py-2 landscape:py-1.5 sm:py-4`}>
                     <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold
+                        <div className="flex items-center gap-2 landscape:gap-2 sm:gap-3">
+                            <div className={`w-10 h-10 landscape:w-8 landscape:h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-base landscape:text-sm sm:text-lg font-bold shrink-0
                                 ${genderColor === 'blue' ? 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200' : 'bg-pink-200 text-pink-800 dark:bg-pink-800 dark:text-pink-200'}`}>
                                 {detail?.displayName?.split(' ').pop()?.[0] || '?'}
                             </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                            <div className="min-w-0">
+                                <h2 className="text-base landscape:text-sm sm:text-lg font-bold text-slate-800 dark:text-slate-100 truncate">
                                     {loading ? '...' : detail?.displayName || 'Không rõ'}
                                 </h2>
-                                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap">
                                     <span className={`px-1.5 py-0.5 rounded font-semibold ${genderColor === 'blue' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300'}`}>
                                         {genderLabel}
                                     </span>
@@ -302,7 +303,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                     </div>
                 ) : detail && editing ? (
                     /* ═══ EDIT MODE ═══ */
-                    <div className="p-5 space-y-5">
+                    <div className="p-3 landscape:p-3 sm:p-5 space-y-3 landscape:space-y-2 sm:space-y-5">
                         {saveMsg && (
                             <div className={`rounded-lg px-3 py-2 text-sm font-medium ${saveMsg.type === 'ok' ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                                 {saveMsg.text}
@@ -405,7 +406,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                     </div>
                 ) : detail ? (
                     /* ═══ VIEW MODE ═══ */
-                    <div className="p-5 space-y-5">
+                    <div className="p-3 landscape:p-3 sm:p-5 space-y-3 landscape:space-y-2 sm:space-y-5">
                         {saveMsg && (
                             <div className={`rounded-lg px-3 py-2 text-sm font-medium ${saveMsg.type === 'ok' ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                                 {saveMsg.text}

@@ -3217,69 +3217,69 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
     return (
         <>
             {/* Top banner — kinship mode indicator */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="bg-emerald-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-medium">
-                    <ArrowLeftRight className="w-4 h-4" />
-                    {selected.length === 0 && <span>Xưng hô — Nhấn chọn 2 người trên phả đồ</span>}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-top-2 duration-200 max-w-[calc(100vw-1rem)]">
+                <div className="bg-emerald-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
+                    <ArrowLeftRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    {selected.length === 0 && <span className="truncate">Xưng hô — Nhấn chọn 2 người</span>}
                     {selected.length === 1 && (
-                        <span>
-                            Đã chọn: <strong>{personA?.displayName}</strong>
+                        <span className="truncate">
+                            <strong>{personA?.displayName}</strong>
                             <button onClick={() => onDeselect(selected[0])} className="ml-1 underline text-emerald-200 hover:text-white">✕</button>
-                            {' → Chọn thêm 1 người'}
+                            {' → Chọn thêm 1'}
                         </span>
                     )}
                     {selected.length === 2 && result && (
-                        <span>{personA?.displayName} ↔ {personB?.displayName}</span>
+                        <span className="truncate">{personA?.displayName} ↔ {personB?.displayName}</span>
                     )}
-                    <button onClick={onClose} className="ml-2 p-0.5 rounded-full hover:bg-emerald-500 transition-colors">
+                    <button onClick={onClose} className="ml-1 sm:ml-2 p-0.5 rounded-full hover:bg-emerald-500 transition-colors shrink-0">
                         <X className="w-3.5 h-3.5" />
                     </button>
                 </div>
             </div>
 
-            {/* Result panel — centered, large */}
+            {/* Result panel — centered, responsive */}
             {result && personA && personB && (
-                <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none animate-in fade-in duration-300">
-                    <div className="pointer-events-auto w-[480px] max-w-[calc(100vw-2rem)]">
+                <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-none animate-in fade-in duration-300 p-2 sm:p-4">
+                    <div className="pointer-events-auto w-full sm:w-[420px] md:w-[480px] max-w-[calc(100vw-1rem)] max-h-[calc(100vh-4rem)] overflow-y-auto overscroll-y-contain touch-pan-y rounded-xl">
                         <Card className="border-2 border-emerald-200 shadow-2xl bg-white/95 backdrop-blur-lg">
-                            <CardContent className="p-6 space-y-4">
+                            <CardContent className="p-3 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
                                 {/* Relationship title */}
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Heart className="w-5 h-5 text-emerald-600" />
-                                        <span className="font-bold text-emerald-700 text-base">{result.relationship}</span>
+                                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                                        <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 shrink-0" />
+                                        <span className="font-bold text-emerald-700 text-sm sm:text-base truncate">{result.relationship}</span>
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={onSwap} className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600" title="Đổi chỗ">
-                                            <ArrowLeftRight className="w-4 h-4" />
+                                    <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                                        <button onClick={onSwap} className="p-1 sm:p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600" title="Đổi chỗ">
+                                            <ArrowLeftRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </button>
-                                        <button onClick={onClose} className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
-                                            <X className="w-4 h-4" />
+                                        <button onClick={onClose} className="p-1 sm:p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                                            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </button>
                                     </div>
                                 </div>
 
                                 {/* Addressing cards */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-blue-50 rounded-xl p-4 text-center space-y-1.5">
-                                        <div className="text-xs text-slate-500">
+                                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                                    <div className="bg-blue-50 rounded-lg sm:rounded-xl p-2.5 sm:p-4 text-center space-y-1">
+                                        <div className="text-[10px] sm:text-xs text-slate-500">
                                             <span className="font-semibold text-slate-700">{personA.displayName}</span> gọi
                                         </div>
-                                        <div className="text-xs text-slate-500">
+                                        <div className="text-[10px] sm:text-xs text-slate-500">
                                             <span className="font-semibold text-slate-700">{personB.displayName}</span> là
                                         </div>
-                                        <div className="text-2xl font-bold text-blue-600">
+                                        <div className="text-lg sm:text-2xl font-bold text-blue-600">
                                             {result.aCallsB}
                                         </div>
                                     </div>
-                                    <div className="bg-pink-50 rounded-xl p-4 text-center space-y-1.5">
-                                        <div className="text-xs text-slate-500">
+                                    <div className="bg-pink-50 rounded-lg sm:rounded-xl p-2.5 sm:p-4 text-center space-y-1">
+                                        <div className="text-[10px] sm:text-xs text-slate-500">
                                             <span className="font-semibold text-slate-700">{personB.displayName}</span> gọi
                                         </div>
-                                        <div className="text-xs text-slate-500">
+                                        <div className="text-[10px] sm:text-xs text-slate-500">
                                             <span className="font-semibold text-slate-700">{personA.displayName}</span> là
                                         </div>
-                                        <div className="text-2xl font-bold text-pink-600">
+                                        <div className="text-lg sm:text-2xl font-bold text-pink-600">
                                             {result.bCallsA}
                                         </div>
                                     </div>
@@ -3287,7 +3287,7 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
 
                                 {/* Generation gap */}
                                 {result.generationGap !== 0 && (
-                                    <div className="text-center text-xs text-slate-500">
+                                    <div className="text-center text-[10px] sm:text-xs text-slate-500">
                                         Cách nhau <strong className="text-slate-700">{Math.abs(result.generationGap)}</strong> đời
                                     </div>
                                 )}
@@ -3295,12 +3295,12 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
                                 {/* Path visualization */}
                                 {result.path.length > 1 && (
                                     <div>
-                                        <p className="text-xs font-semibold text-slate-400 mb-2">Đường đi trong gia phả</p>
-                                        <div className="flex flex-wrap items-center gap-1">
+                                        <p className="text-[10px] sm:text-xs font-semibold text-slate-400 mb-1.5 sm:mb-2">Đường đi trong gia phả</p>
+                                        <div className="flex flex-wrap items-center gap-0.5 sm:gap-1">
                                             {result.path.map((step, i) => (
-                                                <div key={step.personId} className="flex items-center gap-1">
+                                                <div key={step.personId} className="flex items-center gap-0.5 sm:gap-1">
                                                     <span
-                                                        className={`px-2 py-1 rounded-md text-xs font-medium border
+                                                        className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border
                                                             ${i === 0 ? 'bg-blue-100 border-blue-300 text-blue-700' :
                                                             i === result.path.length - 1 ? 'bg-pink-100 border-pink-300 text-pink-700' :
                                                             'bg-slate-50 border-slate-200 text-slate-600'}`}
@@ -3311,7 +3311,7 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
                                                         {step.personName}
                                                     </span>
                                                     {i < result.path.length - 1 && (
-                                                        <span className="text-xs text-slate-400">
+                                                        <span className="text-[10px] sm:text-xs text-slate-400">
                                                             {result.path[i + 1].edgeType === 'parent' ? '↑' :
                                                                 result.path[i + 1].edgeType === 'child' ? '↓' : '♥'}
                                                         </span>
@@ -3323,7 +3323,7 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
                                 )}
 
                                 {/* Hint to change selection */}
-                                <p className="text-xs text-slate-400 text-center">
+                                <p className="text-[10px] sm:text-xs text-slate-400 text-center">
                                     Nhấn vào người khác trên phả đồ để thay đổi
                                 </p>
                             </CardContent>
@@ -3334,12 +3334,12 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
 
             {/* No result found — centered */}
             {selected.length === 2 && !result && (
-                <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none animate-in fade-in duration-300">
-                    <div className="pointer-events-auto w-[420px] max-w-[calc(100vw-2rem)]">
+                <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-none animate-in fade-in duration-300 p-2 sm:p-4">
+                    <div className="pointer-events-auto w-full sm:w-[420px] max-w-[calc(100vw-1rem)]">
                         <Card className="border-2 border-orange-200 shadow-2xl bg-white/95 backdrop-blur-lg">
-                            <CardContent className="p-6 text-center space-y-2">
-                                <p className="text-sm text-muted-foreground">Không tìm thấy mối quan hệ giữa hai người này.</p>
-                                <p className="text-xs text-muted-foreground">Có thể họ thuộc các nhánh không liên kết.</p>
+                            <CardContent className="p-4 sm:p-6 text-center space-y-2">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Không tìm thấy mối quan hệ giữa hai người này.</p>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">Có thể họ thuộc các nhánh không liên kết.</p>
                             </CardContent>
                         </Card>
                     </div>
