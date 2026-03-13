@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { ContributeDialog } from '@/components/contribute-dialog';
 import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal } from 'lucide-react';
@@ -180,6 +180,7 @@ function computePersonGenerations(people: TreeNode[], families: TreeFamily[]): M
 export default function TreeViewPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const pathname = usePathname();
     const containerRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -290,7 +291,7 @@ export default function TreeViewPage() {
         if (viewMode !== 'full') params.set('view', viewMode);
         if (focusPerson && viewMode !== 'full') params.set('person', focusPerson);
         const qs = params.toString();
-        router.replace(`/tree${qs ? '?' + qs : ''}`, { scroll: false });
+        router.replace(`${pathname}${qs ? '?' + qs : ''}`, { scroll: false });
     }, [viewMode, focusPerson, router]);
 
     // Transform state
@@ -1217,7 +1218,7 @@ export default function TreeViewPage() {
 
     // Copy shareable link
     const copyTreeLink = useCallback((handle: string) => {
-        const url = `${window.location.origin}/tree?view=descendant&person=${handle}`;
+        const url = `${window.location.origin}${pathname}?view=descendant&person=${handle}`;
         navigator.clipboard.writeText(url).then(() => {
             setLinkCopied(true);
             setTimeout(() => setLinkCopied(false), 2000);

@@ -50,14 +50,14 @@ export default function LoginPage() {
                         setError(result.error);
                     }
                 } else {
-                    router.push('/tree');
+                    router.push('/pha-do');
                 }
             } else {
                 const result = await signIn(data.email, data.password);
                 if (result.error) {
                     setError(result.error);
                 } else {
-                    router.push('/tree');
+                    router.push('/pha-do');
                 }
             }
         } finally {

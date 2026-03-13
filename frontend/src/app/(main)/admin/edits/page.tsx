@@ -46,7 +46,7 @@ export default function AdminEditsPage() {
 
     useEffect(() => {
         if (!authLoading && !isAdmin) {
-            router.push('/tree');
+            router.push('/pha-do');
             return;
         }
         if (!authLoading && isAdmin) fetchContributions();

@@ -35,7 +35,7 @@ import {
 /* Public navigation — always visible */
 const publicNavItems = [
     { href: '/', label: 'Trang chủ', icon: Home },
-    { href: '/tree', label: 'Phả đồ', icon: TreePine },
+    { href: '/pha-do', label: 'Phả đồ', icon: TreePine },
     { href: '/media', label: 'Thư viện', icon: Image },
 ];
 
@@ -174,29 +174,18 @@ export function Sidebar() {
             )}
         >
             {/* Logo */}
-            <div className="flex items-center gap-2 px-4 py-4 border-b">
+            <div className="flex items-center gap-2 px-4 py-4 border-b shrink-0">
                 <TreePine className="h-6 w-6 text-primary shrink-0" />
                 {!collapsed && <span className="font-bold text-sm leading-tight">Họ Nguyễn Duy<br /><span className="text-xs font-normal text-muted-foreground">(nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình</span></span>}
             </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+            {/* Navigation — scrollable */}
+            <nav className="flex-1 min-h-0 px-2 py-4 space-y-1 overflow-y-auto">
                 <SidebarNav collapsed={collapsed} />
             </nav>
 
-            {/* Copyright */}
-            {!collapsed && (
-                <div className="border-t px-4 py-3">
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Gia phả dòng họ <span className="font-semibold text-foreground">Nguyễn Duy</span> — Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình nay là xã Phụ Dực, tỉnh Hưng Yên.
-                        <br />
-                        <span className="text-[10px] opacity-70">Copyright by Nguyen Duy Hai &copy; 2026</span>
-                    </p>
-                </div>
-            )}
-
-            {/* Collapse toggle */}
-            <div className="border-t p-2">
+            {/* Collapse toggle — always fixed at bottom */}
+            <div className="border-t p-2 shrink-0">
                 <Button variant="ghost" size="sm" className="w-full" onClick={() => setCollapsed(!collapsed)}>
                     {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                     {!collapsed && <span className="ml-2">Thu gọn</span>}
@@ -241,14 +230,6 @@ export function MobileSidebar() {
                         <SidebarNav onNavigate={() => setOpen(false)} />
                     </nav>
 
-                    {/* Copyright */}
-                    <div className="border-t px-4 py-3 mt-auto">
-                        <p className="text-[11px] text-muted-foreground leading-relaxed">
-                            Gia phả dòng họ <span className="font-semibold text-foreground">Nguyễn Duy</span>
-                            <br />
-                            <span className="text-[10px] opacity-70">Copyright by Nguyen Duy Hai &copy; 2026</span>
-                        </p>
-                    </div>
                 </SheetContent>
             </Sheet>
         </>

@@ -171,7 +171,7 @@ export default function PeopleListPage() {
                                                             Chỉnh sửa
                                                         </DropdownMenuItem>
                                                     )}
-                                                    <DropdownMenuItem onClick={() => { window.location.href = `/tree?focus=${p.handle}`; }}>
+                                                    <DropdownMenuItem onClick={() => { window.location.href = `/pha-do?focus=${p.handle}`; }}>
                                                         <GitBranch className="h-4 w-4 mr-2" />
                                                         Xem trên cây
                                                     </DropdownMenuItem>

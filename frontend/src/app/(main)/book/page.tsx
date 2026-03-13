@@ -240,7 +240,7 @@ export default function BookPage() {
             <div className="no-print sticky top-0 z-50 bg-white/95 backdrop-blur-lg border-b shadow-sm">
                 <div className="px-4 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Link href="/tree">
+                        <Link href="/pha-do">
                             <Button variant="ghost" size="sm">
                                 <ArrowLeft className="w-4 h-4 mr-1" /> Phả đồ
                             </Button>

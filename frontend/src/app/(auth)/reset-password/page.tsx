@@ -74,7 +74,7 @@ export default function ResetPasswordPage() {
             } else {
                 setSuccess(true);
                 // Redirect to tree page after 3 seconds
-                setTimeout(() => router.push('/tree'), 3000);
+                setTimeout(() => router.push('/pha-do'), 3000);
             }
         } catch {
             setError('Có lỗi xảy ra');
@@ -143,7 +143,7 @@ export default function ResetPasswordPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Link href="/tree">
+                    <Link href="/pha-do">
                         <Button className="w-full">Đi đến Phả đồ</Button>
                     </Link>
                 </CardContent>
