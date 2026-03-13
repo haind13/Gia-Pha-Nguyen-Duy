@@ -2027,9 +2027,9 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
             onMouseDown={(e) => e.stopPropagation()}
         >
             <div className="bg-white/95 backdrop-blur-lg border border-slate-200 rounded-xl shadow-2xl
-                py-4 px-3 sm:px-5 w-[calc(100vw-24px)] sm:w-[480px] max-h-[calc(100vh-40px)] overflow-y-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-3">
+                w-[calc(100vw-24px)] sm:w-[480px] max-h-[calc(100vh-40px)] flex flex-col">
+                {/* Header — sticky */}
+                <div className="flex items-center justify-between px-3 sm:px-5 pt-4 pb-3 shrink-0">
                     <div className="flex items-center gap-2">
                         <UserPlus className="w-4 h-4 text-blue-600" />
                         <span className="text-sm font-semibold text-slate-800">Thêm người thân</span>
@@ -2039,6 +2039,8 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
                     </button>
                 </div>
 
+                {/* Scrollable content */}
+                <div className="flex-1 overflow-y-auto px-3 sm:px-5">
                 {/* Person info */}
                 <div className="text-[11px] text-slate-500 mb-3 px-2.5 py-2 bg-slate-50 rounded-lg">
                     {type === 'child' ? 'Con' : 'Vợ/Chồng'} của{' '}
@@ -2046,7 +2048,7 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
                     <span className="text-slate-400"> · Đời {person.generation}</span>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form onSubmit={handleSubmit} className="space-y-3" id="quick-add-form">
                     {/* Row 1: Relationship type */}
                     <div>
                         <label className={labelCls}>Quan hệ</label>
@@ -2193,19 +2195,21 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
                         <span className="text-xs text-slate-600">Đã mất</span>
                     </label>
 
-                    {/* Submit buttons */}
-                    <div className="flex gap-2 pt-1 border-t border-slate-100">
-                        <button type="button" onClick={onClose}
-                            className="flex-1 px-3 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                            Hủy bỏ
-                        </button>
-                        <button type="submit" disabled={!name.trim()}
-                            className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5">
-                            <Save className="w-3.5 h-3.5" />
-                            Lưu lại
-                        </button>
-                    </div>
                 </form>
+                </div>
+
+                {/* Footer buttons — sticky at bottom */}
+                <div className="flex gap-2 px-3 sm:px-5 pt-3 pb-4 border-t border-slate-100 shrink-0">
+                    <button type="button" onClick={onClose}
+                        className="flex-1 px-3 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                        Hủy bỏ
+                    </button>
+                    <button type="submit" form="quick-add-form" disabled={!name.trim()}
+                        className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5">
+                        <Save className="w-3.5 h-3.5" />
+                        Lưu lại
+                    </button>
+                </div>
             </div>
         </div>
     );
