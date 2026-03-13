@@ -263,7 +263,7 @@ export default function PersonProfilePage() {
                                     {!form.isLiving && (
                                         <>
                                             <EditRow label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
-                                            <EditRow label="Ngày mất" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="VD: 01/12/2020" />
+                                            <EditRow label="Ngày mất Âm lịch (DD/MM)" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="VD: 15/08" />
                                             <EditRow label="Nơi mất" value={form.deathPlace || ''} onChange={v => setField('deathPlace', v)} />
                                         </>
                                     )}
@@ -277,7 +277,7 @@ export default function PersonProfilePage() {
                                     {person.birthPlace && <InfoRow label="Nơi sinh" value={person.birthPlace} />}
                                     {!person.isLiving && (
                                         <>
-                                            <InfoRow label="Ngày mất" value={person.deathDate || (person.deathYear ? `${person.deathYear}` : '—')} />
+                                            <InfoRow label="Ngày mất (Âm lịch)" value={formatDeathDate(person.deathDate, person.deathYear)} />
                                             {person.deathPlace && <InfoRow label="Nơi mất" value={person.deathPlace} />}
                                         </>
                                     )}
@@ -511,6 +511,20 @@ export default function PersonProfilePage() {
             </Tabs>
         </div>
     );
+}
+
+function formatDeathDate(dateStr?: string, year?: number): string {
+    if (dateStr) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            return `${parts[0]}/${parts[1]}/${parts[2]}`; // DD/MM/YYYY
+        }
+        if (parts.length === 2) {
+            return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}`; // DD/MM + year
+        }
+        return dateStr;
+    }
+    return year ? `${year}` : '—';
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

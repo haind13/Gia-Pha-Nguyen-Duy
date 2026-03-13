@@ -8,6 +8,26 @@ import type { PersonDetail, BookSection } from './genealogy-types';
 
 export type { TreeNode, TreeFamily };
 
+// ── Default tree_id cache ──
+let _defaultTreeId: string | null = null;
+
+/** Get the default tree UUID (slug='main'). Cached after first call. */
+async function getDefaultTreeId(): Promise<string | null> {
+    if (_defaultTreeId) return _defaultTreeId;
+    const { data, error } = await supabase
+        .from('trees')
+        .select('id')
+        .eq('slug', 'main')
+        .limit(1)
+        .single();
+    if (error || !data) {
+        console.error('Failed to fetch default tree:', error?.message);
+        return null;
+    }
+    _defaultTreeId = data.id as string;
+    return _defaultTreeId;
+}
+
 // ── Convert snake_case DB rows to camelCase ──
 
 function dbRowToTreeNode(row: Record<string, unknown>): TreeNode {
@@ -276,6 +296,9 @@ export async function addPerson(person: {
     maritalStatus?: string | null;
     bloodType?: string | null;
 }): Promise<{ error: string | null }> {
+    const treeId = await getDefaultTreeId();
+    if (!treeId) return { error: 'Could not determine default tree_id' };
+
     const dbRow: Record<string, unknown> = {
         id: person.id,
         display_name: person.displayName,
@@ -288,6 +311,7 @@ export async function addPerson(person: {
         is_patrilineal: person.isPatrilineal ?? !person.id.startsWith('S_'),
         family_ids: person.familyIds || [],
         parent_family_ids: person.parentFamilyIds || [],
+        tree_id: treeId,
     };
     // Add optional extended fields only if provided
     if (person.nickName) dbRow.nick_name = person.nickName;
@@ -338,6 +362,9 @@ export async function addFamily(family: {
     motherId?: string;
     childIds?: string[];
 }): Promise<{ error: string | null }> {
+    const treeId = await getDefaultTreeId();
+    if (!treeId) return { error: 'Could not determine default tree_id' };
+
     const { error } = await supabase
         .from('families')
         .insert({
@@ -345,6 +372,7 @@ export async function addFamily(family: {
             father_id: family.fatherId || null,
             mother_id: family.motherId || null,
             child_ids: family.childIds || [],
+            tree_id: treeId,
         });
 
     if (error) {

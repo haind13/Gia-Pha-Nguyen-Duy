@@ -14,11 +14,10 @@ import {
 import type { PersonDetail } from '@/lib/genealogy-types';
 import { zodiacYear } from '@/lib/genealogy-types';
 
-// ─── Helper: format date display (DD/MM or fallback to year) ───
+// ─── Helper: format date display (DD/MM/YYYY or fallback to year) ───
 function formatDateDisplay(dateStr?: string, year?: number): string {
     if (dateStr) {
         // dateStr might be "DD/MM/YYYY", "DD/MM", "YYYY", or other formats
-        // Ensure it shows DD/MM format when possible
         const parts = dateStr.split('/');
         if (parts.length === 3) {
             return `${parts[0]}/${parts[1]}/${parts[2]}`; // DD/MM/YYYY
@@ -340,7 +339,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                                 {!form.isLiving && (
                                     <div className="grid grid-cols-2 gap-3">
                                         <EditField label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
-                                        <EditField label="Ngày mất (DD/MM)" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="01/12/2020" />
+                                        <EditField label="Ngày mất Âm lịch (DD/MM)" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="15/08" />
                                     </div>
                                 )}
                                 {!form.isLiving && (
@@ -435,7 +434,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                                     <DetailInfo label="Thứ tự" value={`Con thứ ${detail.birthOrder}`} />
                                 )}
                                 {!detail.isLiving && detail.deathYear && (
-                                    <DetailInfo label="Ngày mất" value={formatDateDisplay(detail.deathDate, detail.deathYear)} />
+                                    <DetailInfo label="Ngày mất (Âm lịch)" value={formatDateDisplay(detail.deathDate, detail.deathYear)} />
                                 )}
                                 {!detail.isLiving && detail.deathYear && (
                                     <DetailInfo label="Năm âm lịch (mất)" value={zodiacYear(detail.deathYear) || '—'} />
