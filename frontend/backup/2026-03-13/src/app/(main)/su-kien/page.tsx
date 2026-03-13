@@ -280,11 +280,9 @@ function BigCalendar({
                                         <div key={idx} className={`text-[10px] leading-tight px-1 py-0.5 rounded truncate font-medium
                                             ${evt.type === 'birthday'
                                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200/60 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/40'
-                                                : evt.isLunar
-                                                    ? 'bg-amber-100 text-amber-800 border border-amber-200/60 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/40'
-                                                    : 'bg-sky-100 text-sky-800 border border-sky-200/60 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700/40'
+                                                : 'bg-amber-100 text-amber-800 border border-amber-200/60 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/40'
                                             }`}
-                                            title={`${evt.personName} — ${evt.type === 'birthday' ? 'Sinh nhật' : 'Giỗ'} ${evt.day}/${evt.month} ${evt.isLunar ? 'ÂL' : 'DL'}`}
+                                            title={`${evt.personName} — ${evt.type === 'birthday' ? 'Sinh nhật' : 'Giỗ'} ${evt.day}/${evt.month}${evt.type !== 'birthday' && evt.isLunar ? ' ÂL' : ''}`}
                                         >
                                             {evt.type === 'birthday' ? '🎂' : '🕯️'} {evt.personName.split(' ').slice(-2).join(' ')}
                                         </div>
@@ -309,16 +307,14 @@ function EventCard({ event }: { event: CalendarEvent }) {
             <div className={`flex-shrink-0 w-12 h-12 rounded-full flex flex-col items-center justify-center border-2 transition-colors
                 ${isBirthday
                     ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200 dark:from-emerald-950/30 dark:to-green-950/30 dark:border-emerald-700'
-                    : event.isLunar
-                        ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 dark:from-amber-950/30 dark:to-orange-950/30 dark:border-amber-700'
-                        : 'bg-gradient-to-br from-sky-50 to-blue-50 border-sky-200 dark:from-sky-950/30 dark:to-blue-950/30 dark:border-sky-700'
+                    : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 dark:from-amber-950/30 dark:to-orange-950/30 dark:border-amber-700'
                 }`}>
                 <span className={`text-base font-bold leading-none
-                    ${isBirthday ? 'text-emerald-700 dark:text-emerald-300' : event.isLunar ? 'text-amber-700 dark:text-amber-300' : 'text-sky-700 dark:text-sky-300'}`}>
+                    ${isBirthday ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
                     {event.day}
                 </span>
                 <span className={`text-[9px] font-medium
-                    ${isBirthday ? 'text-emerald-500 dark:text-emerald-400' : event.isLunar ? 'text-amber-500 dark:text-amber-400' : 'text-sky-500 dark:text-sky-400'}`}>
+                    ${isBirthday ? 'text-emerald-500 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}>
                     th.{event.month}
                 </span>
             </div>
@@ -328,8 +324,12 @@ function EventCard({ event }: { event: CalendarEvent }) {
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Đời {event.generation}</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                    {isBirthday ? 'Sinh nhật' : 'Giỗ'}: {event.day}/{event.month} {event.isLunar ? 'ÂL' : 'DL'}
-                    {' \u2192 '}{event.solarDay}/{event.solarMonth} DL
+                    {isBirthday
+                        ? <>Sinh nhật: {event.day}/{event.month}</>
+                        : event.isLunar
+                            ? <>Giỗ: {event.day}/{event.month} ÂL {' → '}{event.solarDay}/{event.solarMonth} DL</>
+                            : <>Giỗ: {event.day}/{event.month}</>
+                    }
                     {event.year && <span className="ml-1 text-muted-foreground/60">· {isBirthday ? 'Sinh' : 'Mất'} {event.year}</span>}
                 </p>
             </div>
@@ -483,8 +483,7 @@ export default function EventsPage() {
 
                     {/* Legend */}
                     <div className="flex items-center gap-3 sm:gap-4 text-[11px] text-muted-foreground flex-wrap">
-                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-200 dark:bg-amber-900/30 dark:border-amber-700" /> Giỗ Âm lịch</span>
-                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-sky-100 border border-sky-200 dark:bg-sky-900/30 dark:border-sky-700" /> Giỗ Dương lịch</span>
+                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-200 dark:bg-amber-900/30 dark:border-amber-700" /> Ngày giỗ</span>
                         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700" /> Sinh nhật</span>
                     </div>
 
