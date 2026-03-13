@@ -1937,7 +1937,7 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
     const [notes, setNotes] = useState('');
     const [isDead, setIsDead] = useState(false);
     const dialogRef = useRef<HTMLDivElement>(null);
-    const [pos, setPos] = useState({ left: 0, top: 0 });
+    const [pos, setPos] = useState({ left: 0, top: 0, availH: 600 });
 
     // Auto-set gender when type changes
     useEffect(() => {
@@ -1958,12 +1958,19 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
         let posX = x * transform.scale + transform.x + 8;
         let posY = y * transform.scale + transform.y + 8;
         const dW = dialog.offsetWidth || 480;
-        const dH = dialog.offsetHeight || 600;
+
+        // Clamp X within viewport
         if (posX + dW > vpW - 8) posX = vpW - dW - 8;
         if (posX < 8) posX = 8;
-        if (posY + dH > vpH - 8) posY = vpH - dH - 8;
+
+        // Clamp Y — ensure at least 300px visible
         if (posY < 8) posY = 8;
-        setPos({ left: posX, top: posY });
+        if (posY > vpH - 300) posY = Math.max(8, vpH - 300);
+
+        // Calculate available height from posY to bottom of viewport
+        const availH = Math.max(vpH - posY - 8, 300);
+
+        setPos({ left: posX, top: posY, availH });
     }, [x, y, transform, viewportRef]);
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -2015,8 +2022,9 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
         });
     };
 
-    const inputCls = "w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-300 bg-white";
-    const labelCls = "text-[11px] font-medium text-slate-600 block mb-1";
+    const [showMore, setShowMore] = useState(false);
+    const inputCls = "w-full px-2 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-300 bg-white";
+    const labelCls = "text-[10px] font-medium text-slate-500 block mb-0.5";
 
     return (
         <div
@@ -2027,50 +2035,57 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
             onMouseDown={(e) => e.stopPropagation()}
         >
             <div className="bg-white/95 backdrop-blur-lg border border-slate-200 rounded-xl shadow-2xl
-                py-4 px-3 sm:px-5 w-[calc(100vw-24px)] sm:w-[480px] max-h-[calc(100vh-40px)] overflow-y-auto">
+                w-[calc(100vw-24px)] sm:w-[440px] flex flex-col"
+                style={{ maxHeight: `${pos.availH}px` }}>
                 {/* Header */}
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between px-3 sm:px-4 pt-3 pb-2 shrink-0 border-b border-slate-100">
                     <div className="flex items-center gap-2">
                         <UserPlus className="w-4 h-4 text-blue-600" />
                         <span className="text-sm font-semibold text-slate-800">Thêm người thân</span>
+                        <span className="text-[10px] text-slate-400">
+                            ({type === 'child' ? 'con' : 'vợ/chồng'} của {person.displayName})
+                        </span>
                     </div>
                     <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
                         <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                {/* Person info */}
-                <div className="text-[11px] text-slate-500 mb-3 px-2.5 py-2 bg-slate-50 rounded-lg">
-                    {type === 'child' ? 'Con' : 'Vợ/Chồng'} của{' '}
-                    <span className="font-semibold text-slate-700">{person.displayName}</span>
-                    <span className="text-slate-400"> · Đời {person.generation}</span>
-                </div>
+                {/* Scrollable content */}
+                <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-2.5">
 
-                <form onSubmit={handleSubmit} className="space-y-3">
-                    {/* Row 1: Relationship type */}
-                    <div>
-                        <label className={labelCls}>Quan hệ</label>
-                        <div className="flex gap-1.5">
-                            <button
-                                type="button"
-                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors flex items-center justify-center gap-1.5 ${
-                                    type === 'child' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                }`}
-                                onClick={() => setType('child')}
-                            >
-                                <Baby className="w-3.5 h-3.5" />
-                                Con
-                            </button>
-                            <button
-                                type="button"
-                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors flex items-center justify-center gap-1.5 ${
-                                    type === 'spouse' ? 'bg-rose-50 border-rose-300 text-rose-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                }`}
-                                onClick={() => setType('spouse')}
-                            >
-                                <Heart className="w-3.5 h-3.5" />
-                                Vợ/Chồng
-                            </button>
+                <form onSubmit={handleSubmit} className="space-y-2" id="quick-add-form">
+                    {/* Row 1: Relationship type + Gender */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label className={labelCls}>Quan hệ</label>
+                            <div className="flex gap-1">
+                                <button type="button"
+                                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md border transition-colors flex items-center justify-center gap-1 ${
+                                        type === 'child' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                    }`}
+                                    onClick={() => setType('child')}>
+                                    <Baby className="w-3 h-3" /> Con
+                                </button>
+                                <button type="button"
+                                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md border transition-colors flex items-center justify-center gap-1 ${
+                                        type === 'spouse' ? 'bg-rose-50 border-rose-300 text-rose-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                    }`}
+                                    onClick={() => setType('spouse')}>
+                                    <Heart className="w-3 h-3" /> Vợ/Chồng
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className={labelCls}>Giới tính</label>
+                            <div className="flex gap-1">
+                                <button type="button"
+                                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md border transition-colors ${gender === 1 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    onClick={() => setGender(1)}>Nam</button>
+                                <button type="button"
+                                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md border transition-colors ${gender === 2 ? 'bg-pink-50 border-pink-300 text-pink-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    onClick={() => setGender(2)}>Nữ</button>
+                            </div>
                         </div>
                     </div>
 
@@ -2080,22 +2095,10 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
                         <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Duy..." className={inputCls} autoFocus />
                     </div>
 
-                    {/* Row 3: Nick name + Title */}
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Row 3: Birth date + Birth order */}
+                    <div className="grid grid-cols-4 gap-2">
                         <div>
-                            <label className={labelCls}>Tên gọi khác</label>
-                            <input type="text" value={nickName} onChange={(e) => setNickName(e.target.value)} placeholder="Biệt danh..." className={inputCls} />
-                        </div>
-                        <div>
-                            <label className={labelCls}>Chức danh</label>
-                            <input type="text" value={titleField} onChange={(e) => setTitleField(e.target.value)} placeholder="Trưởng tộc..." className={inputCls} />
-                        </div>
-                    </div>
-
-                    {/* Row 4: Birth date (day/month/year) */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className={labelCls}>Sinh ngày</label>
+                            <label className={labelCls}>Ngày sinh</label>
                             <input type="number" value={birthDay} onChange={(e) => setBirthDay(e.target.value)} placeholder="DD" min="1" max="31" className={inputCls} />
                         </div>
                         <div>
@@ -2106,106 +2109,118 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
                             <label className={labelCls}>Năm</label>
                             <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} placeholder="YYYY" className={inputCls} />
                         </div>
-                    </div>
-
-                    {/* Row 5: Gender + Birth order */}
-                    <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className={labelCls}>Giới tính</label>
-                            <div className="flex gap-1">
-                                <button type="button"
-                                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg border transition-colors ${gender === 1 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                                    onClick={() => setGender(1)}>Nam</button>
-                                <button type="button"
-                                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg border transition-colors ${gender === 2 ? 'bg-pink-50 border-pink-300 text-pink-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                                    onClick={() => setGender(2)}>Nữ</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label className={labelCls}>Thứ tự (con thứ)</label>
-                            <input type="number" value={birthOrder} onChange={(e) => setBirthOrder(e.target.value)} placeholder="1, 2, 3..." min="1" className={inputCls} />
+                            <label className={labelCls}>Con thứ</label>
+                            <input type="number" value={birthOrder} onChange={(e) => setBirthOrder(e.target.value)} placeholder="1,2.." min="1" className={inputCls} />
                         </div>
                     </div>
 
-                    {/* Row 6: Address + Phone */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className={labelCls}>Địa chỉ</label>
-                            <input type="text" value={currentAddress} onChange={(e) => setCurrentAddress(e.target.value)} placeholder="Số nhà, đường..." className={inputCls} />
-                        </div>
+                    {/* Row 4: Phone + Is dead */}
+                    <div className="grid grid-cols-2 gap-2">
                         <div>
                             <label className={labelCls}>Số điện thoại</label>
                             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912..." className={inputCls} />
                         </div>
-                    </div>
-
-                    {/* Row 7: Marital status + Education */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className={labelCls}>Tình trạng hôn nhân</label>
-                            <select value={maritalStatus} onChange={(e) => setMaritalStatus(e.target.value)} className={inputCls}>
-                                <option value="">— Chọn —</option>
-                                <option value="single">Độc thân</option>
-                                <option value="married">Đã kết hôn</option>
-                                <option value="divorced">Đã ly hôn</option>
-                                <option value="widowed">Góa</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelCls}>Học vấn</label>
-                            <input type="text" value={education} onChange={(e) => setEducation(e.target.value)} placeholder="Đại học..." className={inputCls} />
+                        <div className="flex items-end pb-0.5">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={isDead} onChange={(e) => setIsDead(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-400" />
+                                <span className="text-[11px] text-slate-600">Đã mất</span>
+                            </label>
                         </div>
                     </div>
 
-                    {/* Row 8: Blood type + Occupation */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className={labelCls}>Nhóm máu</label>
-                            <select value={bloodType} onChange={(e) => setBloodType(e.target.value)} className={inputCls}>
-                                <option value="">— Chọn —</option>
-                                <option value="A">A</option>
-                                <option value="B">B</option>
-                                <option value="AB">AB</option>
-                                <option value="O">O</option>
-                            </select>
+                    {/* Toggle more fields */}
+                    <button type="button" onClick={() => setShowMore(!showMore)}
+                        className="w-full flex items-center justify-center gap-1 py-1 text-[11px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors">
+                        <ChevronDown className={`w-3 h-3 transition-transform ${showMore ? 'rotate-180' : ''}`} />
+                        {showMore ? 'Ẩn bớt' : 'Thông tin thêm'}
+                    </button>
+
+                    {showMore && (
+                        <div className="space-y-2 pt-1 border-t border-slate-100">
+                            {/* Nick name + Title */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className={labelCls}>Tên gọi khác</label>
+                                    <input type="text" value={nickName} onChange={(e) => setNickName(e.target.value)} placeholder="Biệt danh..." className={inputCls} />
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Chức danh</label>
+                                    <input type="text" value={titleField} onChange={(e) => setTitleField(e.target.value)} placeholder="Trưởng tộc..." className={inputCls} />
+                                </div>
+                            </div>
+
+                            {/* Address */}
+                            <div>
+                                <label className={labelCls}>Địa chỉ</label>
+                                <input type="text" value={currentAddress} onChange={(e) => setCurrentAddress(e.target.value)} placeholder="Số nhà, đường, phường..." className={inputCls} />
+                            </div>
+
+                            {/* Occupation + Education */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className={labelCls}>Nghề nghiệp</label>
+                                    <input type="text" value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="Giáo viên..." className={inputCls} />
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Học vấn</label>
+                                    <input type="text" value={education} onChange={(e) => setEducation(e.target.value)} placeholder="Đại học..." className={inputCls} />
+                                </div>
+                            </div>
+
+                            {/* Marital status + Blood type */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className={labelCls}>Hôn nhân</label>
+                                    <select value={maritalStatus} onChange={(e) => setMaritalStatus(e.target.value)} className={inputCls}>
+                                        <option value="">— Chọn —</option>
+                                        <option value="single">Độc thân</option>
+                                        <option value="married">Đã kết hôn</option>
+                                        <option value="divorced">Đã ly hôn</option>
+                                        <option value="widowed">Góa</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Nhóm máu</label>
+                                    <select value={bloodType} onChange={(e) => setBloodType(e.target.value)} className={inputCls}>
+                                        <option value="">— Chọn —</option>
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="AB">AB</option>
+                                        <option value="O">O</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            <div>
+                                <label className={labelCls}>Tiểu sử / Ghi chú</label>
+                                <textarea
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="Ghi chú về tiểu sử..."
+                                    rows={2}
+                                    className={`${inputCls} resize-none`}
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label className={labelCls}>Nghề nghiệp</label>
-                            <input type="text" value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="Giáo viên..." className={inputCls} />
-                        </div>
-                    </div>
+                    )}
 
-                    {/* Row 9: Notes/Biography */}
-                    <div>
-                        <label className={labelCls}>Tiểu sử</label>
-                        <textarea
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Ghi chú về tiểu sử, thành tựu..."
-                            rows={3}
-                            className={`${inputCls} resize-none`}
-                        />
-                    </div>
-
-                    {/* Row 10: Is dead checkbox */}
-                    <label className="flex items-center gap-2 cursor-pointer py-1">
-                        <input type="checkbox" checked={isDead} onChange={(e) => setIsDead(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-400" />
-                        <span className="text-xs text-slate-600">Đã mất</span>
-                    </label>
-
-                    {/* Submit buttons */}
-                    <div className="flex gap-2 pt-1 border-t border-slate-100">
-                        <button type="button" onClick={onClose}
-                            className="flex-1 px-3 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                            Hủy bỏ
-                        </button>
-                        <button type="submit" disabled={!name.trim()}
-                            className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5">
-                            <Save className="w-3.5 h-3.5" />
-                            Lưu lại
-                        </button>
-                    </div>
                 </form>
+                </div>
+
+                {/* Footer buttons — always visible */}
+                <div className="flex gap-2 px-3 sm:px-4 py-2.5 border-t border-slate-200 shrink-0 bg-slate-50/80">
+                    <button type="button" onClick={onClose}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
+                        Hủy bỏ
+                    </button>
+                    <button type="submit" form="quick-add-form" disabled={!name.trim()}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5">
+                        <Save className="w-3.5 h-3.5" />
+                        Lưu lại
+                    </button>
+                </div>
             </div>
         </div>
     );
