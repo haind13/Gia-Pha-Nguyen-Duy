@@ -298,14 +298,14 @@ function AboutSection() {
                                 nhánh cụ Khoan Giản, có gốc gác tại làng Nghìn, xã An Bài,
                                 huyện Quỳnh Phụ, tỉnh Thái Bình (nay là xã Phụ Dực, tỉnh Hưng Yên).
                                 Trải qua <span className="text-foreground font-medium">16 thế hệ</span> với
-                                hơn 120 thành viên, dòng họ đã lưu giữ và phát triển những giá trị
+                                hơn 100 thành viên, dòng họ đã lưu giữ và phát triển những giá trị
                                 truyền thống quý báu.
                             </p>
                             <p>
                                 Gia phả điện tử này được xây dựng nhằm <span className="text-foreground font-medium">số hóa
                                 và bảo tồn</span> thông tin phả hệ, giúp các thế hệ con cháu
                                 dễ dàng tìm hiểu nguồn gốc, kết nối thân tộc và gìn giữ nét đẹp
-                                văn hóa tâm linh của gia đình.
+                                văn hóa của gia đình.
                             </p>
                         </div>
                     </CardContent>
@@ -342,7 +342,7 @@ export default function HomePage() {
         async function fetchStats() {
             try {
                 const [{ count: people }, { count: families }] = await Promise.all([
-                    supabase.from('people').select('*', { count: 'exact', head: true }),
+                    supabase.from('people').select('*', { count: 'exact', head: true }).gte('generation', 10),
                     supabase.from('families').select('*', { count: 'exact', head: true }),
                 ]);
                 setStats({ people: people || 0, families: families || 0 });
