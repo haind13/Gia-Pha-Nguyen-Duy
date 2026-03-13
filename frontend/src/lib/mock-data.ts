@@ -1,7 +1,7 @@
 /**
  * Mock data — Dòng họ Nguyễn Duy — Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình
  * Generated from Gia_Pha_Nguyen_Duy_Supabase.csv
- * 118 thành viên, 15 thế hệ
+ * 123 thành viên, 16 thế hệ
  */
 import type { TreeNode, TreeFamily } from './tree-layout';
 
@@ -124,8 +124,8 @@ export const MOCK_PEOPLE: TreeNode[] = [
     // ═══ Đời 15 ═══
     { handle: 'D15-001', displayName: 'Nguyễn Thanh Giang', gender: 2, generation: 15, birthYear: 1974, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F021'] },
     { handle: 'D15-002', displayName: 'Nguyễn Duy Việt Phong', gender: 1, generation: 15, birthYear: 1976, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F021'] },
-    { handle: 'D15-003', displayName: 'Nguyễn Duy Hoàng', gender: 1, generation: 15, birthYear: 1983, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F022'] },
-    { handle: 'D15-004', displayName: 'Nguyễn Duy Hải', gender: 1, generation: 15, birthYear: 1991, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F022'] },
+    { handle: 'D15-003', displayName: 'Nguyễn Duy Hoàng', gender: 1, generation: 15, birthYear: 1983, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: ['F031'], parentFamilies: ['F022'] },
+    { handle: 'D15-004', displayName: 'Nguyễn Duy Hải', gender: 1, generation: 15, birthYear: 1991, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: ['F030'], parentFamilies: ['F022'] },
     { handle: 'D15-005', displayName: 'Nguyễn Thị Phương Liên', gender: 2, generation: 15, birthYear: 1987, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F023'] },
     { handle: 'D15-006', displayName: 'Nguyễn Duy Thành', gender: 1, generation: 15, birthYear: 1993, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F024'] },
     { handle: 'D15-007', displayName: 'Nguyễn Duy Đức', gender: 1, generation: 15, birthYear: 2001, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F024'] },
@@ -139,6 +139,12 @@ export const MOCK_PEOPLE: TreeNode[] = [
     { handle: 'D15-015', displayName: 'Nguyễn Thị Giang', gender: 2, generation: 15, birthYear: 1976, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F029'] },
     { handle: 'D15-016', displayName: 'Nguyễn Duy Công', gender: 1, generation: 15, birthYear: 1980, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F029'] },
     { handle: 'D15-017', displayName: 'Nguyễn Thị Dung', gender: 2, generation: 15, birthYear: 1986, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F029'] },
+    { handle: 'S_D15-003', displayName: 'Nguyễn Thùy Linh', gender: 2, generation: 15, isLiving: true, isPrivacyFiltered: false, isPatrilineal: false, families: ['F031'], parentFamilies: [] },
+    { handle: 'S_D15-004', displayName: 'Nguyễn Hoài Anh', gender: 2, generation: 15, isLiving: true, isPrivacyFiltered: false, isPatrilineal: false, families: ['F030'], parentFamilies: [] },
+    // ═══ Đời 16 ═══
+    { handle: 'D16-001', displayName: 'Nguyễn Duy Hoàng Minh', gender: 1, generation: 16, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F030'] },
+    { handle: 'D16-002', displayName: 'Nguyễn Duy Hà An', gender: 1, generation: 16, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F031'] },
+    { handle: 'D16-003', displayName: 'Nguyễn Duy Khải Anh', gender: 1, generation: 16, isLiving: true, isPrivacyFiltered: false, isPatrilineal: true, families: [], parentFamilies: ['F031'] },
 ];
 
 export const MOCK_FAMILIES: TreeFamily[] = [
@@ -171,6 +177,8 @@ export const MOCK_FAMILIES: TreeFamily[] = [
     { handle: 'F027', fatherHandle: 'D14-013', motherHandle: 'S_D14-013', children: ['D15-012', 'D15-013'] },
     { handle: 'F028', fatherHandle: 'D14-017', motherHandle: 'S_D14-017', children: ['D15-014'] },
     { handle: 'F029', fatherHandle: 'D14-021', motherHandle: 'S_D14-021', children: ['D15-015', 'D15-016', 'D15-017'] },
+    { handle: 'F030', fatherHandle: 'D15-004', motherHandle: 'S_D15-004', children: ['D16-001'] },
+    { handle: 'F031', fatherHandle: 'D15-003', motherHandle: 'S_D15-003', children: ['D16-002', 'D16-003'] },
 ];
 
 export interface MemorialEvent {
