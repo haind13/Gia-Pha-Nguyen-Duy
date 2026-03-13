@@ -315,6 +315,9 @@ export default function TreeViewPage() {
     const [isDragging, setIsDragging] = useState(false);
     const dragRef = useRef({ startX: 0, startY: 0, startTx: 0, startTy: 0 });
     const pinchRef = useRef({ initialDist: 0, initialScale: 1 });
+    const transformRef = useRef(transform);
+    const touchingRef = useRef(false);
+    useEffect(() => { transformRef.current = transform; }, [transform]);
 
     // Fetch data
     useEffect(() => {
@@ -1078,35 +1081,40 @@ export default function TreeViewPage() {
         return () => el.removeEventListener('wheel', onWheel);
     }, []);
 
-    // === Touch handlers ===
+    // === Touch handlers (stable – uses refs to avoid stale closures) ===
     useEffect(() => {
         const el = viewportRef.current;
         if (!el) return;
 
-        let touching = false;
-        let lastTouches: Touch[] = [];
-
         const onTouchStart = (e: TouchEvent) => {
             if (e.touches.length === 1) {
-                touching = true;
+                touchingRef.current = true;
                 const t = e.touches[0];
-                dragRef.current = { startX: t.clientX, startY: t.clientY, startTx: transform.x, startTy: transform.y };
+                const tr = transformRef.current;
+                dragRef.current = { startX: t.clientX, startY: t.clientY, startTx: tr.x, startTy: tr.y };
             } else if (e.touches.length === 2) {
-                const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-                pinchRef.current = { initialDist: dist, initialScale: transform.scale };
+                // Switching from 1-finger pan to 2-finger pinch
+                touchingRef.current = false;
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY,
+                );
+                pinchRef.current = { initialDist: dist, initialScale: transformRef.current.scale };
             }
-            lastTouches = Array.from(e.touches);
         };
 
         const onTouchMove = (e: TouchEvent) => {
             e.preventDefault();
-            if (e.touches.length === 1 && touching) {
+            if (e.touches.length === 1 && touchingRef.current) {
                 const t = e.touches[0];
                 const dx = t.clientX - dragRef.current.startX;
                 const dy = t.clientY - dragRef.current.startY;
                 setTransform(prev => ({ ...prev, x: dragRef.current.startTx + dx, y: dragRef.current.startTy + dy }));
             } else if (e.touches.length === 2) {
-                const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY,
+                );
                 const ratio = dist / pinchRef.current.initialDist;
                 const newScale = Math.min(Math.max(pinchRef.current.initialScale * ratio, 0.15), 3);
 
@@ -1121,20 +1129,32 @@ export default function TreeViewPage() {
                     return { scale: newScale, x: mx - (mx - prev.x) * r, y: my - (my - prev.y) * r };
                 });
             }
-            lastTouches = Array.from(e.touches);
         };
 
-        const onTouchEnd = () => { touching = false; };
+        const onTouchEnd = (e: TouchEvent) => {
+            if (e.touches.length === 0) {
+                touchingRef.current = false;
+            } else if (e.touches.length === 1) {
+                // Went from 2 fingers back to 1 — restart single-finger pan
+                touchingRef.current = true;
+                const t = e.touches[0];
+                const tr = transformRef.current;
+                dragRef.current = { startX: t.clientX, startY: t.clientY, startTx: tr.x, startTy: tr.y };
+            }
+        };
 
         el.addEventListener('touchstart', onTouchStart, { passive: false });
         el.addEventListener('touchmove', onTouchMove, { passive: false });
         el.addEventListener('touchend', onTouchEnd);
+        el.addEventListener('touchcancel', onTouchEnd);
         return () => {
             el.removeEventListener('touchstart', onTouchStart);
             el.removeEventListener('touchmove', onTouchMove);
             el.removeEventListener('touchend', onTouchEnd);
+            el.removeEventListener('touchcancel', onTouchEnd);
         };
-    }, [transform.x, transform.y, transform.scale]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Pan to person
     const panToPerson = useCallback((handle: string) => {
