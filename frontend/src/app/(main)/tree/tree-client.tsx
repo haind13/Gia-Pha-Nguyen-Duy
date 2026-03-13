@@ -653,8 +653,21 @@ export default function TreeViewPage() {
     }, [treeData]);
 
     const nextSpouseHandle = useCallback((contextPersonHandle: string) => {
-        return `S_${contextPersonHandle}`;
-    }, []);
+        // Strip any existing S_ prefix to get the patrilineal base handle
+        const baseHandle = contextPersonHandle.replace(/^S_/, '');
+        const candidate = `S_${baseHandle}`;
+        if (!treeData) return candidate;
+        // Check if this handle already exists
+        if (!treeData.people.some(p => p.handle === candidate)) {
+            return candidate;
+        }
+        // Handle already exists → append suffix _2, _3, etc.
+        let suffix = 2;
+        while (treeData.people.some(p => p.handle === `${candidate}_${suffix}`)) {
+            suffix++;
+        }
+        return `${candidate}_${suffix}`;
+    }, [treeData]);
 
     // Legacy nextHandle for EditorPanel compatibility (generates Dxx-yyy for given gen)
     const nextHandle = useCallback((generation?: number) => {
@@ -690,7 +703,11 @@ export default function TreeViewPage() {
             birthYear: newPerson.birthYear,
             isLiving: newPerson.isLiving ?? true,
             isPrivacyFiltered: false,
-            isPatrilineal: newPerson.gender === 1,
+            // Children inherit patrilineal from lineage (not gender);
+            // spouses are always non-patrilineal (overridden below)
+            isPatrilineal: newPerson.generation !== contextPerson.generation
+                ? (contextPerson.isPatrilineal || !contextPerson.handle.startsWith('S_'))
+                : false,
             families: [],
             parentFamilies: newPerson.parentFamilyHandle ? [newPerson.parentFamilyHandle] : [],
         };
@@ -774,6 +791,7 @@ export default function TreeViewPage() {
             generation: treeNode.generation,
             birthYear: treeNode.birthYear,
             isLiving: newPerson.isLiving ?? true,
+            isPatrilineal: treeNode.isPatrilineal,
             families: treeNode.families,
             parentFamilies: treeNode.parentFamilies,
             nickName: newPerson.nickName || null,

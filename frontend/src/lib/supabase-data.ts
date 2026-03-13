@@ -256,6 +256,7 @@ export async function addPerson(person: {
     birthYear?: number | null;
     deathYear?: number | null;
     isLiving?: boolean;
+    isPatrilineal?: boolean;
     families?: string[];
     parentFamilies?: string[];
     // Extended fields
@@ -284,7 +285,7 @@ export async function addPerson(person: {
         death_year: person.deathYear || null,
         is_living: person.isLiving ?? true,
         is_privacy_filtered: false,
-        is_patrilineal: person.gender === 1,
+        is_patrilineal: person.isPatrilineal ?? !person.handle.startsWith('S_'),
         families: person.families || [],
         parent_families: person.parentFamilies || [],
     };
