@@ -21,6 +21,7 @@ import {
     LogIn,
     UserPlus,
     Menu,
+    Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ const authNavItems = [
 const adminItems = [
     { href: '/admin/users', label: 'Quản lý Users', icon: Shield },
     { href: '/admin/edits', label: 'Kiểm duyệt', icon: ClipboardCheck },
+    { href: '/admin/notifications', label: 'Nhắc sự kiện', icon: Bell },
     { href: '/admin/audit', label: 'Audit Log', icon: FileText },
     { href: '/admin/backup', label: 'Backup', icon: Database },
 ];
@@ -169,7 +171,7 @@ export function Sidebar() {
     return (
         <aside
             className={cn(
-                'hidden md:flex flex-col border-r bg-card transition-all duration-300 h-screen sticky top-0',
+                'hidden md:flex flex-col border-r bg-card transition-all duration-300 h-full',
                 collapsed ? 'w-16' : 'w-64',
             )}
         >

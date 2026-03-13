@@ -6,11 +6,17 @@ import { useAuth } from '@/components/auth-provider';
 import { RequireAuth } from '@/components/require-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
     BookOpen, Save, Trash2, Plus, ArrowLeft, Eye, EyeOff,
-    GripVertical, ChevronRight, FileText,
+    GripVertical, ChevronRight, FileText, Pencil, MonitorPlay,
 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import dynamic from 'next/dynamic';
+
+const RichTextEditor = dynamic(() => import('@/components/rich-text-editor').then(m => ({ default: m.RichTextEditor })), {
+    ssr: false,
+    loading: () => <div className="flex items-center justify-center h-64 text-muted-foreground">Đang tải trình soạn thảo...</div>,
+});
 import {
     fetchBookSections,
     upsertBookSection,
@@ -286,21 +292,41 @@ export default function BookEditPage() {
                                 />
                             </div>
 
-                            {/* Content editor */}
-                            <div className="flex-1 p-6 overflow-y-auto">
-                                <label className="text-xs font-medium text-slate-500 block mb-1.5">Nội dung</label>
-                                <Textarea
-                                    value={editContent}
-                                    onChange={(e) => { setEditContent(e.target.value); setDirty(true); }}
-                                    placeholder={
-                                        DEFAULT_SECTIONS.find(d => d.key === selectedKey)?.hint
-                                        || 'Viết nội dung cho mục này...'
-                                    }
-                                    className="min-h-[250px] md:min-h-[500px] text-sm leading-relaxed resize-none border-slate-200 focus:ring-amber-400"
-                                />
-                                <p className="text-[10px] text-slate-400 mt-2">
-                                    Hỗ trợ định dạng văn bản thuần. Nội dung sẽ hiển thị trong sách gia phả.
-                                </p>
+                            {/* Content editor with Preview */}
+                            <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
+                                <Tabs defaultValue="edit" className="h-full flex flex-col">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <label className="text-xs font-medium text-slate-500">Nội dung</label>
+                                        <TabsList className="h-8">
+                                            <TabsTrigger value="edit" className="text-xs gap-1 h-7 px-3">
+                                                <Pencil className="h-3 w-3" /> Soạn thảo
+                                            </TabsTrigger>
+                                            <TabsTrigger value="preview" className="text-xs gap-1 h-7 px-3">
+                                                <MonitorPlay className="h-3 w-3" /> Xem trước
+                                            </TabsTrigger>
+                                        </TabsList>
+                                    </div>
+                                    <TabsContent value="edit" className="flex-1 mt-0">
+                                        <RichTextEditor
+                                            content={editContent}
+                                            onChange={(html) => { setEditContent(html); setDirty(true); }}
+                                            placeholder={DEFAULT_SECTIONS.find(d => d.key === selectedKey)?.hint || 'Viết nội dung cho mục này...'}
+                                        />
+                                    </TabsContent>
+                                    <TabsContent value="preview" className="flex-1 mt-0">
+                                        <div className="border rounded-lg bg-white dark:bg-card p-6 min-h-[300px]">
+                                            <h2 className="text-2xl font-bold mb-4 text-amber-900 dark:text-amber-200">{editTitle}</h2>
+                                            {editContent ? (
+                                                <div
+                                                    className="prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-headings:text-amber-900 dark:prose-headings:text-amber-200"
+                                                    dangerouslySetInnerHTML={{ __html: editContent }}
+                                                />
+                                            ) : (
+                                                <p className="text-muted-foreground italic">Chưa có nội dung. Chuyển sang tab Soạn thảo để viết.</p>
+                                            )}
+                                        </div>
+                                    </TabsContent>
+                                </Tabs>
                             </div>
                         </>
                     ) : (

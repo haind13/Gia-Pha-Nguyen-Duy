@@ -735,9 +735,17 @@ function CustomSectionContent({ section, theme: t }: { section: BookSectionType;
             </h2>
             <div className="w-16 h-0.5 mx-auto mb-8" style={{ background: t.border }} />
             {section.content && (
-                <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: t.text }}>
-                    {section.content}
-                </div>
+                section.content.startsWith('<') ? (
+                    <div
+                        className="prose prose-sm max-w-none"
+                        style={{ color: t.text }}
+                        dangerouslySetInnerHTML={{ __html: section.content }}
+                    />
+                ) : (
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: t.text }}>
+                        {section.content}
+                    </div>
+                )
             )}
         </>
     );
