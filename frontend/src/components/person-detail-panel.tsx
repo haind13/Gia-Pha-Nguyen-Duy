@@ -44,7 +44,7 @@ function maritalStatusLabel(status: string): string {
 
 // ─── Shared sub-types (same as tree-layout but decoupled) ───
 export interface SimpleTreeNode {
-    handle: string;
+    id: string;
     displayName: string;
     gender: number;
     generation: number;
@@ -53,41 +53,41 @@ export interface SimpleTreeNode {
     isLiving: boolean;
     isPrivacyFiltered: boolean;
     isPatrilineal: boolean;
-    families: string[];
-    parentFamilies: string[];
+    familyIds: string[];
+    parentFamilyIds: string[];
 }
 
 export interface SimpleTreeFamily {
-    handle: string;
-    fatherHandle?: string;
-    motherHandle?: string;
-    children: string[];
+    id: string;
+    fatherId?: string;
+    motherId?: string;
+    childIds: string[];
 }
 
 export interface PersonDetailPanelProps {
-    handle: string;
+    personId: string;
     /** Tree data for relationship navigation – optional. If omitted, relationships section is hidden. */
     treeData?: { people: SimpleTreeNode[]; families: SimpleTreeFamily[] } | null;
     /** Open in edit mode immediately */
     initialEdit?: boolean;
     onClose: () => void;
     /** Navigate to another person (e.g. click on a relation chip) */
-    onNavigate?: (handle: string) => void;
+    onNavigate?: (personId: string) => void;
     /** Called after a successful save */
-    onPersonUpdated?: (handle: string, fields: PersonEditFields) => void;
+    onPersonUpdated?: (personId: string, fields: PersonEditFields) => void;
 }
 
 // ═══════════════════════════════════════════════
 // PersonDetailPanel
 // ═══════════════════════════════════════════════
-export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNavigate, onPersonUpdated }: PersonDetailPanelProps) {
+export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, onNavigate, onPersonUpdated }: PersonDetailPanelProps) {
     const [detail, setDetail] = useState<PersonDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saveMsg, setSaveMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
     const { canEdit } = useAuth();
-    const person = treeData?.people.find(p => p.handle === handle);
+    const person = treeData?.people.find(p => p.id === personId);
 
     // Edit form state
     const [form, setForm] = useState<PersonEditFields>({});
@@ -97,12 +97,12 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
         setDetail(null);
         setEditing(false);
         setSaveMsg(null);
-        fetchPersonDetail(handle).then(d => {
+        fetchPersonDetail(personId).then(d => {
             if (d) {
                 setDetail(d);
             } else if (person) {
                 setDetail({
-                    handle: person.handle,
+                    id: person.id,
                     displayName: person.displayName,
                     gender: person.gender,
                     generation: person.generation,
@@ -111,13 +111,13 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
                     isLiving: person.isLiving,
                     isPrivacyFiltered: person.isPrivacyFiltered,
                     isPatrilineal: person.isPatrilineal,
-                    families: person.families,
-                    parentFamilies: person.parentFamilies,
+                    familyIds: person.familyIds,
+                    parentFamilyIds: person.parentFamilyIds,
                 });
             }
             setLoading(false);
         });
-    }, [handle, person]);
+    }, [personId, person]);
 
     // Initialize form when entering edit mode
     const startEditing = useCallback(() => {
@@ -168,7 +168,7 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
             if (v === '' || v === undefined) (cleaned as Record<string, unknown>)[k] = null;
             else (cleaned as Record<string, unknown>)[k] = v;
         }
-        const { error } = await supaUpdatePersonFull(detail.handle, cleaned);
+        const { error } = await supaUpdatePersonFull(detail.id, cleaned);
         if (error) {
             setSaveMsg({ type: 'err', text: `Lỗi: ${error}` });
         } else {
@@ -180,7 +180,7 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
             }
             if (!detailUpdate.displayName) detailUpdate.displayName = detail.displayName;
             setDetail(prev => prev ? { ...prev, ...detailUpdate } as PersonDetail : prev);
-            onPersonUpdated?.(detail.handle, cleaned);
+            onPersonUpdated?.(detail.id, cleaned);
             setTimeout(() => setEditing(false), 600);
         }
         setSaving(false);
@@ -195,15 +195,15 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
     const parents = useMemo(() => {
         if (!treeData || !person) return [];
         const result: { label: string; person: SimpleTreeNode }[] = [];
-        for (const pfId of person.parentFamilies) {
-            const fam = treeData.families.find(f => f.handle === pfId);
+        for (const pfId of person.parentFamilyIds) {
+            const fam = treeData.families.find(f => f.id === pfId);
             if (!fam) continue;
-            if (fam.fatherHandle) {
-                const father = treeData.people.find(p => p.handle === fam.fatherHandle);
+            if (fam.fatherId) {
+                const father = treeData.people.find(p => p.id === fam.fatherId);
                 if (father) result.push({ label: 'Cha', person: father });
             }
-            if (fam.motherHandle) {
-                const mother = treeData.people.find(p => p.handle === fam.motherHandle);
+            if (fam.motherId) {
+                const mother = treeData.people.find(p => p.id === fam.motherId);
                 if (mother) result.push({ label: 'Mẹ', person: mother });
             }
         }
@@ -212,14 +212,14 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
 
     const spousesAndChildren = useMemo(() => {
         if (!treeData || !person) return [];
-        const result: { spouse?: SimpleTreeNode; children: SimpleTreeNode[]; familyHandle: string }[] = [];
-        for (const fId of person.families) {
-            const fam = treeData.families.find(f => f.handle === fId);
+        const result: { spouse?: SimpleTreeNode; children: SimpleTreeNode[]; familyId: string }[] = [];
+        for (const fId of person.familyIds) {
+            const fam = treeData.families.find(f => f.id === fId);
             if (!fam) continue;
-            const spouseHandle = fam.fatherHandle === person.handle ? fam.motherHandle : fam.fatherHandle;
-            const spouse = spouseHandle ? treeData.people.find(p => p.handle === spouseHandle) : undefined;
-            const children = fam.children.map(ch => treeData.people.find(p => p.handle === ch)).filter(Boolean) as SimpleTreeNode[];
-            result.push({ spouse, children, familyHandle: fam.handle });
+            const spouseHandle = fam.fatherId === person.id ? fam.motherId : fam.fatherId;
+            const spouse = spouseHandle ? treeData.people.find(p => p.id === spouseHandle) : undefined;
+            const children = fam.childIds.map(ch => treeData.people.find(p => p.id === ch)).filter(Boolean) as SimpleTreeNode[];
+            result.push({ spouse, children, familyId: fam.id });
         }
         return result;
     }, [treeData, person]);
@@ -227,12 +227,12 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
     const siblings = useMemo(() => {
         if (!treeData || !person) return [];
         const result: SimpleTreeNode[] = [];
-        for (const pfId of person.parentFamilies) {
-            const fam = treeData.families.find(f => f.handle === pfId);
+        for (const pfId of person.parentFamilyIds) {
+            const fam = treeData.families.find(f => f.id === pfId);
             if (!fam) continue;
-            for (const ch of fam.children) {
-                if (ch !== person.handle) {
-                    const sib = treeData.people.find(p => p.handle === ch);
+            for (const ch of fam.childIds) {
+                if (ch !== person.id) {
+                    const sib = treeData.people.find(p => p.id === ch);
                     if (sib) result.push(sib);
                 }
             }
@@ -500,7 +500,7 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
                                         <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">Cha mẹ</p>
                                         <div className="space-y-1">
                                             {parents.map(({ label, person: p }) => (
-                                                <RelationChip key={p.handle} label={label} person={p} onClick={() => onNavigate?.(p.handle)} />
+                                                <RelationChip key={p.id} label={label} person={p} onClick={() => onNavigate?.(p.id)} />
                                             ))}
                                         </div>
                                     </div>
@@ -512,7 +512,7 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
                                                 <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">
                                                     {spouse.gender === 2 ? 'Vợ' : 'Chồng'}
                                                 </p>
-                                                <RelationChip label={spouse.gender === 2 ? 'Vợ' : 'Chồng'} person={spouse} onClick={() => onNavigate?.(spouse.handle)} />
+                                                <RelationChip label={spouse.gender === 2 ? 'Vợ' : 'Chồng'} person={spouse} onClick={() => onNavigate?.(spouse.id)} />
                                             </>
                                         )}
                                         {children.length > 0 && (
@@ -522,7 +522,7 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
                                                 </p>
                                                 <div className="space-y-1">
                                                     {children.map(ch => (
-                                                        <RelationChip key={ch.handle} label={ch.gender === 1 ? 'Con trai' : 'Con gái'} person={ch} onClick={() => onNavigate?.(ch.handle)} />
+                                                        <RelationChip key={ch.id} label={ch.gender === 1 ? 'Con trai' : 'Con gái'} person={ch} onClick={() => onNavigate?.(ch.id)} />
                                                     ))}
                                                 </div>
                                             </>
@@ -534,7 +534,7 @@ export function PersonDetailPanel({ handle, treeData, initialEdit, onClose, onNa
                                         <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">Anh chị em ({siblings.length})</p>
                                         <div className="space-y-1">
                                             {siblings.map(sib => (
-                                                <RelationChip key={sib.handle} label={sib.gender === 1 ? 'Anh/Em trai' : 'Chị/Em gái'} person={sib} onClick={() => onNavigate?.(sib.handle)} />
+                                                <RelationChip key={sib.id} label={sib.gender === 1 ? 'Anh/Em trai' : 'Chị/Em gái'} person={sib} onClick={() => onNavigate?.(sib.id)} />
                                             ))}
                                         </div>
                                     </div>

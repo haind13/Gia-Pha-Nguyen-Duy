@@ -22,7 +22,7 @@ export interface KinshipResult {
 }
 
 export interface PathStep {
-    personHandle: string;
+    personId: string;
     personName: string;
     gender: number;
     edgeType?: 'parent' | 'child' | 'spouse';
@@ -41,25 +41,25 @@ function buildAdjacencyList(
 ): Map<string, BFSEdge[]> {
     const adj = new Map<string, BFSEdge[]>();
     for (const p of people) {
-        if (!adj.has(p.handle)) adj.set(p.handle, []);
+        if (!adj.has(p.id)) adj.set(p.id, []);
     }
 
     for (const fam of families) {
-        const parentHandles: string[] = [];
-        if (fam.fatherHandle) parentHandles.push(fam.fatherHandle);
-        if (fam.motherHandle) parentHandles.push(fam.motherHandle);
+        const parentIds: string[] = [];
+        if (fam.fatherId) parentIds.push(fam.fatherId);
+        if (fam.motherId) parentIds.push(fam.motherId);
 
         // Spouse edges
-        if (fam.fatherHandle && fam.motherHandle) {
-            adj.get(fam.fatherHandle)?.push({ to: fam.motherHandle, type: 'spouse' });
-            adj.get(fam.motherHandle)?.push({ to: fam.fatherHandle, type: 'spouse' });
+        if (fam.fatherId && fam.motherId) {
+            adj.get(fam.fatherId)?.push({ to: fam.motherId, type: 'spouse' });
+            adj.get(fam.motherId)?.push({ to: fam.fatherId, type: 'spouse' });
         }
 
         // Parent-child edges
-        for (const childHandle of fam.children) {
-            for (const parentHandle of parentHandles) {
-                adj.get(parentHandle)?.push({ to: childHandle, type: 'child' });
-                adj.get(childHandle)?.push({ to: parentHandle, type: 'parent' });
+        for (const childId of fam.childIds) {
+            for (const parentId of parentIds) {
+                adj.get(parentId)?.push({ to: childId, type: 'child' });
+                adj.get(childId)?.push({ to: parentId, type: 'parent' });
             }
         }
     }
@@ -68,24 +68,24 @@ function buildAdjacencyList(
 }
 
 function findPath(
-    fromHandle: string,
-    toHandle: string,
+    fromId: string,
+    toId: string,
     people: TreeNode[],
     families: TreeFamily[],
 ): PathStep[] | null {
-    if (fromHandle === toHandle) return [];
+    if (fromId === toId) return [];
 
     const adj = buildAdjacencyList(people, families);
-    const personMap = new Map(people.map(p => [p.handle, p]));
+    const personMap = new Map(people.map(p => [p.id, p]));
 
     const visited = new Set<string>();
     const prev = new Map<string, { from: string; edgeType: 'parent' | 'child' | 'spouse' }>();
-    const queue: string[] = [fromHandle];
-    visited.add(fromHandle);
+    const queue: string[] = [fromId];
+    visited.add(fromId);
 
     while (queue.length > 0) {
         const current = queue.shift()!;
-        if (current === toHandle) break;
+        if (current === toId) break;
 
         const edges = adj.get(current) || [];
         for (const edge of edges) {
@@ -97,16 +97,16 @@ function findPath(
         }
     }
 
-    if (!prev.has(toHandle) && fromHandle !== toHandle) return null;
+    if (!prev.has(toId) && fromId !== toId) return null;
 
     // Reconstruct path
     const path: PathStep[] = [];
-    let current = toHandle;
-    while (current !== fromHandle) {
+    let current = toId;
+    while (current !== fromId) {
         const info = prev.get(current)!;
         const person = personMap.get(current);
         path.unshift({
-            personHandle: current,
+            personId: current,
             personName: person?.displayName || current,
             gender: person?.gender || 1,
             edgeType: info.edgeType,
@@ -115,10 +115,10 @@ function findPath(
     }
 
     // Add the starting person
-    const startPerson = personMap.get(fromHandle);
+    const startPerson = personMap.get(fromId);
     path.unshift({
-        personHandle: fromHandle,
-        personName: startPerson?.displayName || fromHandle,
+        personId: fromId,
+        personName: startPerson?.displayName || fromId,
         gender: startPerson?.gender || 1,
     });
 
@@ -137,7 +137,7 @@ interface RelationshipInfo {
     /** Whether the path goes through paternal (nội) or maternal (ngoại) side */
     isPaternal: boolean;
     /** The common ancestor (LCA) handle if exists */
-    lcaHandle?: string;
+    lcaId?: string;
     /** Whether A and B share the same parents */
     sameFather: boolean;
     sameMother: boolean;
@@ -160,7 +160,7 @@ function analyzeRelationship(
     let stepsDown = 0;
     let goingUp = true;
     let throughSpouse = false;
-    let lcaHandle: string | undefined;
+    let lcaId: string | undefined;
 
     // Walk the path: first count "parent" edges (going up), then "child" edges (going down)
     for (let i = 1; i < path.length; i++) {
@@ -179,7 +179,7 @@ function analyzeRelationship(
         } else if (edge === 'child') {
             if (goingUp) {
                 goingUp = false;
-                lcaHandle = path[i - 1].personHandle;
+                lcaId = path[i - 1].personId;
             }
             stepsDown++;
         }
@@ -187,7 +187,7 @@ function analyzeRelationship(
 
     if (goingUp && stepsUp > 0) {
         // Never went down - B is an ancestor of A
-        lcaHandle = path[path.length - 1].personHandle;
+        lcaId = path[path.length - 1].personId;
     }
 
     // Determine if paternal or maternal
@@ -195,8 +195,8 @@ function analyzeRelationship(
     let isPaternal = true;
     if (path.length > 1 && path[1].edgeType === 'parent') {
         // Check if path[1] is father or mother of A
-        const parentHandle = path[1].personHandle;
-        const parentPerson = people.find(p => p.handle === parentHandle);
+        const parentId = path[1].personId;
+        const parentPerson = people.find(p => p.id === parentId);
         // If the parent in the path is female → maternal side
         if (parentPerson && parentPerson.gender === 2) {
             isPaternal = false;
@@ -207,11 +207,11 @@ function analyzeRelationship(
     let sameFather = false;
     let sameMother = false;
     for (const fam of families) {
-        const aIsChild = fam.children.includes(personA.handle);
-        const bIsChild = fam.children.includes(personB.handle);
+        const aIsChild = fam.childIds.includes(personA.id);
+        const bIsChild = fam.childIds.includes(personB.id);
         if (aIsChild && bIsChild) {
-            if (fam.fatherHandle) sameFather = true;
-            if (fam.motherHandle) sameMother = true;
+            if (fam.fatherId) sameFather = true;
+            if (fam.motherId) sameMother = true;
         }
     }
 
@@ -227,8 +227,8 @@ function analyzeRelationship(
         } else {
             // Fallback: use position in children array
             for (const fam of families) {
-                if (fam.children.includes(personA.handle) && fam.children.includes(personB.handle)) {
-                    aIsOlder = fam.children.indexOf(personA.handle) < fam.children.indexOf(personB.handle);
+                if (fam.childIds.includes(personA.id) && fam.childIds.includes(personB.id)) {
+                    aIsOlder = fam.childIds.indexOf(personA.id) < fam.childIds.indexOf(personB.id);
                     break;
                 }
             }
@@ -247,7 +247,7 @@ function analyzeRelationship(
         stepsDown,
         throughSpouse,
         isPaternal,
-        lcaHandle,
+        lcaId,
         sameFather,
         sameMother,
         aIsOlder,
@@ -266,17 +266,17 @@ function analyzeRelationship(
  */
 function determineBranchSeniority(
     path: PathStep[],
-    lcaHandle: string | undefined,
+    lcaId: string | undefined,
     people: TreeNode[],
     families: TreeFamily[],
     fallback: boolean,
 ): boolean {
-    if (!lcaHandle) return fallback;
+    if (!lcaId) return fallback;
 
     // Find LCA index in path
     let lcaIdx = -1;
     for (let i = 0; i < path.length; i++) {
-        if (path[i].personHandle === lcaHandle) {
+        if (path[i].personId === lcaId) {
             lcaIdx = i;
             break;
         }
@@ -286,11 +286,11 @@ function determineBranchSeniority(
     // Collect all handles on A's side (before LCA) and B's side (after LCA)
     const aSideHandles = new Set<string>();
     for (let i = 0; i < lcaIdx; i++) {
-        aSideHandles.add(path[i].personHandle);
+        aSideHandles.add(path[i].personId);
     }
     const bSideHandles = new Set<string>();
     for (let i = lcaIdx + 1; i < path.length; i++) {
-        bSideHandles.add(path[i].personHandle);
+        bSideHandles.add(path[i].personId);
     }
 
     // Find which of LCA's children are on each side
@@ -298,8 +298,8 @@ function determineBranchSeniority(
     let childBHandle: string | null = null;
 
     for (const fam of families) {
-        if (fam.fatherHandle === lcaHandle || fam.motherHandle === lcaHandle) {
-            for (const ch of fam.children) {
+        if (fam.fatherId === lcaId || fam.motherId === lcaId) {
+            for (const ch of fam.childIds) {
                 if (!childAHandle && aSideHandles.has(ch)) childAHandle = ch;
                 if (!childBHandle && bSideHandles.has(ch)) childBHandle = ch;
             }
@@ -308,8 +308,8 @@ function determineBranchSeniority(
 
     if (!childAHandle || !childBHandle || childAHandle === childBHandle) return fallback;
 
-    const childA = people.find(p => p.handle === childAHandle);
-    const childB = people.find(p => p.handle === childBHandle);
+    const childA = people.find(p => p.id === childAHandle);
+    const childB = people.find(p => p.id === childBHandle);
     if (!childA || !childB) return fallback;
 
     // Compare the two children of LCA
@@ -321,8 +321,8 @@ function determineBranchSeniority(
     }
     // Fallback: position in shared family's children array
     for (const fam of families) {
-        const aIdx = fam.children.indexOf(childAHandle!);
-        const bIdx = fam.children.indexOf(childBHandle!);
+        const aIdx = fam.childIds.indexOf(childAHandle!);
+        const bIdx = fam.childIds.indexOf(childBHandle!);
         if (aIdx >= 0 && bIdx >= 0) {
             return aIdx < bIdx;
         }
@@ -385,7 +385,7 @@ function getKinshipTerms(
         // A is uncle/aunt, B is nephew/niece
         // Path: A→parent(LCA)→sibling_of_A(B's parent)→B
         // Need to compare A with B's parent (the sibling of A) to determine Bác vs Chú/Cô
-        const parentOfB = path.length >= 3 ? people.find(p => p.handle === path[path.length - 2].personHandle) : null;
+        const parentOfB = path.length >= 3 ? people.find(p => p.id === path[path.length - 2].personId) : null;
         let aIsOlderThanParentOfB = false;
         if (parentOfB) {
             if (personA.birthOrder != null && parentOfB.birthOrder != null) {
@@ -394,8 +394,8 @@ function getKinshipTerms(
                 aIsOlderThanParentOfB = personA.birthYear < parentOfB.birthYear;
             } else {
                 for (const fam of families) {
-                    const aIdx = fam.children.indexOf(personA.handle);
-                    const pIdx = fam.children.indexOf(parentOfB.handle);
+                    const aIdx = fam.childIds.indexOf(personA.id);
+                    const pIdx = fam.childIds.indexOf(parentOfB.id);
                     if (aIdx >= 0 && pIdx >= 0) {
                         aIsOlderThanParentOfB = aIdx < pIdx;
                         break;
@@ -410,7 +410,7 @@ function getKinshipTerms(
         // B is uncle/aunt of A
         // A is nephew/niece, B is uncle/aunt
         // Need to compare B with A's parent (the sibling of B) to determine Bác vs Chú/Cô
-        const parentOfA = path.length >= 2 ? people.find(p => p.handle === path[1].personHandle) : null;
+        const parentOfA = path.length >= 2 ? people.find(p => p.id === path[1].personId) : null;
         let uncleIsOlderThanParent = false;
         if (parentOfA) {
             if (personB.birthOrder != null && parentOfA.birthOrder != null) {
@@ -419,8 +419,8 @@ function getKinshipTerms(
                 uncleIsOlderThanParent = personB.birthYear < parentOfA.birthYear;
             } else {
                 for (const fam of families) {
-                    const bIdx = fam.children.indexOf(personB.handle);
-                    const pIdx = fam.children.indexOf(parentOfA.handle);
+                    const bIdx = fam.childIds.indexOf(personB.id);
+                    const pIdx = fam.childIds.indexOf(parentOfA.id);
                     if (bIdx >= 0 && pIdx >= 0) {
                         uncleIsOlderThanParent = bIdx < pIdx;
                         break;
@@ -438,7 +438,7 @@ function getKinshipTerms(
     // E.g. if grandfather's first son → father → Hải, and grandfather's second son → uncle → cousin,
     // then Hải is "anh" of cousin regardless of actual birth years.
     if (stepsUp === 2 && stepsDown === 2) {
-        const branchAIsOlder = determineBranchSeniority(path, info.lcaHandle, people, families, aIsOlder);
+        const branchAIsOlder = determineBranchSeniority(path, info.lcaId, people, families, aIsOlder);
         return getCousinTerms(personA, personB, branchAIsOlder, isPaternal);
     }
 
@@ -459,7 +459,7 @@ function getKinshipTerms(
         if (genGap === 1) {
             // 1 generation gap — distant uncle/aunt type
             // Use branch seniority from LCA to determine Bác vs Chú/Cô/Cậu/Dì
-            const branchAIsOlder = determineBranchSeniority(path, info.lcaHandle, people, families, false);
+            const branchAIsOlder = determineBranchSeniority(path, info.lcaId, people, families, false);
             // branchAIsOlder → A's branch is from older child of LCA → B's branch is younger → Chú/Cô
             // !branchAIsOlder → B's branch is from older child of LCA → Bác
             const bBranchIsOlder = !branchAIsOlder;
@@ -485,7 +485,7 @@ function getKinshipTerms(
         // A is senior (higher generation)
         if (genGap === -1) {
             // 1 generation gap — A is distant uncle/aunt type
-            const branchAIsOlder = determineBranchSeniority(path, info.lcaHandle, people, families, true);
+            const branchAIsOlder = determineBranchSeniority(path, info.lcaId, people, families, true);
             // branchAIsOlder → A's branch is from older child of LCA → A is "Bác"
             // !branchAIsOlder → A's branch is from younger child → A is "Chú/Cô/Cậu/Dì"
             if (isPaternal) {
@@ -508,7 +508,7 @@ function getKinshipTerms(
         return getDistantRelationTerms(-genGap, genderA, genderB, 'A_is_senior', isPaternal);
     } else {
         // Same generation, distant — determine seniority from LCA branch
-        const branchAIsOlder = determineBranchSeniority(path, info.lcaHandle, people, families, aIsOlder);
+        const branchAIsOlder = determineBranchSeniority(path, info.lcaId, people, families, aIsOlder);
         return getCousinTerms(personA, personB, branchAIsOlder, isPaternal);
     }
 }
@@ -750,19 +750,19 @@ function getDistantRelationTerms(
 // ═══ Main API ═══
 
 export function determineKinship(
-    handleA: string,
-    handleB: string,
+    idA: string,
+    idB: string,
     people: TreeNode[],
     families: TreeFamily[],
 ): KinshipResult | null {
-    if (handleA === handleB) {
-        const person = people.find(p => p.handle === handleA);
+    if (idA === idB) {
+        const person = people.find(p => p.id === idA);
         return {
             aCallsB: 'Chính mình',
             bCallsA: 'Chính mình',
             relationship: 'Cùng một người',
             path: person ? [{
-                personHandle: person.handle,
+                personId: person.id,
                 personName: person.displayName,
                 gender: person.gender,
             }] : [],
@@ -770,13 +770,13 @@ export function determineKinship(
         };
     }
 
-    const path = findPath(handleA, handleB, people, families);
+    const path = findPath(idA, idB, people, families);
     if (!path || path.length === 0) {
         return null; // No connection found
     }
 
-    const personA = people.find(p => p.handle === handleA)!;
-    const personB = people.find(p => p.handle === handleB)!;
+    const personA = people.find(p => p.id === idA)!;
+    const personB = people.find(p => p.id === idB)!;
 
     const info = analyzeRelationship(path, personA, personB, people, families);
     const terms = getKinshipTerms(personA, personB, info, path, people, families);

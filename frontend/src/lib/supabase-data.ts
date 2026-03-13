@@ -12,7 +12,7 @@ export type { TreeNode, TreeFamily };
 
 function dbRowToTreeNode(row: Record<string, unknown>): TreeNode {
     return {
-        handle: row.handle as string,
+        id: row.id as string,
         displayName: row.display_name as string,
         gender: row.gender as number,
         birthYear: row.birth_year as number | undefined,
@@ -22,17 +22,17 @@ function dbRowToTreeNode(row: Record<string, unknown>): TreeNode {
         isPrivacyFiltered: row.is_privacy_filtered as boolean,
         isPatrilineal: row.is_patrilineal as boolean,
         birthOrder: row.birth_order as number | undefined,
-        families: (row.families as string[]) || [],
-        parentFamilies: (row.parent_families as string[]) || [],
+        familyIds: (row.family_ids as string[]) || [],
+        parentFamilyIds: (row.parent_family_ids as string[]) || [],
     };
 }
 
 function dbRowToTreeFamily(row: Record<string, unknown>): TreeFamily {
     return {
-        handle: row.handle as string,
-        fatherHandle: row.father_handle as string | undefined,
-        motherHandle: row.mother_handle as string | undefined,
-        children: (row.children as string[]) || [],
+        id: row.id as string,
+        fatherId: row.father_id as string | undefined,
+        motherId: row.mother_id as string | undefined,
+        childIds: (row.child_ids as string[]) || [],
     };
 }
 
@@ -42,9 +42,9 @@ function dbRowToTreeFamily(row: Record<string, unknown>): TreeFamily {
 export async function fetchPeople(): Promise<TreeNode[]> {
     const { data, error } = await supabase
         .from('people')
-        .select('handle, display_name, gender, birth_year, death_year, generation, is_living, is_privacy_filtered, is_patrilineal, birth_order, families, parent_families')
+        .select('id, display_name, gender, birth_year, death_year, generation, is_living, is_privacy_filtered, is_patrilineal, birth_order, family_ids, parent_family_ids')
         .order('generation')
-        .order('handle');
+        .order('id');
 
     if (error) {
         console.error('Failed to fetch people:', error.message);
@@ -57,8 +57,8 @@ export async function fetchPeople(): Promise<TreeNode[]> {
 export async function fetchFamilies(): Promise<TreeFamily[]> {
     const { data, error } = await supabase
         .from('families')
-        .select('handle, father_handle, mother_handle, children')
-        .order('handle');
+        .select('id, father_id, mother_id, child_ids')
+        .order('id');
 
     if (error) {
         console.error('Failed to fetch families:', error.message);
@@ -77,53 +77,53 @@ export async function fetchTreeData(): Promise<{ people: TreeNode[]; families: T
 
 /** Update children order for a family */
 export async function updateFamilyChildren(
-    familyHandle: string,
+    familyId: string,
     newChildrenOrder: string[]
 ): Promise<void> {
     const { error } = await supabase
         .from('families')
-        .update({ children: newChildrenOrder })
-        .eq('handle', familyHandle);
+        .update({ child_ids: newChildrenOrder })
+        .eq('id', familyId);
 
     if (error) console.error('Failed to update family children:', error.message);
 }
 
 /** Move a child from one family to another */
 export async function moveChildToFamily(
-    childHandle: string,
-    fromFamilyHandle: string,
-    toFamilyHandle: string,
+    childId: string,
+    fromFamilyId: string,
+    toFamilyId: string,
     currentFamilies: TreeFamily[]
 ): Promise<void> {
-    const fromFam = currentFamilies.find(f => f.handle === fromFamilyHandle);
-    const toFam = currentFamilies.find(f => f.handle === toFamilyHandle);
+    const fromFam = currentFamilies.find(f => f.id === fromFamilyId);
+    const toFam = currentFamilies.find(f => f.id === toFamilyId);
 
     const updates: Promise<unknown>[] = [];
 
-    // Update families.children on both families
+    // Update families.child_ids on both families
     if (fromFam) {
         updates.push(
-            updateFamilyChildren(fromFamilyHandle, fromFam.children.filter(ch => ch !== childHandle))
+            updateFamilyChildren(fromFamilyId, fromFam.childIds.filter(ch => ch !== childId))
         );
     }
     if (toFam) {
         updates.push(
-            updateFamilyChildren(toFamilyHandle, [...toFam.children.filter(ch => ch !== childHandle), childHandle])
+            updateFamilyChildren(toFamilyId, [...toFam.childIds.filter(ch => ch !== childId), childId])
         );
     }
 
-    // Update people.parent_families on the child
+    // Update people.parent_family_ids on the child
     const { data: personData } = await supabase
         .from('people')
-        .select('parent_families')
-        .eq('handle', childHandle)
+        .select('parent_family_ids')
+        .eq('id', childId)
         .single();
 
     if (personData) {
-        const currentPF = (personData.parent_families as string[]) || [];
-        const newPF = [...currentPF.filter(pf => pf !== fromFamilyHandle), toFamilyHandle];
+        const currentPF = (personData.parent_family_ids as string[]) || [];
+        const newPF = [...currentPF.filter(pf => pf !== fromFamilyId), toFamilyId];
         updates.push(
-            (async () => { await supabase.from('people').update({ parent_families: newPF, updated_at: new Date().toISOString() }).eq('handle', childHandle); })()
+            (async () => { await supabase.from('people').update({ parent_family_ids: newPF, updated_at: new Date().toISOString() }).eq('id', childId); })()
         );
     }
 
@@ -132,31 +132,31 @@ export async function moveChildToFamily(
 
 /** Remove a child from a family */
 export async function removeChildFromFamily(
-    childHandle: string,
-    familyHandle: string,
+    childId: string,
+    familyId: string,
     currentFamilies: TreeFamily[]
 ): Promise<void> {
-    const fam = currentFamilies.find(f => f.handle === familyHandle);
+    const fam = currentFamilies.find(f => f.id === familyId);
     const updates: Promise<unknown>[] = [];
 
     if (fam) {
         updates.push(
-            updateFamilyChildren(familyHandle, fam.children.filter(ch => ch !== childHandle))
+            updateFamilyChildren(familyId, fam.childIds.filter(ch => ch !== childId))
         );
     }
 
-    // Also update people.parent_families on the child
+    // Also update people.parent_family_ids on the child
     const { data: personData } = await supabase
         .from('people')
-        .select('parent_families')
-        .eq('handle', childHandle)
+        .select('parent_family_ids')
+        .eq('id', childId)
         .single();
 
     if (personData) {
-        const currentPF = (personData.parent_families as string[]) || [];
-        const newPF = currentPF.filter(pf => pf !== familyHandle);
+        const currentPF = (personData.parent_family_ids as string[]) || [];
+        const newPF = currentPF.filter(pf => pf !== familyId);
         updates.push(
-            (async () => { await supabase.from('people').update({ parent_families: newPF, updated_at: new Date().toISOString() }).eq('handle', childHandle); })()
+            (async () => { await supabase.from('people').update({ parent_family_ids: newPF, updated_at: new Date().toISOString() }).eq('id', childId); })()
         );
     }
 
@@ -165,13 +165,13 @@ export async function removeChildFromFamily(
 
 /** Update a person's isLiving status */
 export async function updatePersonLiving(
-    handle: string,
+    id: string,
     isLiving: boolean
 ): Promise<void> {
     const { error } = await supabase
         .from('people')
         .update({ is_living: isLiving })
-        .eq('handle', handle);
+        .eq('id', id);
 
     if (error) console.error('Failed to update person living status:', error.message);
 }
@@ -205,7 +205,7 @@ export interface PersonEditFields {
 
 /** Update a person's editable fields */
 export async function updatePerson(
-    handle: string,
+    id: string,
     fields: PersonEditFields
 ): Promise<{ error: string | null }> {
     // Convert camelCase → snake_case for DB
@@ -238,7 +238,7 @@ export async function updatePerson(
     const { error } = await supabase
         .from('people')
         .update(dbFields)
-        .eq('handle', handle);
+        .eq('id', id);
 
     if (error) {
         console.error('Failed to update person:', error.message);
@@ -249,7 +249,7 @@ export async function updatePerson(
 
 /** Add a new person to the tree */
 export async function addPerson(person: {
-    handle: string;
+    id: string;
     displayName: string;
     gender: number;
     generation: number;
@@ -257,8 +257,8 @@ export async function addPerson(person: {
     deathYear?: number | null;
     isLiving?: boolean;
     isPatrilineal?: boolean;
-    families?: string[];
-    parentFamilies?: string[];
+    familyIds?: string[];
+    parentFamilyIds?: string[];
     // Extended fields
     nickName?: string | null;
     birthDate?: string | null;
@@ -277,7 +277,7 @@ export async function addPerson(person: {
     bloodType?: string | null;
 }): Promise<{ error: string | null }> {
     const dbRow: Record<string, unknown> = {
-        handle: person.handle,
+        id: person.id,
         display_name: person.displayName,
         gender: person.gender,
         generation: person.generation,
@@ -285,9 +285,9 @@ export async function addPerson(person: {
         death_year: person.deathYear || null,
         is_living: person.isLiving ?? true,
         is_privacy_filtered: false,
-        is_patrilineal: person.isPatrilineal ?? !person.handle.startsWith('S_'),
-        families: person.families || [],
-        parent_families: person.parentFamilies || [],
+        is_patrilineal: person.isPatrilineal ?? !person.id.startsWith('S_'),
+        family_ids: person.familyIds || [],
+        parent_family_ids: person.parentFamilyIds || [],
     };
     // Add optional extended fields only if provided
     if (person.nickName) dbRow.nick_name = person.nickName;
@@ -318,11 +318,11 @@ export async function addPerson(person: {
 }
 
 /** Delete a person from the tree */
-export async function deletePerson(handle: string): Promise<{ error: string | null }> {
+export async function deletePerson(id: string): Promise<{ error: string | null }> {
     const { error } = await supabase
         .from('people')
         .delete()
-        .eq('handle', handle);
+        .eq('id', id);
 
     if (error) {
         console.error('Failed to delete person:', error.message);
@@ -333,18 +333,18 @@ export async function deletePerson(handle: string): Promise<{ error: string | nu
 
 /** Add a new family */
 export async function addFamily(family: {
-    handle: string;
-    fatherHandle?: string;
-    motherHandle?: string;
-    children?: string[];
+    id: string;
+    fatherId?: string;
+    motherId?: string;
+    childIds?: string[];
 }): Promise<{ error: string | null }> {
     const { error } = await supabase
         .from('families')
         .insert({
-            handle: family.handle,
-            father_handle: family.fatherHandle || null,
-            mother_handle: family.motherHandle || null,
-            children: family.children || [],
+            id: family.id,
+            father_id: family.fatherId || null,
+            mother_id: family.motherId || null,
+            child_ids: family.childIds || [],
         });
 
     if (error) {
@@ -354,12 +354,12 @@ export async function addFamily(family: {
     return { error: null };
 }
 
-/** Update a person's families array (denormalized field on people table) */
-export async function updatePersonFamilies(handle: string, families: string[]): Promise<{ error: string | null }> {
+/** Update a person's family_ids array (denormalized field on people table) */
+export async function updatePersonFamilies(id: string, familyIds: string[]): Promise<{ error: string | null }> {
     const { error } = await supabase
         .from('people')
-        .update({ families })
-        .eq('handle', handle);
+        .update({ family_ids: familyIds })
+        .eq('id', id);
 
     if (error) {
         console.error('Failed to update person families:', error.message);
@@ -368,12 +368,12 @@ export async function updatePersonFamilies(handle: string, families: string[]): 
     return { error: null };
 }
 
-/** Fetch full person detail by handle */
-export async function fetchPersonDetail(handle: string): Promise<PersonDetail | null> {
+/** Fetch full person detail by id */
+export async function fetchPersonDetail(id: string): Promise<PersonDetail | null> {
     const { data, error } = await supabase
         .from('people')
         .select('*')
-        .eq('handle', handle)
+        .eq('id', id)
         .single();
 
     if (error || !data) {
@@ -383,7 +383,7 @@ export async function fetchPersonDetail(handle: string): Promise<PersonDetail | 
 
     const row = data as Record<string, unknown>;
     return {
-        handle: row.handle as string,
+        id: row.id as string,
         displayName: row.display_name as string,
         gender: row.gender as number,
         birthYear: row.birth_year as number | undefined,
@@ -397,8 +397,8 @@ export async function fetchPersonDetail(handle: string): Promise<PersonDetail | 
         isLiving: row.is_living as boolean,
         isPrivacyFiltered: row.is_privacy_filtered as boolean,
         isPatrilineal: row.is_patrilineal as boolean,
-        families: (row.families as string[]) || [],
-        parentFamilies: (row.parent_families as string[]) || [],
+        familyIds: (row.family_ids as string[]) || [],
+        parentFamilyIds: (row.parent_family_ids as string[]) || [],
         surname: row.surname as string | undefined,
         firstName: row.first_name as string | undefined,
         nickName: row.nick_name as string | undefined,

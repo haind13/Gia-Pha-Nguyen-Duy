@@ -13,7 +13,7 @@ import { buildParentToFamiliesMap } from './tree-utils';
  */
 
 export interface TreeNode {
-    handle: string;
+    id: string;
     displayName: string;
     gender: number;
     generation: number;
@@ -23,15 +23,15 @@ export interface TreeNode {
     isPrivacyFiltered: boolean;
     isPatrilineal: boolean;
     birthOrder?: number;
-    families: string[];
-    parentFamilies: string[];
+    familyIds: string[];
+    parentFamilyIds: string[];
 }
 
 export interface TreeFamily {
-    handle: string;
-    fatherHandle?: string;
-    motherHandle?: string;
-    children: string[];
+    id: string;
+    fatherId?: string;
+    motherId?: string;
+    childIds: string[];
 }
 
 export interface PositionedNode {
@@ -42,7 +42,7 @@ export interface PositionedNode {
 }
 
 export interface PositionedCouple {
-    familyHandle: string;
+    familyId: string;
     fatherPos?: PositionedNode;
     motherPos?: PositionedNode;
     midX: number;
@@ -145,24 +145,24 @@ function buildSubtree(
     familyMap: Map<string, TreeFamily>,
     visited: Set<string>,
 ): Subtree | null {
-    if (visited.has(family.handle)) return null;
-    visited.add(family.handle);
+    if (visited.has(family.id)) return null;
+    visited.add(family.id);
 
-    const father = family.fatherHandle ? personMap.get(family.fatherHandle) : undefined;
-    const mother = family.motherHandle ? personMap.get(family.motherHandle) : undefined;
+    const father = family.fatherId ? personMap.get(family.fatherId) : undefined;
+    const mother = family.motherId ? personMap.get(family.motherId) : undefined;
     const patrilineal = father?.isPatrilineal ? father : mother?.isPatrilineal ? mother : (father || mother);
     const spouse = patrilineal === father ? mother : father;
 
     const children: ChildItem[] = [];
 
-    for (const childHandle of family.children) {
+    for (const childHandle of family.childIds) {
         const child = personMap.get(childHandle);
         if (!child) continue;
 
         // Find child's own family (where child is a parent)
         const childFamily = Array.from(familyMap.values()).find(f =>
-            !visited.has(f.handle) &&
-            (f.fatherHandle === childHandle || f.motherHandle === childHandle)
+            !visited.has(f.id) &&
+            (f.fatherId === childHandle || f.motherId === childHandle)
         );
 
         if (childFamily) {
@@ -327,15 +327,15 @@ function assignPositions(
     const patriCenterX = startX + anchorX;
 
     // Place patrilineal person
-    if (patrilineal && !placed.has(patrilineal.handle)) {
+    if (patrilineal && !placed.has(patrilineal.id)) {
         allNodes.push({ node: patrilineal, x: patriCenterX - CARD_W / 2, y, generation });
-        placed.add(patrilineal.handle);
+        placed.add(patrilineal.id);
     }
 
     // Place spouse (right of patrilineal)
-    if (spouse && !placed.has(spouse.handle)) {
+    if (spouse && !placed.has(spouse.id)) {
         allNodes.push({ node: spouse, x: patriCenterX + CARD_W / 2 + COUPLE_GAP, y, generation });
-        placed.add(spouse.handle);
+        placed.add(spouse.id);
     }
 
     // Place children
@@ -347,10 +347,10 @@ function assignPositions(
         const cx = patriCenterX - item.anchorX;
         if (item.subtree) {
             assignPositions(item.subtree, cx, generation + 1, allNodes, placed);
-        } else if (item.leaf && !placed.has(item.leaf.handle)) {
+        } else if (item.leaf && !placed.has(item.leaf.id)) {
             const childY = (generation + 1) * (CARD_H + V_SPACE);
             allNodes.push({ node: item.leaf, x: cx, y: childY, generation: generation + 1 });
-            placed.add(item.leaf.handle);
+            placed.add(item.leaf.id);
         }
         return;
     }
@@ -373,10 +373,10 @@ function assignPositions(
 
             if (item.subtree) {
                 assignPositions(item.subtree, childStartX, generation + 1, allNodes, placed);
-            } else if (item.leaf && !placed.has(item.leaf.handle)) {
+            } else if (item.leaf && !placed.has(item.leaf.id)) {
                 const childY = (generation + 1) * (CARD_H + V_SPACE);
                 allNodes.push({ node: item.leaf, x: childStartX, y: childY, generation: generation + 1 });
-                placed.add(item.leaf.handle);
+                placed.add(item.leaf.id);
             }
         }
     } else {
@@ -397,10 +397,10 @@ function assignPositions(
         for (const item of children) {
             if (item.subtree) {
                 assignPositions(item.subtree, cx, generation + 1, allNodes, placed);
-            } else if (item.leaf && !placed.has(item.leaf.handle)) {
+            } else if (item.leaf && !placed.has(item.leaf.id)) {
                 const childY = (generation + 1) * (CARD_H + V_SPACE);
                 allNodes.push({ node: item.leaf, x: cx, y: childY, generation: generation + 1 });
-                placed.add(item.leaf.handle);
+                placed.add(item.leaf.id);
             }
             cx += item.width + H_SPACE;
         }
@@ -410,24 +410,24 @@ function assignPositions(
 // ═══ Main layout ═══
 
 export function computeLayout(people: TreeNode[], families: TreeFamily[]): LayoutResult {
-    const personMap = new Map(people.map(p => [p.handle, p]));
-    const familyMap = new Map(families.map(f => [f.handle, f]));
+    const personMap = new Map(people.map(p => [p.id, p]));
+    const familyMap = new Map(families.map(f => [f.id, f]));
 
     const gens = assignGenerations(people, families);
 
     // Find root families (parents NOT children of any family)
     const childOfAnyFamily = new Set<string>();
     for (const f of families) {
-        for (const ch of f.children) childOfAnyFamily.add(ch);
+        for (const ch of f.childIds) childOfAnyFamily.add(ch);
     }
     const rootFamilies = families.filter(f => {
-        const fh = f.fatherHandle ? personMap.get(f.fatherHandle) : null;
-        const mh = f.motherHandle ? personMap.get(f.motherHandle) : null;
+        const fh = f.fatherId ? personMap.get(f.fatherId) : null;
+        const mh = f.motherId ? personMap.get(f.motherId) : null;
         // A family is root if at least one PATRILINEAL parent is not a child of any family.
         // Non-patrilineal spouses (ngoại tộc) are never children in the tree, so we
         // exclude them from the root check to avoid creating disconnected subtrees.
-        const fhIsRoot = fh && fh.isPatrilineal && !childOfAnyFamily.has(fh.handle);
-        const mhIsRoot = mh && mh.isPatrilineal && !childOfAnyFamily.has(mh.handle);
+        const fhIsRoot = fh && fh.isPatrilineal && !childOfAnyFamily.has(fh.id);
+        const mhIsRoot = mh && mh.isPatrilineal && !childOfAnyFamily.has(mh.id);
         return fhIsRoot || mhIsRoot;
     });
 
@@ -446,15 +446,15 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
 
     // Place orphans (people not in any family tree)
     for (const p of people) {
-        if (!placed.has(p.handle)) {
-            const gen = gens.get(p.handle) ?? 0;
+        if (!placed.has(p.id)) {
+            const gen = gens.get(p.id) ?? 0;
             allNodes.push({
                 node: p,
                 x: cursorX,
                 y: gen * (CARD_H + V_SPACE),
                 generation: gen,
             });
-            placed.add(p.handle);
+            placed.add(p.id);
             cursorX += CARD_W + H_SPACE;
         }
     }
@@ -471,13 +471,13 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
     }
 
     // ═══ Compute strictly orthogonal connections ═══
-    const nodeMap = new Map(allNodes.map(n => [n.node.handle, n]));
+    const nodeMap = new Map(allNodes.map(n => [n.node.id, n]));
     const connections: Connection[] = [];
     const couples: PositionedCouple[] = [];
 
     for (const fam of families) {
-        const fatherNode = fam.fatherHandle ? nodeMap.get(fam.fatherHandle) : undefined;
-        const motherNode = fam.motherHandle ? nodeMap.get(fam.motherHandle) : undefined;
+        const fatherNode = fam.fatherId ? nodeMap.get(fam.fatherId) : undefined;
+        const motherNode = fam.motherId ? nodeMap.get(fam.motherId) : undefined;
         if (!fatherNode && !motherNode) continue;
 
         const patriNode = (fatherNode?.node.isPatrilineal ? fatherNode : motherNode) ?? fatherNode;
@@ -492,7 +492,7 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
                 type: 'couple',
             });
             couples.push({
-                familyHandle: fam.handle,
+                familyId: fam.id,
                 fatherPos: fatherNode, motherPos: motherNode,
                 midX: (left.x + CARD_W + right.x) / 2,
                 y: left.y,
@@ -500,11 +500,11 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
         }
 
         // Parent-child connections: strictly orthogonal bus-line
-        if (patriNode && fam.children.length > 0) {
+        if (patriNode && fam.childIds.length > 0) {
             const parentCX = patriNode.x + CARD_W / 2;
             const parentBottomY = patriNode.y + CARD_H;
 
-            const placedChildren = fam.children
+            const placedChildren = fam.childIds
                 .map(ch => nodeMap.get(ch))
                 .filter((n): n is PositionedNode => !!n);
             if (placedChildren.length === 0) continue;
@@ -599,7 +599,7 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
 
 function assignGenerations(people: TreeNode[], families: TreeFamily[]): Map<string, number> {
     const gens = new Map<string, number>();
-    const familyMap = new Map(families.map(f => [f.handle, f]));
+    const familyMap = new Map(families.map(f => [f.id, f]));
     const parentFamiliesMap = buildParentToFamiliesMap(families);
 
     function setGen(handle: string, gen: number) {
@@ -609,19 +609,19 @@ function assignGenerations(people: TreeNode[], families: TreeFamily[]): Map<stri
         for (const famId of (parentFamiliesMap.get(handle) || [])) {
             const fam = familyMap.get(famId);
             if (!fam) continue;
-            if (fam.fatherHandle && fam.fatherHandle !== handle) setGen(fam.fatherHandle, gen);
-            if (fam.motherHandle && fam.motherHandle !== handle) setGen(fam.motherHandle, gen);
-            for (const ch of fam.children) setGen(ch, gen + 1);
+            if (fam.fatherId && fam.fatherId !== handle) setGen(fam.fatherId, gen);
+            if (fam.motherId && fam.motherId !== handle) setGen(fam.motherId, gen);
+            for (const ch of fam.childIds) setGen(ch, gen + 1);
         }
     }
 
     for (const p of people) {
-        if (p.parentFamilies.length === 0 && !gens.has(p.handle)) {
-            setGen(p.handle, 0);
+        if (p.parentFamilyIds.length === 0 && !gens.has(p.id)) {
+            setGen(p.id, 0);
         }
     }
     for (const p of people) {
-        if (!gens.has(p.handle)) setGen(p.handle, 0);
+        if (!gens.has(p.id)) setGen(p.id, 0);
     }
 
     return gens;
@@ -631,35 +631,35 @@ function assignGenerations(people: TreeNode[], families: TreeFamily[]): Map<stri
 
 export function filterAncestors(handle: string, people: TreeNode[], families: TreeFamily[]) {
     const result = new Set<string>();
-    const familyMap = new Map(families.map(f => [f.handle, f]));
-    const personMap = new Map(people.map(p => [p.handle, p]));
+    const familyMap = new Map(families.map(f => [f.id, f]));
+    const personMap = new Map(people.map(p => [p.id, p]));
 
     function walk(h: string) {
         if (result.has(h)) return;
         result.add(h);
         const person = personMap.get(h);
         if (!person) return;
-        for (const pfId of person.parentFamilies) {
+        for (const pfId of person.parentFamilyIds) {
             const fam = familyMap.get(pfId);
             if (fam) {
-                if (fam.fatherHandle) walk(fam.fatherHandle);
-                if (fam.motherHandle) walk(fam.motherHandle);
+                if (fam.fatherId) walk(fam.fatherId);
+                if (fam.motherId) walk(fam.motherId);
             }
         }
     }
     walk(handle);
 
     return {
-        filteredPeople: people.filter(p => result.has(p.handle)),
+        filteredPeople: people.filter(p => result.has(p.id)),
         filteredFamilies: families.filter(f =>
-            (f.fatherHandle && result.has(f.fatherHandle)) || (f.motherHandle && result.has(f.motherHandle))
+            (f.fatherId && result.has(f.fatherId)) || (f.motherId && result.has(f.motherId))
         ),
     };
 }
 
 export function filterDescendants(handle: string, people: TreeNode[], families: TreeFamily[]) {
     const result = new Set<string>();
-    const familyMap = new Map(families.map(f => [f.handle, f]));
+    const familyMap = new Map(families.map(f => [f.id, f]));
     const parentFamiliesMap = buildParentToFamiliesMap(families);
     const includedFamilies = new Set<string>();
 
@@ -669,18 +669,18 @@ export function filterDescendants(handle: string, people: TreeNode[], families: 
         for (const fId of (parentFamiliesMap.get(h) || [])) {
             const fam = familyMap.get(fId);
             if (fam) {
-                includedFamilies.add(fam.handle);
-                if (fam.fatherHandle) result.add(fam.fatherHandle);
-                if (fam.motherHandle) result.add(fam.motherHandle);
-                for (const ch of fam.children) walk(ch);
+                includedFamilies.add(fam.id);
+                if (fam.fatherId) result.add(fam.fatherId);
+                if (fam.motherId) result.add(fam.motherId);
+                for (const ch of fam.childIds) walk(ch);
             }
         }
     }
     walk(handle);
 
     return {
-        filteredPeople: people.filter(p => result.has(p.handle)),
+        filteredPeople: people.filter(p => result.has(p.id)),
         // Only include families where a PARENT is in the result set (not ancestor families)
-        filteredFamilies: families.filter(f => includedFamilies.has(f.handle)),
+        filteredFamilies: families.filter(f => includedFamilies.has(f.id)),
     };
 }

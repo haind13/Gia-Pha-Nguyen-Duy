@@ -26,7 +26,7 @@ import { useRouter } from 'next/navigation';
 import { RequireAuth } from '@/components/require-auth';
 
 interface Person {
-    handle: string;
+    id: string;
     displayName: string;
     gender: number;
     birthYear?: number;
@@ -52,11 +52,11 @@ export default function PeopleListPage() {
                 const { supabase } = await import('@/lib/supabase');
                 const { data, error } = await supabase
                     .from('people')
-                    .select('handle, display_name, gender, birth_year, death_year, is_living, is_privacy_filtered')
+                    .select('id, display_name, gender, birth_year, death_year, is_living, is_privacy_filtered')
                     .order('display_name', { ascending: true });
                 if (!error && data) {
                     setPeople(data.map((row: Record<string, unknown>) => ({
-                        handle: row.handle as string,
+                        id: row.id as string,
                         displayName: row.display_name as string,
                         gender: row.gender as number,
                         birthYear: row.birth_year as number | undefined,
@@ -133,9 +133,9 @@ export default function PeopleListPage() {
                             <TableBody>
                                 {filtered.map((p) => (
                                     <TableRow
-                                        key={p.handle}
+                                        key={p.id}
                                         className="cursor-pointer hover:bg-accent/50"
-                                        onClick={() => setSelectedHandle(p.handle)}
+                                        onClick={() => setSelectedHandle(p.id)}
                                     >
                                         <TableCell className="font-medium">
                                             {p.displayName}
@@ -161,17 +161,17 @@ export default function PeopleListPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => setSelectedHandle(p.handle)}>
+                                                    <DropdownMenuItem onClick={() => setSelectedHandle(p.id)}>
                                                         <Eye className="h-4 w-4 mr-2" />
                                                         Xem chi tiết
                                                     </DropdownMenuItem>
                                                     {canEdit && (
-                                                        <DropdownMenuItem onClick={() => setEditHandle(p.handle)}>
+                                                        <DropdownMenuItem onClick={() => setEditHandle(p.id)}>
                                                             <Pencil className="h-4 w-4 mr-2" />
                                                             Chỉnh sửa
                                                         </DropdownMenuItem>
                                                     )}
-                                                    <DropdownMenuItem onClick={() => { window.location.href = `/pha-do?focus=${p.handle}`; }}>
+                                                    <DropdownMenuItem onClick={() => { window.location.href = `/pha-do?focus=${p.id}`; }}>
                                                         <GitBranch className="h-4 w-4 mr-2" />
                                                         Xem trên cây
                                                     </DropdownMenuItem>
@@ -196,13 +196,13 @@ export default function PeopleListPage() {
             {/* Person detail panel (slide-in) */}
             {(selectedHandle || editHandle) && (
                 <PersonDetailPanel
-                    handle={(editHandle || selectedHandle)!}
+                    personId={(editHandle || selectedHandle)!}
                     initialEdit={!!editHandle}
                     onClose={() => { setSelectedHandle(null); setEditHandle(null); }}
                     onNavigate={(h) => { setSelectedHandle(h); setEditHandle(null); }}
                     onPersonUpdated={(h, fields) => {
                         setPeople(prev => prev.map(p => {
-                            if (p.handle !== h) return p;
+                            if (p.id !== h) return p;
                             return {
                                 ...p,
                                 ...(fields.displayName !== undefined && { displayName: fields.displayName }),

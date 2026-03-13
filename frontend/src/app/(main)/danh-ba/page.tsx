@@ -26,7 +26,7 @@ interface DirectoryMember {
 }
 
 interface GenealogyContact {
-    handle: string;
+    id: string;
     displayName: string;
     gender: number;
     generation: number;
@@ -43,7 +43,7 @@ interface GenealogyContact {
 // Map snake_case DB row to camelCase
 function dbRowToContact(row: Record<string, unknown>): GenealogyContact {
     return {
-        handle: row.handle as string,
+        id: row.id as string,
         displayName: row.display_name as string,
         gender: row.gender as number,
         generation: row.generation as number,
@@ -80,7 +80,7 @@ export default function DirectoryPage() {
                     .order('created_at', { ascending: true }),
                 supabase
                     .from('people')
-                    .select('handle, display_name, gender, generation, is_living, phone, email, zalo, facebook, current_address, occupation, company')
+                    .select('id, display_name, gender, generation, is_living, phone, email, zalo, facebook, current_address, occupation, company')
                     .order('generation', { ascending: true })
                     .order('display_name', { ascending: true }),
             ]);
@@ -204,7 +204,7 @@ export default function DirectoryPage() {
                     ) : (
                         <div className="border rounded-lg divide-y bg-card">
                             {filteredContacts.map((c) => (
-                                <div key={c.handle} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors">
+                                <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors">
                                     {/* Avatar */}
                                     <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${
                                         c.gender === 1 ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-pink-100 dark:bg-pink-900/30'

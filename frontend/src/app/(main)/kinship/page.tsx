@@ -47,8 +47,8 @@ export default function KinshipPage() {
         load();
     }, []);
 
-    const personAData = useMemo(() => people.find(p => p.handle === personA), [people, personA]);
-    const personBData = useMemo(() => people.find(p => p.handle === personB), [people, personB]);
+    const personAData = useMemo(() => people.find(p => p.id === personA), [people, personA]);
+    const personBData = useMemo(() => people.find(p => p.id === personB), [people, personB]);
 
     const filteredA = useMemo(() => {
         const q = searchA.toLowerCase();
@@ -129,9 +129,9 @@ export default function KinshipPage() {
                                     <div className="absolute z-50 w-full mt-1 bg-background border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                                         {filteredA.map(p => (
                                             <button
-                                                key={p.handle}
-                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${personA === p.handle ? 'bg-accent' : ''}`}
-                                                onMouseDown={(e) => { e.preventDefault(); setPersonA(p.handle); setSearchA(p.displayName); setShowDropdownA(false); setResult(null); }}
+                                                key={p.id}
+                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${personA === p.id ? 'bg-accent' : ''}`}
+                                                onMouseDown={(e) => { e.preventDefault(); setPersonA(p.id); setSearchA(p.displayName); setShowDropdownA(false); setResult(null); }}
                                             >
                                                 <span className={`text-xs ${p.gender === 1 ? 'text-blue-500' : 'text-pink-500'}`}>
                                                     {p.gender === 1 ? '♂' : '♀'}
@@ -176,9 +176,9 @@ export default function KinshipPage() {
                                     <div className="absolute z-50 w-full mt-1 bg-background border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                                         {filteredB.map(p => (
                                             <button
-                                                key={p.handle}
-                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${personB === p.handle ? 'bg-accent' : ''}`}
-                                                onMouseDown={(e) => { e.preventDefault(); setPersonB(p.handle); setSearchB(p.displayName); setShowDropdownB(false); setResult(null); }}
+                                                key={p.id}
+                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${personB === p.id ? 'bg-accent' : ''}`}
+                                                onMouseDown={(e) => { e.preventDefault(); setPersonB(p.id); setSearchB(p.displayName); setShowDropdownB(false); setResult(null); }}
                                             >
                                                 <span className={`text-xs ${p.gender === 1 ? 'text-blue-500' : 'text-pink-500'}`}>
                                                     {p.gender === 1 ? '♂' : '♀'}
@@ -247,7 +247,7 @@ export default function KinshipPage() {
                                 <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Đường đi trong gia phả</h3>
                                 <div className="flex flex-wrap items-center gap-1">
                                     {result.path.map((step, i) => (
-                                        <div key={step.personHandle} className="flex items-center gap-1">
+                                        <div key={step.personId} className="flex items-center gap-1">
                                             <div className={`
                                                 px-3 py-1.5 rounded-lg text-sm font-medium border
                                                 ${i === 0 ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' :

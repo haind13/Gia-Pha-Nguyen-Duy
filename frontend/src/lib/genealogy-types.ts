@@ -4,7 +4,7 @@
 
 // ═══ PersonDetail Type ═══
 export interface PersonDetail {
-    handle: string;
+    id: string;
     gramps_id?: string;
     gender: number;
     displayName: string;
@@ -21,8 +21,8 @@ export interface PersonDetail {
     isLiving: boolean;
     isPrivacyFiltered: boolean;
     isPatrilineal: boolean;
-    families?: string[];
-    parentFamilies?: string[];
+    familyIds?: string[];
+    parentFamilyIds?: string[];
     mediaCount?: number;
     phone?: string;
     email?: string;

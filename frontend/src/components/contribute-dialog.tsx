@@ -19,12 +19,12 @@ const CONTRIBUTION_FIELDS = [
 ];
 
 interface ContributeDialogProps {
-    personHandle: string;
+    personId: string;
     personName: string;
     onClose: () => void;
 }
 
-export function ContributeDialog({ personHandle, personName, onClose }: ContributeDialogProps) {
+export function ContributeDialog({ personId, personName, onClose }: ContributeDialogProps) {
     const { user, profile, isLoggedIn } = useAuth();
     const [selectedField, setSelectedField] = useState(CONTRIBUTION_FIELDS[0].key);
     const [newValue, setNewValue] = useState('');
@@ -45,7 +45,7 @@ export function ContributeDialog({ personHandle, personName, onClose }: Contribu
         const { error: insertError } = await supabase.from('contributions').insert({
             author_id: user.id,
             author_email: profile?.email || user.email || '',
-            person_handle: personHandle,
+            person_id: personId,
             person_name: personName,
             field_name: selectedField,
             field_label: fieldInfo.label,

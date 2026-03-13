@@ -16,7 +16,7 @@ import { supabase } from '@/lib/supabase';
 
 /* ── Types ── */
 interface EventItem {
-    personHandle: string;
+    personId: string;
     personName: string;
     generation: number;
     gender: number;
@@ -125,7 +125,7 @@ function parseDateString(dateStr: string | null | undefined): { day: number; mon
 /* ── Build events from people data + MOCK fallback ── */
 function buildEventsFromPeople(
     people: Array<{
-        handle: string; display_name: string; gender: number; generation: number;
+        id: string; display_name: string; gender: number; generation: number;
         birth_date: string | null; death_date: string | null; birth_year: number | null;
         death_year: number | null; is_living: boolean; is_patrilineal: boolean;
     }>
@@ -139,7 +139,7 @@ function buildEventsFromPeople(
             const parsed = parseDateString(p.death_date);
             if (parsed) {
                 events.push({
-                    personHandle: p.handle,
+                    personId: p.id,
                     personName: p.display_name,
                     generation: p.generation,
                     gender: p.gender,
@@ -150,17 +150,17 @@ function buildEventsFromPeople(
                     isPatrilineal: p.is_patrilineal,
                     type: 'memorial',
                 });
-                memorialHandles.add(p.handle);
+                memorialHandles.add(p.id);
             }
         }
     }
 
     // 2. Fallback: Add MOCK_MEMORIALS for people not already covered
     for (const m of MOCK_MEMORIALS) {
-        if (!memorialHandles.has(m.personHandle)) {
-            const person = people.find(p => p.handle === m.personHandle);
+        if (!memorialHandles.has(m.personId)) {
+            const person = people.find(p => p.id === m.personId);
             events.push({
-                personHandle: m.personHandle,
+                personId: m.personId,
                 personName: m.personName,
                 generation: m.generation,
                 gender: person?.gender ?? 1,
@@ -168,7 +168,7 @@ function buildEventsFromPeople(
                 month: m.month,
                 year: m.deathYear,
                 isLunar: m.isLunar,
-                isPatrilineal: person?.is_patrilineal ?? !m.personHandle.startsWith('S_'),
+                isPatrilineal: person?.is_patrilineal ?? !m.personId.startsWith('S_'),
                 type: 'memorial',
             });
         }
@@ -180,7 +180,7 @@ function buildEventsFromPeople(
             const parsed = parseDateString(p.birth_date);
             if (parsed) {
                 events.push({
-                    personHandle: p.handle,
+                    personId: p.id,
                     personName: p.display_name,
                     generation: p.generation,
                     gender: p.gender,
@@ -360,26 +360,26 @@ export default function EventsPage() {
         try {
             const { data } = await supabase
                 .from('people')
-                .select('handle, display_name, gender, generation, birth_date, death_date, birth_year, death_year, is_living, is_patrilineal')
+                .select('id, display_name, gender, generation, birth_date, death_date, birth_year, death_year, is_living, is_patrilineal')
                 .order('generation', { ascending: true });
             if (data) {
                 setAllEvents(buildEventsFromPeople(data));
             } else {
                 // Fallback to mock data
                 setAllEvents(MOCK_MEMORIALS.map(m => ({
-                    personHandle: m.personHandle, personName: m.personName,
+                    personId: m.personId, personName: m.personName,
                     generation: m.generation, gender: 1, day: m.day, month: m.month,
                     year: m.deathYear, isLunar: m.isLunar,
-                    isPatrilineal: !m.personHandle.startsWith('S_'), type: 'memorial' as const,
+                    isPatrilineal: !m.personId.startsWith('S_'), type: 'memorial' as const,
                 })));
             }
         } catch {
             // Fallback
             setAllEvents(MOCK_MEMORIALS.map(m => ({
-                personHandle: m.personHandle, personName: m.personName,
+                personId: m.personId, personName: m.personName,
                 generation: m.generation, gender: 1, day: m.day, month: m.month,
                 year: m.deathYear, isLunar: m.isLunar,
-                isPatrilineal: !m.personHandle.startsWith('S_'), type: 'memorial' as const,
+                isPatrilineal: !m.personId.startsWith('S_'), type: 'memorial' as const,
             })));
         } finally { setLoading(false); }
     }, []);
@@ -544,7 +544,7 @@ export default function EventsPage() {
                                 </CardContent>
                             </Card>
                         ) : (
-                            filtered.sort((a, b) => a.solarDay - b.solarDay).map((m, i) => <EventCard key={`${m.personHandle}-${m.type}-${i}`} event={m} />)
+                            filtered.sort((a, b) => a.solarDay - b.solarDay).map((m, i) => <EventCard key={`${m.personId}-${m.type}-${i}`} event={m} />)
                         )}
                     </div>
 

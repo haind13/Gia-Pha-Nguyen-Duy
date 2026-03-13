@@ -187,9 +187,9 @@ export default function ProfilePage() {
                                 }`}>
                                     {roleName(profile?.role ?? null)}
                                 </span>
-                                {profile?.person_handle && (
+                                {profile?.person_id && (
                                     <span className="text-xs text-muted-foreground">
-                                        Liên kết: <code className="bg-muted px-1 rounded">{profile.person_handle}</code>
+                                        Liên kết: <code className="bg-muted px-1 rounded">{profile.person_id}</code>
                                     </span>
                                 )}
                             </div>

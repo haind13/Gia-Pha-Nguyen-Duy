@@ -583,7 +583,7 @@ function ChapterContent({ chapter, theme: t, members, startIndex, showHeader }: 
             )}
             <div className="grid grid-cols-2 gap-4">
                 {displayMembers.map((person, idx) => (
-                    <PersonEntry key={person.handle} person={person} index={offset + idx + 1} theme={t} />
+                    <PersonEntry key={person.id} person={person} index={offset + idx + 1} theme={t} />
                 ))}
             </div>
         </>

@@ -45,7 +45,7 @@ function getZoomLevel(scale: number): ZoomLevel {
 
 // === Branch Summary (F4) ===
 interface BranchSummary {
-    parentHandle: string;
+    parentId: string;
     totalDescendants: number;
     generationRange: [number, number];
     livingCount: number;
@@ -58,8 +58,8 @@ function computeBranchSummary(
     people: TreeNode[],
     families: TreeFamily[],
 ): BranchSummary {
-    const personMap = new Map(people.map(p => [p.handle, p]));
-    const familyMap = new Map(families.map(f => [f.handle, f]));
+    const personMap = new Map(people.map(p => [p.id, p]));
+    const familyMap = new Map(families.map(f => [f.id, f]));
     const parentFamiliesMap = buildParentToFamiliesMap(families);
     const visited = new Set<string>();
     let livingCount = 0, deceasedCount = 0, patrilinealCount = 0;
@@ -78,7 +78,7 @@ function computeBranchSummary(
         for (const fId of (parentFamiliesMap.get(h) || [])) {
             const fam = familyMap.get(fId);
             if (!fam) continue;
-            for (const ch of fam.children) walk(ch);
+            for (const ch of fam.childIds) walk(ch);
         }
     }
 
@@ -87,19 +87,19 @@ function computeBranchSummary(
         const fam = familyMap.get(fId);
         if (!fam) continue;
         // Also count spouse
-        if (fam.motherHandle && fam.motherHandle !== handle && !visited.has(fam.motherHandle)) {
-            const spouse = personMap.get(fam.motherHandle);
-            if (spouse) { visited.add(fam.motherHandle); if (spouse.isLiving) livingCount++; else deceasedCount++; }
+        if (fam.motherId && fam.motherId !== handle && !visited.has(fam.motherId)) {
+            const spouse = personMap.get(fam.motherId);
+            if (spouse) { visited.add(fam.motherId); if (spouse.isLiving) livingCount++; else deceasedCount++; }
         }
-        if (fam.fatherHandle && fam.fatherHandle !== handle && !visited.has(fam.fatherHandle)) {
-            const spouse = personMap.get(fam.fatherHandle);
-            if (spouse) { visited.add(fam.fatherHandle); if (spouse.isLiving) livingCount++; else deceasedCount++; }
+        if (fam.fatherId && fam.fatherId !== handle && !visited.has(fam.fatherId)) {
+            const spouse = personMap.get(fam.fatherId);
+            if (spouse) { visited.add(fam.fatherId); if (spouse.isLiving) livingCount++; else deceasedCount++; }
         }
-        for (const ch of fam.children) walk(ch);
+        for (const ch of fam.childIds) walk(ch);
     }
 
     return {
-        parentHandle: handle,
+        parentId: handle,
         totalDescendants: visited.size,
         generationRange: [minGen === Infinity ? 0 : minGen, maxGen === -Infinity ? 0 : maxGen],
         livingCount, deceasedCount, patrilinealCount,
@@ -153,24 +153,24 @@ const AUTO_COLLAPSE_GEN = 16;
 // Compute generations via BFS from root persons (persons not in any family as children)
 function computePersonGenerations(people: TreeNode[], families: TreeFamily[]): Map<string, number> {
     const childOf = new Set<string>();
-    for (const f of families) for (const ch of f.children) childOf.add(ch);
-    const roots = people.filter(p => p.isPatrilineal && !childOf.has(p.handle));
+    for (const f of families) for (const ch of f.childIds) childOf.add(ch);
+    const roots = people.filter(p => p.isPatrilineal && !childOf.has(p.id));
     const gens = new Map<string, number>();
-    const familyMap = new Map(families.map(f => [f.handle, f]));
-    const queue: { handle: string; gen: number }[] = roots.map(r => ({ handle: r.handle, gen: 0 }));
+    const familyMap = new Map(families.map(f => [f.id, f]));
+    const queue: { handle: string; gen: number }[] = roots.map(r => ({ handle: r.id, gen: 0 }));
     while (queue.length > 0) {
         const { handle, gen } = queue.shift()!;
         if (gens.has(handle)) continue;
         gens.set(handle, gen);
-        const person = people.find(p => p.handle === handle);
+        const person = people.find(p => p.id === handle);
         if (!person) continue;
-        for (const fId of person.families) {
+        for (const fId of person.familyIds) {
             const fam = familyMap.get(fId);
             if (!fam) continue;
             // Spouse at same gen
-            if (fam.fatherHandle && !gens.has(fam.fatherHandle)) gens.set(fam.fatherHandle, gen);
-            if (fam.motherHandle && !gens.has(fam.motherHandle)) gens.set(fam.motherHandle, gen);
-            for (const ch of fam.children) {
+            if (fam.fatherId && !gens.has(fam.fatherId)) gens.set(fam.fatherId, gen);
+            if (fam.motherId && !gens.has(fam.motherId)) gens.set(fam.motherId, gen);
+            for (const ch of fam.childIds) {
                 if (!gens.has(ch)) queue.push({ handle: ch, gen: gen + 1 });
             }
         }
@@ -191,10 +191,10 @@ export default function TreeViewPage() {
     const [focusPerson, setFocusPerson] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showSearch, setShowSearch] = useState(false);
-    const [highlightHandles, setHighlightHandles] = useState<Set<string>>(new Set());
-    const [hoveredHandle, setHoveredHandle] = useState<string | null>(null);
-    const [contextMenu, setContextMenu] = useState<{ handle: string; x: number; y: number } | null>(null);
-    const [contributePerson, setContributePerson] = useState<{ handle: string; name: string } | null>(null);
+    const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
+    const [hoveredId, setHoveredId] = useState<string | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+    const [contributePerson, setContributePerson] = useState<{ id: string; name: string } | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
     const [detailPerson, setDetailPerson] = useState<string | null>(null);
 
@@ -218,7 +218,7 @@ export default function TreeViewPage() {
 
     // Drag-and-drop state (editor mode only)
     const [dragState, setDragState] = useState<{
-        handle: string;
+        id: string;
         startX: number;
         startY: number;
         currentX: number;
@@ -251,7 +251,7 @@ export default function TreeViewPage() {
         if (viewParam && ['full', 'ancestor', 'descendant'].includes(viewParam)) {
             setViewMode(viewParam);
         }
-        if (personParam && treeData.people.some(p => p.handle === personParam)) {
+        if (personParam && treeData.people.some(p => p.id === personParam)) {
             setFocusPerson(personParam);
         }
         // Auto-collapse on initial load
@@ -260,20 +260,20 @@ export default function TreeViewPage() {
             const gens = computePersonGenerations(treeData.people, treeData.families);
             const toCollapse = new Set<string>();
             for (const f of treeData.families) {
-                if (f.children.length === 0) continue;
-                const parentHandle = f.fatherHandle || f.motherHandle;
-                if (!parentHandle) continue;
-                const gen = gens.get(parentHandle);
+                if (f.childIds.length === 0) continue;
+                const parentId = f.fatherId || f.motherId;
+                if (!parentId) continue;
+                const gen = gens.get(parentId);
                 if (gen !== undefined && gen >= AUTO_COLLAPSE_GEN) {
-                    toCollapse.add(parentHandle);
+                    toCollapse.add(parentId);
                 }
             }
             setCollapsedBranches(toCollapse);
         } else if (viewParam === 'descendant' && personParam) {
             // Descendant: collapse by relative depth from focus person
-            // Use families TABLE (source of truth), not person.families (denormalized)
+            // Use families TABLE (source of truth), not person.familyIds (denormalized)
             const parentFamiliesMap = buildParentToFamiliesMap(treeData.families);
-            const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
+            const familyMap = new Map(treeData.families.map(f => [f.id, f]));
             const toCollapse = new Set<string>();
             const depthMap = new Map<string, number>();
             const queue: string[] = [personParam];
@@ -283,11 +283,11 @@ export default function TreeViewPage() {
                 const depth = depthMap.get(h)!;
                 for (const fId of (parentFamiliesMap.get(h) || [])) {
                     const fam = familyMap.get(fId);
-                    if (!fam || fam.children.length === 0) continue;
+                    if (!fam || fam.childIds.length === 0) continue;
                     if (depth >= AUTO_COLLAPSE_GEN) {
                         toCollapse.add(h);
                     } else {
-                        for (const ch of fam.children) {
+                        for (const ch of fam.childIds) {
                             if (!depthMap.has(ch)) {
                                 depthMap.set(ch, depth + 1);
                                 queue.push(ch);
@@ -364,9 +364,9 @@ export default function TreeViewPage() {
     const zoomLevel = useMemo<ZoomLevel>(() => getZoomLevel(transform.scale), [transform.scale]);
 
     // F4: Get all descendants of collapsed branches
-    const getDescendantHandles = useCallback((handle: string): Set<string> => {
+    const getDescendantIds = useCallback((handle: string): Set<string> => {
         if (!treeData) return new Set();
-        const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
+        const familyMap = new Map(treeData.families.map(f => [f.id, f]));
         const parentFamiliesMap = buildParentToFamiliesMap(treeData.families);
         const result = new Set<string>();
         function walk(h: string) {
@@ -374,9 +374,9 @@ export default function TreeViewPage() {
                 const fam = familyMap.get(fId);
                 if (!fam) continue;
                 // Include spouse
-                if (fam.motherHandle && fam.motherHandle !== h) result.add(fam.motherHandle);
-                if (fam.fatherHandle && fam.fatherHandle !== h) result.add(fam.fatherHandle);
-                for (const ch of fam.children) {
+                if (fam.motherId && fam.motherId !== h) result.add(fam.motherId);
+                if (fam.fatherId && fam.fatherId !== h) result.add(fam.fatherId);
+                for (const ch of fam.childIds) {
                     result.add(ch);
                     walk(ch);
                 }
@@ -387,45 +387,45 @@ export default function TreeViewPage() {
     }, [treeData]);
 
     // F4: Compute all hidden handles from collapsed branches
-    const hiddenHandles = useMemo(() => {
+    const hiddenIds = useMemo(() => {
         if (!treeData) return new Set<string>();
         const hidden = new Set<string>();
         for (const h of collapsedBranches) {
-            const descendants = getDescendantHandles(h);
+            const descendants = getDescendantIds(h);
             for (const d of descendants) hidden.add(d);
         }
         // Collapsed persons must stay visible to show their summary card.
-        // (getDescendantHandles includes spouses, so when both parents are collapsed,
+        // (getDescendantIds includes spouses, so when both parents are collapsed,
         // each marks the other as a "descendant" → both get hidden. Fix: un-hide them.)
         for (const h of collapsedBranches) {
             hidden.delete(h);
         }
         // Cascade: hide people whose ALL parent families have hidden fathers
         // This catches nodes that leaked through (e.g., gen 13 whose gen 12 parents are hidden)
-        const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
+        const familyMap = new Map(treeData.families.map(f => [f.id, f]));
         let changed = true;
         while (changed) {
             changed = false;
             for (const p of treeData.people) {
-                if (hidden.has(p.handle)) continue;
-                if (collapsedBranches.has(p.handle)) continue; // collapsed persons stay visible
-                if (p.parentFamilies.length === 0) continue;
+                if (hidden.has(p.id)) continue;
+                if (collapsedBranches.has(p.id)) continue; // collapsed persons stay visible
+                if (p.parentFamilyIds.length === 0) continue;
                 // Check if ALL parent families have their father/mother hidden
-                const allParentsHidden = p.parentFamilies.every(pfId => {
+                const allParentsHidden = p.parentFamilyIds.every(pfId => {
                     const pf = familyMap.get(pfId);
                     if (!pf) return true; // orphan family = treat as hidden
-                    const fatherHidden = pf.fatherHandle ? hidden.has(pf.fatherHandle) : true;
-                    const motherHidden = pf.motherHandle ? hidden.has(pf.motherHandle) : true;
+                    const fatherHidden = pf.fatherId ? hidden.has(pf.fatherId) : true;
+                    const motherHidden = pf.motherId ? hidden.has(pf.motherId) : true;
                     return fatherHidden && motherHidden;
                 });
                 if (allParentsHidden) {
-                    hidden.add(p.handle);
+                    hidden.add(p.id);
                     changed = true;
                 }
             }
         }
         return hidden;
-    }, [collapsedBranches, getDescendantHandles, treeData]);
+    }, [collapsedBranches, getDescendantIds, treeData]);
 
     // F4: Branch summaries for collapsed branches
     const branchSummaries = useMemo(() => {
@@ -441,7 +441,7 @@ export default function TreeViewPage() {
     const toggleCollapse = useCallback((handle: string) => {
         if (!treeData) return;
         const parentFamiliesMap = buildParentToFamiliesMap(treeData.families);
-        const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
+        const familyMap = new Map(treeData.families.map(f => [f.id, f]));
         setCollapsedBranches(prev => {
             const next = new Set(prev);
             if (next.has(handle)) {
@@ -451,11 +451,11 @@ export default function TreeViewPage() {
                 for (const fId of (parentFamiliesMap.get(handle) || [])) {
                     const fam = familyMap.get(fId);
                     if (!fam) continue;
-                    for (const ch of fam.children) {
+                    for (const ch of fam.childIds) {
                         // Check if child has their own children (using families table)
                         const childHasChildren = (parentFamiliesMap.get(ch) || []).some(cfId => {
                             const cf = familyMap.get(cfId);
-                            return cf && cf.children.length > 0;
+                            return cf && cf.childIds.length > 0;
                         });
                         if (childHasChildren) {
                             next.add(ch);
@@ -478,9 +478,9 @@ export default function TreeViewPage() {
         if (!treeData) return;
         const allParents = new Set<string>();
         for (const f of treeData.families) {
-            if (f.children.length > 0) {
-                if (f.fatherHandle) allParents.add(f.fatherHandle);
-                if (f.motherHandle) allParents.add(f.motherHandle);
+            if (f.childIds.length > 0) {
+                if (f.fatherId) allParents.add(f.fatherId);
+                if (f.motherId) allParents.add(f.motherId);
             }
         }
         setCollapsedBranches(allParents);
@@ -492,12 +492,12 @@ export default function TreeViewPage() {
         const gens = computePersonGenerations(treeData.people, treeData.families);
         const toCollapse = new Set<string>();
         for (const f of treeData.families) {
-            if (f.children.length === 0) continue;
-            const parentHandle = f.fatherHandle || f.motherHandle;
-            if (!parentHandle) continue;
-            const gen = gens.get(parentHandle);
+            if (f.childIds.length === 0) continue;
+            const parentId = f.fatherId || f.motherId;
+            if (!parentId) continue;
+            const gen = gens.get(parentId);
             if (gen !== undefined && gen >= AUTO_COLLAPSE_GEN) {
-                toCollapse.add(parentHandle);
+                toCollapse.add(parentId);
             }
         }
         setCollapsedBranches(toCollapse);
@@ -507,7 +507,7 @@ export default function TreeViewPage() {
     const autoCollapseForDescendant = useCallback((person: string) => {
         if (!treeData) return;
         const parentFamiliesMap = buildParentToFamiliesMap(treeData.families);
-        const familyMap = new Map(treeData.families.map(f => [f.handle, f]));
+        const familyMap = new Map(treeData.families.map(f => [f.id, f]));
         const toCollapse = new Set<string>();
         // BFS from person to compute relative depth
         const depthMap = new Map<string, number>();
@@ -518,11 +518,11 @@ export default function TreeViewPage() {
             const depth = depthMap.get(h)!;
             for (const fId of (parentFamiliesMap.get(h) || [])) {
                 const fam = familyMap.get(fId);
-                if (!fam || fam.children.length === 0) continue;
+                if (!fam || fam.childIds.length === 0) continue;
                 if (depth >= AUTO_COLLAPSE_GEN) {
                     toCollapse.add(h);
                 } else {
-                    for (const ch of fam.children) {
+                    for (const ch of fam.childIds) {
                         if (!depthMap.has(ch)) {
                             depthMap.set(ch, depth + 1);
                             queue.push(ch);
@@ -541,21 +541,21 @@ export default function TreeViewPage() {
             ? { people: (displayData as any).filteredPeople, families: (displayData as any).filteredFamilies }
             : displayData;
         // F4: Filter out hidden handles
-        const visiblePeople = d.people.filter((p: TreeNode) => !hiddenHandles.has(p.handle));
+        const visiblePeople = d.people.filter((p: TreeNode) => !hiddenIds.has(p.id));
         const visibleFamilies = d.families.filter((f: TreeFamily) => {
             // Keep family only if NOT all parents are hidden
-            const fatherHidden = f.fatherHandle ? hiddenHandles.has(f.fatherHandle) : true;
-            const motherHidden = f.motherHandle ? hiddenHandles.has(f.motherHandle) : true;
+            const fatherHidden = f.fatherId ? hiddenIds.has(f.fatherId) : true;
+            const motherHidden = f.motherId ? hiddenIds.has(f.motherId) : true;
             return !(fatherHidden && motherHidden);
         });
         return computeLayout(visiblePeople, visibleFamilies);
-    }, [displayData, hiddenHandles]);
+    }, [displayData, hiddenIds]);
 
     // F4: Check if a person has children (for showing toggle button)
     const hasChildren = useCallback((handle: string): boolean => {
         if (!treeData) return false;
         return treeData.families.some(f =>
-            (f.fatherHandle === handle || f.motherHandle === handle) && f.children.length > 0
+            (f.fatherId === handle || f.motherId === handle) && f.childIds.length > 0
         );
     }, [treeData]);
 
@@ -600,7 +600,7 @@ export default function TreeViewPage() {
         );
     }, [layout, transform]);
 
-    const visibleHandles = useMemo(() => new Set(visibleNodes.map(n => n.node.handle)), [visibleNodes]);
+    const visibleIds = useMemo(() => new Set(visibleNodes.map(n => n.node.id)), [visibleNodes]);
 
     // Batched SVG paths for connections
     const { parentPaths, couplePaths, visibleCouples } = useMemo(() => {
@@ -634,15 +634,15 @@ export default function TreeViewPage() {
         }
         // Visible couples for hearts
         for (const c of layout.couples) {
-            if (visibleHandles.has(c.fatherPos?.node.handle ?? '') || visibleHandles.has(c.motherPos?.node.handle ?? '')) {
+            if (visibleIds.has(c.fatherPos?.node.id ?? '') || visibleIds.has(c.motherPos?.node.id ?? '')) {
                 vc.push(c);
             }
         }
         return { parentPaths: pp, couplePaths: cp, visibleCouples: vc };
-    }, [layout, transform, visibleHandles]);
+    }, [layout, transform, visibleIds]);
 
     // Stable callbacks for PersonCard
-    const handleCardHover = useCallback((h: string | null) => setHoveredHandle(h), []);
+    const handleCardHover = useCallback((h: string | null) => setHoveredId(h), []);
     const handleCardClick = useCallback((handle: string, x: number, y: number) => {
         if (editorMode) {
             setSelectedCard(handle);
@@ -663,7 +663,7 @@ export default function TreeViewPage() {
             });
             return;
         }
-        setContextMenu({ handle, x, y });
+        setContextMenu({ id: handle, x, y });
     }, [editorMode, kinshipMode]);
     const handleCardFocus = useCallback((handle: string) => {
         setFocusPerson(handle);
@@ -671,46 +671,46 @@ export default function TreeViewPage() {
 
     // === Handle generators (shared between EditorPanel and QuickAddDialog) ===
     // Handle format: Dxx-yyy (patrilineal child), S_Dxx-yyy (spouse)
-    const nextChildHandle = useCallback((generation: number) => {
+    const nextChildId = useCallback((generation: number) => {
         if (!treeData) return `D${String(generation).padStart(2, '0')}-001`;
         const genStr = String(generation).padStart(2, '0');
         const prefix = `D${genStr}-`;
         const maxIdx = treeData.people
-            .filter(p => p.handle.startsWith(prefix))
+            .filter(p => p.id.startsWith(prefix))
             .reduce((max, p) => {
-                const idx = parseInt(p.handle.replace(prefix, '')) || 0;
+                const idx = parseInt(p.id.replace(prefix, '')) || 0;
                 return Math.max(max, idx);
             }, 0);
         return `${prefix}${String(maxIdx + 1).padStart(3, '0')}`;
     }, [treeData]);
 
-    const nextSpouseHandle = useCallback((contextPersonHandle: string) => {
+    const nextSpouseId = useCallback((contextPersonHandle: string) => {
         // Strip any existing S_ prefix to get the patrilineal base handle
         const baseHandle = contextPersonHandle.replace(/^S_/, '');
         const candidate = `S_${baseHandle}`;
         if (!treeData) return candidate;
         // Check if this handle already exists
-        if (!treeData.people.some(p => p.handle === candidate)) {
+        if (!treeData.people.some(p => p.id === candidate)) {
             return candidate;
         }
         // Handle already exists → append suffix _2, _3, etc.
         let suffix = 2;
-        while (treeData.people.some(p => p.handle === `${candidate}_${suffix}`)) {
+        while (treeData.people.some(p => p.id === `${candidate}_${suffix}`)) {
             suffix++;
         }
         return `${candidate}_${suffix}`;
     }, [treeData]);
 
-    // Legacy nextHandle for EditorPanel compatibility (generates Dxx-yyy for given gen)
-    const nextHandle = useCallback((generation?: number) => {
+    // Legacy nextId for EditorPanel compatibility (generates Dxx-yyy for given gen)
+    const nextId = useCallback((generation?: number) => {
         const gen = generation ?? 1;
-        return nextChildHandle(gen);
-    }, [nextChildHandle]);
+        return nextChildId(gen);
+    }, [nextChildId]);
 
-    const nextFamilyHandle = useCallback(() => {
+    const nextFamilyId = useCallback(() => {
         if (!treeData) return 'F001';
         const maxNum = treeData.families.reduce((max, f) => {
-            const num = parseInt(f.handle.replace(/\D/g, '')) || 0;
+            const num = parseInt(f.id.replace(/\D/g, '')) || 0;
             return Math.max(max, num);
         }, 0);
         return `F${String(maxNum + 1).padStart(3, '0')}`;
@@ -718,8 +718,8 @@ export default function TreeViewPage() {
 
     // === Quick add person handler (from context menu) ===
     const handleQuickAddPerson = useCallback(async (newPerson: {
-        handle: string; displayName: string; gender: number; generation: number;
-        birthYear?: number; parentFamilyHandle?: string;
+        id: string; displayName: string; gender: number; generation: number;
+        birthYear?: number; parentFamilyId?: string;
         // Extended fields
         nickName?: string; birthDate?: string; phone?: string;
         currentAddress?: string; education?: string; occupation?: string;
@@ -728,7 +728,7 @@ export default function TreeViewPage() {
     }, contextPerson: TreeNode) => {
         if (!treeData) return;
         const treeNode: TreeNode = {
-            handle: newPerson.handle,
+            id: newPerson.id,
             displayName: newPerson.displayName,
             gender: newPerson.gender,
             generation: newPerson.generation,
@@ -738,10 +738,10 @@ export default function TreeViewPage() {
             // Children inherit patrilineal from lineage (not gender);
             // spouses are always non-patrilineal (overridden below)
             isPatrilineal: newPerson.generation !== contextPerson.generation
-                ? (contextPerson.isPatrilineal || !contextPerson.handle.startsWith('S_'))
+                ? (contextPerson.isPatrilineal || !contextPerson.id.startsWith('S_'))
                 : false,
-            families: [],
-            parentFamilies: newPerson.parentFamilyHandle ? [newPerson.parentFamilyHandle] : [],
+            familyIds: [],
+            parentFamilyIds: newPerson.parentFamilyId ? [newPerson.parentFamilyId] : [],
         };
 
         setTreeData(prev => {
@@ -749,27 +749,27 @@ export default function TreeViewPage() {
             let newPeople = [...prev.people, treeNode];
             let newFamilies = [...prev.families];
 
-            if (newPerson.parentFamilyHandle) {
-                const existingFamily = newFamilies.find(f => f.handle === newPerson.parentFamilyHandle);
+            if (newPerson.parentFamilyId) {
+                const existingFamily = newFamilies.find(f => f.id === newPerson.parentFamilyId);
                 if (existingFamily) {
                     if (newPerson.generation === contextPerson.generation) {
                         // Adding spouse
-                        if (newPerson.gender === 2 && !existingFamily.motherHandle) {
-                            newFamilies = newFamilies.map(f => f.handle === newPerson.parentFamilyHandle ? { ...f, motherHandle: newPerson.handle } : f);
-                            treeNode.families = [newPerson.parentFamilyHandle!];
-                            treeNode.parentFamilies = [];
+                        if (newPerson.gender === 2 && !existingFamily.motherId) {
+                            newFamilies = newFamilies.map(f => f.id === newPerson.parentFamilyId ? { ...f, motherId: newPerson.id } : f);
+                            treeNode.familyIds = [newPerson.parentFamilyId!];
+                            treeNode.parentFamilyIds = [];
                             treeNode.isPatrilineal = false;
-                        } else if (newPerson.gender === 1 && !existingFamily.fatherHandle) {
-                            newFamilies = newFamilies.map(f => f.handle === newPerson.parentFamilyHandle ? { ...f, fatherHandle: newPerson.handle } : f);
-                            treeNode.families = [newPerson.parentFamilyHandle!];
-                            treeNode.parentFamilies = [];
+                        } else if (newPerson.gender === 1 && !existingFamily.fatherId) {
+                            newFamilies = newFamilies.map(f => f.id === newPerson.parentFamilyId ? { ...f, fatherId: newPerson.id } : f);
+                            treeNode.familyIds = [newPerson.parentFamilyId!];
+                            treeNode.parentFamilyIds = [];
                             treeNode.isPatrilineal = false;
                         }
                     } else {
                         // Adding child
                         newFamilies = newFamilies.map(f =>
-                            f.handle === newPerson.parentFamilyHandle
-                                ? { ...f, children: [...f.children, newPerson.handle] }
+                            f.id === newPerson.parentFamilyId
+                                ? { ...f, childIds: [...f.childIds, newPerson.id] }
                                 : f
                         );
                     }
@@ -778,34 +778,34 @@ export default function TreeViewPage() {
                     if (newPerson.generation === contextPerson.generation) {
                         // Spouse — new family
                         const newFamily: TreeFamily = {
-                            handle: newPerson.parentFamilyHandle,
-                            fatherHandle: contextPerson.gender === 1 ? contextPerson.handle : newPerson.handle,
-                            motherHandle: contextPerson.gender === 2 ? contextPerson.handle : newPerson.handle,
-                            children: [],
+                            id: newPerson.parentFamilyId,
+                            fatherId: contextPerson.gender === 1 ? contextPerson.id : newPerson.id,
+                            motherId: contextPerson.gender === 2 ? contextPerson.id : newPerson.id,
+                            childIds: [],
                         };
                         newFamilies.push(newFamily);
                         // Immutable update: create new object for contextPerson
                         newPeople = newPeople.map(p =>
-                            p.handle === contextPerson.handle
-                                ? { ...p, families: [...(p.families || []), newPerson.parentFamilyHandle!] }
+                            p.id === contextPerson.id
+                                ? { ...p, familyIds: [...(p.familyIds || []), newPerson.parentFamilyId!] }
                                 : p
                         );
-                        treeNode.families = [newPerson.parentFamilyHandle!];
-                        treeNode.parentFamilies = [];
+                        treeNode.familyIds = [newPerson.parentFamilyId!];
+                        treeNode.parentFamilyIds = [];
                         treeNode.isPatrilineal = false;
                     } else {
                         // Child — new family
                         const newFamily: TreeFamily = {
-                            handle: newPerson.parentFamilyHandle,
-                            fatherHandle: contextPerson.gender === 1 ? contextPerson.handle : undefined,
-                            motherHandle: contextPerson.gender === 2 ? contextPerson.handle : undefined,
-                            children: [newPerson.handle],
+                            id: newPerson.parentFamilyId,
+                            fatherId: contextPerson.gender === 1 ? contextPerson.id : undefined,
+                            motherId: contextPerson.gender === 2 ? contextPerson.id : undefined,
+                            childIds: [newPerson.id],
                         };
                         newFamilies.push(newFamily);
                         // Immutable update: create new object for contextPerson
                         newPeople = newPeople.map(p =>
-                            p.handle === contextPerson.handle
-                                ? { ...p, families: [...(p.families || []), newPerson.parentFamilyHandle!] }
+                            p.id === contextPerson.id
+                                ? { ...p, familyIds: [...(p.familyIds || []), newPerson.parentFamilyId!] }
                                 : p
                         );
                     }
@@ -817,15 +817,15 @@ export default function TreeViewPage() {
 
         // Persist to Supabase (with all extended fields)
         await supaAddPerson({
-            handle: treeNode.handle,
+            id: treeNode.id,
             displayName: treeNode.displayName,
             gender: treeNode.gender,
             generation: treeNode.generation,
             birthYear: treeNode.birthYear,
             isLiving: newPerson.isLiving ?? true,
             isPatrilineal: treeNode.isPatrilineal,
-            families: treeNode.families,
-            parentFamilies: treeNode.parentFamilies,
+            familyIds: treeNode.familyIds,
+            parentFamilyIds: treeNode.parentFamilyIds,
             nickName: newPerson.nickName || null,
             birthDate: newPerson.birthDate || null,
             phone: newPerson.phone || null,
@@ -840,32 +840,32 @@ export default function TreeViewPage() {
         });
 
         // Persist new family if created
-        if (newPerson.parentFamilyHandle) {
-            const existingFamily = treeData.families.find(f => f.handle === newPerson.parentFamilyHandle);
+        if (newPerson.parentFamilyId) {
+            const existingFamily = treeData.families.find(f => f.id === newPerson.parentFamilyId);
             if (!existingFamily) {
                 if (newPerson.generation === contextPerson.generation) {
                     await supaAddFamily({
-                        handle: newPerson.parentFamilyHandle,
-                        fatherHandle: contextPerson.gender === 1 ? contextPerson.handle : newPerson.handle,
-                        motherHandle: contextPerson.gender === 2 ? contextPerson.handle : newPerson.handle,
-                        children: [],
+                        id: newPerson.parentFamilyId,
+                        fatherId: contextPerson.gender === 1 ? contextPerson.id : newPerson.id,
+                        motherId: contextPerson.gender === 2 ? contextPerson.id : newPerson.id,
+                        childIds: [],
                     });
                 } else {
                     await supaAddFamily({
-                        handle: newPerson.parentFamilyHandle,
-                        fatherHandle: contextPerson.gender === 1 ? contextPerson.handle : undefined,
-                        motherHandle: contextPerson.gender === 2 ? contextPerson.handle : undefined,
-                        children: [newPerson.handle],
+                        id: newPerson.parentFamilyId,
+                        fatherId: contextPerson.gender === 1 ? contextPerson.id : undefined,
+                        motherId: contextPerson.gender === 2 ? contextPerson.id : undefined,
+                        childIds: [newPerson.id],
                     });
                 }
                 // Persist parent's updated families to Supabase (fixes collapse bug after reload)
                 await supaUpdatePersonFamilies(
-                    contextPerson.handle,
-                    [...(contextPerson.families || []), newPerson.parentFamilyHandle],
+                    contextPerson.id,
+                    [...(contextPerson.familyIds || []), newPerson.parentFamilyId],
                 );
             } else {
                 if (newPerson.generation !== contextPerson.generation) {
-                    await supaUpdateFamilyChildren(newPerson.parentFamilyHandle, [...existingFamily.children, newPerson.handle]);
+                    await supaUpdateFamilyChildren(newPerson.parentFamilyId, [...existingFamily.childIds, newPerson.id]);
                 }
             }
         }
@@ -874,7 +874,7 @@ export default function TreeViewPage() {
     // === Drag-and-drop handlers (editor mode) ===
     const handleCardDragStart = useCallback((handle: string, clientX: number, clientY: number) => {
         if (!editorMode) return;
-        setDragState({ handle, startX: clientX, startY: clientY, currentX: clientX, currentY: clientY });
+        setDragState({ id: handle, startX: clientX, startY: clientY, currentX: clientX, currentY: clientY });
     }, [editorMode]);
 
     const handleCardDragMove = useCallback((clientX: number, clientY: number) => {
@@ -887,9 +887,9 @@ export default function TreeViewPage() {
         const my = (clientY - rect.top - transform.y) / transform.scale;
         let found: string | null = null;
         for (const n of layout.nodes) {
-            if (n.node.handle === dragState.handle) continue;
+            if (n.node.id === dragState.id) continue;
             if (mx >= n.x && mx <= n.x + CARD_W && my >= n.y && my <= n.y + CARD_H) {
-                found = n.node.handle;
+                found = n.node.id;
                 break;
             }
         }
@@ -902,8 +902,8 @@ export default function TreeViewPage() {
             setDropTarget(null);
             return;
         }
-        const draggedPerson = treeData.people.find(p => p.handle === dragState.handle);
-        const targetPerson = treeData.people.find(p => p.handle === dropTarget);
+        const draggedPerson = treeData.people.find(p => p.id === dragState.id);
+        const targetPerson = treeData.people.find(p => p.id === dropTarget);
         if (!draggedPerson || !targetPerson) {
             setDragState(null);
             setDropTarget(null);
@@ -911,7 +911,7 @@ export default function TreeViewPage() {
         }
 
         // Find family where dragged person is a child
-        const fromFamily = treeData.families.find(f => f.children.includes(dragState.handle));
+        const fromFamily = treeData.families.find(f => f.childIds.includes(dragState.id));
         if (!fromFamily) {
             setDragState(null);
             setDropTarget(null);
@@ -920,19 +920,19 @@ export default function TreeViewPage() {
 
         // Find or create family where target person is a parent
         let toFamily = treeData.families.find(f =>
-            f.fatherHandle === dropTarget || f.motherHandle === dropTarget
+            f.fatherId === dropTarget || f.motherId === dropTarget
         );
 
-        if (toFamily && toFamily.handle !== fromFamily.handle) {
+        if (toFamily && toFamily.id !== fromFamily.id) {
             // Move child from one family to another
             setTreeData(prev => {
                 if (!prev) return null;
                 const families = prev.families.map(f => {
-                    if (f.handle === fromFamily.handle) return { ...f, children: f.children.filter(c => c !== dragState.handle) };
-                    if (f.handle === toFamily!.handle) return { ...f, children: [...f.children, dragState.handle] };
+                    if (f.id === fromFamily.id) return { ...f, childIds: f.childIds.filter(c => c !== dragState.id) };
+                    if (f.id === toFamily!.id) return { ...f, childIds: [...f.childIds, dragState.id] };
                     return f;
                 });
-                supaMoveChild(dragState.handle, fromFamily.handle, toFamily!.handle, prev.families);
+                supaMoveChild(dragState.id, fromFamily.id, toFamily!.id, prev.families);
                 return { ...prev, families };
             });
         }
@@ -943,9 +943,9 @@ export default function TreeViewPage() {
 
     // Search highlight
     useEffect(() => {
-        if (!searchQuery || !treeData) { setHighlightHandles(new Set()); return; }
+        if (!searchQuery || !treeData) { setHighlightIds(new Set()); return; }
         const q = searchQuery.toLowerCase();
-        setHighlightHandles(new Set(treeData.people.filter(p => p.displayName.toLowerCase().includes(q)).map(p => p.handle)));
+        setHighlightIds(new Set(treeData.people.filter(p => p.displayName.toLowerCase().includes(q)).map(p => p.id)));
     }, [searchQuery, treeData]);
 
     // Fit all
@@ -980,7 +980,7 @@ export default function TreeViewPage() {
             const vh = viewportRef.current.clientHeight;
             // If a specific person was requested via URL (?focus= or ?person=), center on them
             const urlFocus = initialFocusFromUrl.current;
-            const focusNode = urlFocus ? layout.nodes.find(n => n.node.handle === urlFocus) : null;
+            const focusNode = urlFocus ? layout.nodes.find(n => n.node.id === urlFocus) : null;
             if (focusNode) {
                 // For descendant view: use smart zoom (fitAll if small, center on person if large)
                 if (urlView === 'descendant') {
@@ -1016,7 +1016,7 @@ export default function TreeViewPage() {
                 return;
             }
             // Default: center on cụ Khoan Giản (the branch root) or the earliest patrilineal ancestor
-            const khoanGian = layout.nodes.find(n => n.node.handle === 'D10-003');
+            const khoanGian = layout.nodes.find(n => n.node.id === 'D10-003');
             const rootNode = khoanGian || layout.nodes
                 .filter(n => n.node.isPatrilineal)
                 .sort((a, b) => a.node.generation - b.node.generation)[0];
@@ -1139,7 +1139,7 @@ export default function TreeViewPage() {
     // Pan to person
     const panToPerson = useCallback((handle: string) => {
         if (!layout || !viewportRef.current) return;
-        const node = layout.nodes.find(n => n.node.handle === handle);
+        const node = layout.nodes.find(n => n.node.id === handle);
         if (!node) return;
         const vw = viewportRef.current.clientWidth;
         const vh = viewportRef.current.clientHeight;
@@ -1174,7 +1174,7 @@ export default function TreeViewPage() {
                 } else {
                     const patrilineals = treeData.people.filter(p => p.isPatrilineal);
                     const latestPatrilineal = patrilineals.sort((a, b) => b.generation - a.generation)[0];
-                    person = latestPatrilineal?.handle || focusPerson || treeData.people[0]?.handle || null;
+                    person = latestPatrilineal?.id || focusPerson || treeData.people[0]?.id || null;
                 }
                 if (person) {
                     setFocusPerson(person);
@@ -1185,8 +1185,8 @@ export default function TreeViewPage() {
                     const toCollapse = new Set<string>();
                     for (const p of filteredPeople) {
                         // Collapse everyone except the focus person (last generation)
-                        if (p.handle !== person) {
-                            toCollapse.add(p.handle);
+                        if (p.id !== person) {
+                            toCollapse.add(p.id);
                         }
                     }
                     setCollapsedBranches(toCollapse);
@@ -1194,7 +1194,7 @@ export default function TreeViewPage() {
                 }
             }
         } else if (mode === 'descendant') {
-            const person = targetPerson || focusPerson || treeData?.people[0]?.handle;
+            const person = targetPerson || focusPerson || treeData?.people[0]?.id;
             if (person) {
                 setFocusPerson(person);
                 setViewMode('descendant');
@@ -1217,7 +1217,7 @@ export default function TreeViewPage() {
         if (!pendingCenterPerson.current || !layout || !viewportRef.current) return;
         const handle = pendingCenterPerson.current;
         pendingCenterPerson.current = null;
-        const node = layout.nodes.find(n => n.node.handle === handle);
+        const node = layout.nodes.find(n => n.node.id === handle);
         if (!node) { setTimeout(() => fitAll(), 50); return; } // fallback
         const vw = viewportRef.current.clientWidth;
         const vh = viewportRef.current.clientHeight;
@@ -1278,7 +1278,7 @@ export default function TreeViewPage() {
                         {viewMode !== 'full' && focusPerson && (
                             <span className="ml-1 text-blue-500">
                                 • {viewMode === 'ancestor' ? 'Tổ tiên' : 'Hậu duệ'} của{' '}
-                                {treeData?.people.find(p => p.handle === focusPerson)?.displayName}
+                                {treeData?.people.find(p => p.id === focusPerson)?.displayName}
                             </span>
                         )}
                     </p>
@@ -1312,8 +1312,8 @@ export default function TreeViewPage() {
                             <Card className="absolute z-50 w-56 right-0 top-10 shadow-lg">
                                 <CardContent className="p-1 max-h-52 overflow-y-auto">
                                     {searchResults.map(p => (
-                                        <button key={p.handle} onClick={() => {
-                                            changeViewMode('descendant', p.handle);
+                                        <button key={p.id} onClick={() => {
+                                            changeViewMode('descendant', p.id);
                                             setShowSearch(false);
                                             setSearchQuery('');
                                         }}
@@ -1384,7 +1384,7 @@ export default function TreeViewPage() {
                                 {couplePaths && <path d={couplePaths} stroke="#cbd5e1" strokeWidth={1.5} fill="none" strokeDasharray="4,3" />}
                                 {/* Couple hearts — only visible */}
                                 {visibleCouples.map(c => (
-                                    <text key={c.familyHandle}
+                                    <text key={c.familyId}
                                         x={c.midX} y={c.y + CARD_H / 2 + 4}
                                         textAnchor="middle" fontSize="10" fill="#e11d48">❤</text>
                                 ))}
@@ -1392,18 +1392,18 @@ export default function TreeViewPage() {
 
                             {/* DOM nodes — only visible (culled) */}
                             {visibleNodes.map(item => (
-                                <MemoPersonCard key={item.node.handle} item={item}
-                                    isHighlighted={highlightHandles.has(item.node.handle)}
-                                    isFocused={focusPerson === item.node.handle}
-                                    isHovered={hoveredHandle === item.node.handle}
-                                    isSelected={editorMode && selectedCard === item.node.handle}
-                                    isKinshipA={kinshipSelected.includes(item.node.handle)}
-                                    isKinshipPath={kinshipResult ? kinshipResult.path.some(s => s.personHandle === item.node.handle) : false}
+                                <MemoPersonCard key={item.node.id} item={item}
+                                    isHighlighted={highlightIds.has(item.node.id)}
+                                    isFocused={focusPerson === item.node.id}
+                                    isHovered={hoveredId === item.node.id}
+                                    isSelected={editorMode && selectedCard === item.node.id}
+                                    isKinshipA={kinshipSelected.includes(item.node.id)}
+                                    isKinshipPath={kinshipResult ? kinshipResult.path.some(s => s.personId === item.node.id) : false}
                                     zoomLevel={zoomLevel}
-                                    showCollapseToggle={hasChildren(item.node.handle)}
-                                    isCollapsed={collapsedBranches.has(item.node.handle)}
-                                    isDragging={dragState?.handle === item.node.handle}
-                                    isDropTarget={dropTarget === item.node.handle}
+                                    showCollapseToggle={hasChildren(item.node.id)}
+                                    isCollapsed={collapsedBranches.has(item.node.id)}
+                                    isDragging={dragState?.id === item.node.id}
+                                    isDropTarget={dropTarget === item.node.id}
                                     editorMode={editorMode}
                                     kinshipMode={kinshipMode}
                                     onHover={handleCardHover}
@@ -1416,7 +1416,7 @@ export default function TreeViewPage() {
 
                             {/* F4: Branch summary cards for collapsed nodes */}
                             {Array.from(branchSummaries.entries()).map(([handle, summary]) => {
-                                const parentNode = layout.nodes.find(n => n.node.handle === handle);
+                                const parentNode = layout.nodes.find(n => n.node.id === handle);
                                 if (!parentNode) return null;
                                 return (
                                     <BranchSummaryCard
@@ -1431,7 +1431,7 @@ export default function TreeViewPage() {
 
                             {/* Drag ghost card */}
                             {dragState && (() => {
-                                const draggedNode = layout?.nodes.find(n => n.node.handle === dragState.handle);
+                                const draggedNode = layout?.nodes.find(n => n.node.id === dragState.id);
                                 if (!draggedNode || !viewportRef.current) return null;
                                 const rect = viewportRef.current.getBoundingClientRect();
                                 const ghostX = (dragState.currentX - rect.left - transform.x) / transform.scale;
@@ -1453,7 +1453,7 @@ export default function TreeViewPage() {
 
                     {/* Context menu on card — outside transformed container so fixed positioning works */}
                     {contextMenu && !quickAdd && (() => {
-                        const person = treeData?.people.find(p => p.handle === contextMenu.handle);
+                        const person = treeData?.people.find(p => p.id === contextMenu.id);
                         if (!person) return null;
                         return (
                             <CardContextMenu
@@ -1464,15 +1464,15 @@ export default function TreeViewPage() {
                                 isLoggedIn={isLoggedIn}
                                 viewportRef={viewportRef}
                                 transform={transform}
-                                onViewDetail={() => { setDetailPerson(person.handle); setContextMenu(null); }}
-                                onShowDescendants={() => { changeViewMode('descendant', person.handle); setContextMenu(null); }}
-                                onShowAncestors={() => { changeViewMode('ancestor', person.handle); setContextMenu(null); }}
-                                onSetFocus={() => { panToPerson(person.handle); setContextMenu(null); }}
+                                onViewDetail={() => { setDetailPerson(person.id); setContextMenu(null); }}
+                                onShowDescendants={() => { changeViewMode('descendant', person.id); setContextMenu(null); }}
+                                onShowAncestors={() => { changeViewMode('ancestor', person.id); setContextMenu(null); }}
+                                onSetFocus={() => { panToPerson(person.id); setContextMenu(null); }}
                                 onShowFull={() => { setViewMode('full'); setContextMenu(null); }}
-                                onCopyLink={() => { copyTreeLink(person.handle); setContextMenu(null); }}
-                                onContribute={() => { setContributePerson({ handle: person.handle, name: person.displayName }); setContextMenu(null); }}
+                                onCopyLink={() => { copyTreeLink(person.id); setContextMenu(null); }}
+                                onContribute={() => { setContributePerson({ id: person.id, name: person.displayName }); setContextMenu(null); }}
                                 onAddPerson={() => { setQuickAdd({ person, x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
-                                onKinship={() => { setKinshipMode(true); setKinshipSelected([person.handle]); setContextMenu(null); }}
+                                onKinship={() => { setKinshipMode(true); setKinshipSelected([person.id]); setContextMenu(null); }}
                                 onClose={() => setContextMenu(null)}
                             />
                         );
@@ -1491,9 +1491,9 @@ export default function TreeViewPage() {
                                 setQuickAdd(null);
                             }}
                             onClose={() => setQuickAdd(null)}
-                            nextChildHandle={nextChildHandle}
-                            nextSpouseHandle={nextSpouseHandle}
-                            nextFamilyHandle={nextFamilyHandle}
+                            nextChildId={nextChildId}
+                            nextSpouseId={nextSpouseId}
+                            nextFamilyId={nextFamilyId}
                             treeData={treeData}
                         />
                     )}
@@ -1526,7 +1526,7 @@ export default function TreeViewPage() {
                             <select value={focusPerson || ''} onChange={e => setFocusPerson(e.target.value)}
                                 className="border rounded px-1.5 py-0.5 text-xs bg-background max-w-[140px]">
                                 {treeData.people.map(p => (
-                                    <option key={p.handle} value={p.handle}>{p.displayName}</option>
+                                    <option key={p.id} value={p.id}>{p.displayName}</option>
                                 ))}
                             </select>
                         </div>
@@ -1545,39 +1545,39 @@ export default function TreeViewPage() {
                     <EditorPanel
                         selectedCard={selectedCard}
                         treeData={treeData}
-                        onReorderChildren={(familyHandle, newOrder) => {
+                        onReorderChildren={(familyId, newOrder) => {
                             setTreeData(prev => prev ? {
                                 ...prev,
-                                families: prev.families.map(f => f.handle === familyHandle ? { ...f, children: newOrder } : f)
+                                families: prev.families.map(f => f.id === familyId ? { ...f, childIds: newOrder } : f)
                             } : null);
-                            supaUpdateFamilyChildren(familyHandle, newOrder);
+                            supaUpdateFamilyChildren(familyId, newOrder);
                         }}
-                        onMoveChild={(childHandle, fromFamily, toFamily) => {
+                        onMoveChild={(childId, fromFamily, toFamily) => {
                             setTreeData(prev => {
                                 if (!prev) return null;
                                 const families = prev.families.map(f => {
-                                    if (f.handle === fromFamily) return { ...f, children: f.children.filter(c => c !== childHandle) };
-                                    if (f.handle === toFamily) return { ...f, children: [...f.children, childHandle] };
+                                    if (f.id === fromFamily) return { ...f, childIds: f.childIds.filter(c => c !== childId) };
+                                    if (f.id === toFamily) return { ...f, childIds: [...f.childIds, childId] };
                                     return f;
                                 });
-                                supaMoveChild(childHandle, fromFamily, toFamily, prev.families);
+                                supaMoveChild(childId, fromFamily, toFamily, prev.families);
                                 return { ...prev, families };
                             });
                         }}
-                        onRemoveChild={(childHandle, familyHandle) => {
+                        onRemoveChild={(childId, familyId) => {
                             setTreeData(prev => {
                                 if (!prev) return null;
                                 const families = prev.families.map(f =>
-                                    f.handle === familyHandle ? { ...f, children: f.children.filter(c => c !== childHandle) } : f
+                                    f.id === familyId ? { ...f, childIds: f.childIds.filter(c => c !== childId) } : f
                                 );
-                                supaRemoveChild(childHandle, familyHandle, prev.families);
+                                supaRemoveChild(childId, familyId, prev.families);
                                 return { ...prev, families };
                             });
                         }}
                         onToggleLiving={(handle, isLiving) => {
                             setTreeData(prev => prev ? {
                                 ...prev,
-                                people: prev.people.map(p => p.handle === handle ? { ...p, isLiving } : p)
+                                people: prev.people.map(p => p.id === handle ? { ...p, isLiving } : p)
                             } : null);
                             supaUpdatePersonLiving(handle, isLiving);
                         }}
@@ -1586,7 +1586,7 @@ export default function TreeViewPage() {
                                 if (!prev) return null;
                                 return {
                                     ...prev,
-                                    people: prev.people.map(p => p.handle === handle ? { ...p, ...fields } : p)
+                                    people: prev.people.map(p => p.id === handle ? { ...p, ...fields } : p)
                                 };
                             });
                             supaUpdatePerson(handle, fields);
@@ -1594,7 +1594,7 @@ export default function TreeViewPage() {
                         onAddPerson={async (newPerson) => {
                             // Add person to local state + Supabase
                             const treeNode: TreeNode = {
-                                handle: newPerson.handle,
+                                id: newPerson.id,
                                 displayName: newPerson.displayName,
                                 gender: newPerson.gender,
                                 generation: newPerson.generation,
@@ -1602,8 +1602,8 @@ export default function TreeViewPage() {
                                 isLiving: true,
                                 isPrivacyFiltered: false,
                                 isPatrilineal: newPerson.gender === 1,
-                                families: [],
-                                parentFamilies: newPerson.parentFamilyHandle ? [newPerson.parentFamilyHandle] : [],
+                                familyIds: [],
+                                parentFamilyIds: newPerson.parentFamilyId ? [newPerson.parentFamilyId] : [],
                             };
 
                             setTreeData(prev => {
@@ -1611,69 +1611,69 @@ export default function TreeViewPage() {
                                 let newPeople = [...prev.people, treeNode];
                                 let newFamilies = [...prev.families];
 
-                                if (newPerson.parentFamilyHandle) {
-                                    const existingFamily = newFamilies.find(f => f.handle === newPerson.parentFamilyHandle);
+                                if (newPerson.parentFamilyId) {
+                                    const existingFamily = newFamilies.find(f => f.id === newPerson.parentFamilyId);
                                     if (existingFamily) {
                                         // Check if this is a spouse addition (same generation as parent)
                                         const parentInFamily = prev.people.find(p =>
-                                            p.handle === existingFamily.fatherHandle || p.handle === existingFamily.motherHandle
+                                            p.id === existingFamily.fatherId || p.id === existingFamily.motherId
                                         );
                                         if (parentInFamily && newPerson.generation === (parentInFamily as any).generation) {
                                             // Adding spouse
-                                            if (newPerson.gender === 2 && !existingFamily.motherHandle) {
-                                                newFamilies = newFamilies.map(f => f.handle === newPerson.parentFamilyHandle ? { ...f, motherHandle: newPerson.handle } : f);
-                                                treeNode.families = [newPerson.parentFamilyHandle];
-                                                treeNode.parentFamilies = [];
+                                            if (newPerson.gender === 2 && !existingFamily.motherId) {
+                                                newFamilies = newFamilies.map(f => f.id === newPerson.parentFamilyId ? { ...f, motherId: newPerson.id } : f);
+                                                treeNode.familyIds = [newPerson.parentFamilyId];
+                                                treeNode.parentFamilyIds = [];
                                                 treeNode.isPatrilineal = false;
-                                            } else if (newPerson.gender === 1 && !existingFamily.fatherHandle) {
-                                                newFamilies = newFamilies.map(f => f.handle === newPerson.parentFamilyHandle ? { ...f, fatherHandle: newPerson.handle } : f);
-                                                treeNode.families = [newPerson.parentFamilyHandle];
-                                                treeNode.parentFamilies = [];
+                                            } else if (newPerson.gender === 1 && !existingFamily.fatherId) {
+                                                newFamilies = newFamilies.map(f => f.id === newPerson.parentFamilyId ? { ...f, fatherId: newPerson.id } : f);
+                                                treeNode.familyIds = [newPerson.parentFamilyId];
+                                                treeNode.parentFamilyIds = [];
                                                 treeNode.isPatrilineal = false;
                                             }
                                         } else {
                                             // Adding child
                                             newFamilies = newFamilies.map(f =>
-                                                f.handle === newPerson.parentFamilyHandle
-                                                    ? { ...f, children: [...f.children, newPerson.handle] }
+                                                f.id === newPerson.parentFamilyId
+                                                    ? { ...f, childIds: [...f.childIds, newPerson.id] }
                                                     : f
                                             );
                                         }
                                     } else {
                                         // Create new family with selected person as parent
-                                        const selectedPerson = prev.people.find(p => p.handle === selectedCard);
+                                        const selectedPerson = prev.people.find(p => p.id === selectedCard);
                                         if (selectedPerson) {
                                             if (newPerson.generation === selectedPerson.generation) {
                                                 // Spouse - new family
                                                 const newFamily: TreeFamily = {
-                                                    handle: newPerson.parentFamilyHandle,
-                                                    fatherHandle: selectedPerson.gender === 1 ? selectedPerson.handle : newPerson.handle,
-                                                    motherHandle: selectedPerson.gender === 2 ? selectedPerson.handle : newPerson.handle,
-                                                    children: [],
+                                                    id: newPerson.parentFamilyId,
+                                                    fatherId: selectedPerson.gender === 1 ? selectedPerson.id : newPerson.id,
+                                                    motherId: selectedPerson.gender === 2 ? selectedPerson.id : newPerson.id,
+                                                    childIds: [],
                                                 };
                                                 newFamilies.push(newFamily);
                                                 // Immutable update: create new object for selectedPerson
                                                 newPeople = newPeople.map(p =>
-                                                    p.handle === selectedPerson.handle
-                                                        ? { ...p, families: [...(p.families || []), newPerson.parentFamilyHandle!] }
+                                                    p.id === selectedPerson.id
+                                                        ? { ...p, familyIds: [...(p.familyIds || []), newPerson.parentFamilyId!] }
                                                         : p
                                                 );
-                                                treeNode.families = [newPerson.parentFamilyHandle];
-                                                treeNode.parentFamilies = [];
+                                                treeNode.familyIds = [newPerson.parentFamilyId];
+                                                treeNode.parentFamilyIds = [];
                                                 treeNode.isPatrilineal = false;
                                             } else {
                                                 // Child - new family
                                                 const newFamily: TreeFamily = {
-                                                    handle: newPerson.parentFamilyHandle,
-                                                    fatherHandle: selectedPerson.gender === 1 ? selectedPerson.handle : undefined,
-                                                    motherHandle: selectedPerson.gender === 2 ? selectedPerson.handle : undefined,
-                                                    children: [newPerson.handle],
+                                                    id: newPerson.parentFamilyId,
+                                                    fatherId: selectedPerson.gender === 1 ? selectedPerson.id : undefined,
+                                                    motherId: selectedPerson.gender === 2 ? selectedPerson.id : undefined,
+                                                    childIds: [newPerson.id],
                                                 };
                                                 newFamilies.push(newFamily);
                                                 // Immutable update: create new object for selectedPerson
                                                 newPeople = newPeople.map(p =>
-                                                    p.handle === selectedPerson.handle
-                                                        ? { ...p, families: [...(p.families || []), newPerson.parentFamilyHandle!] }
+                                                    p.id === selectedPerson.id
+                                                        ? { ...p, familyIds: [...(p.familyIds || []), newPerson.parentFamilyId!] }
                                                         : p
                                                 );
                                             }
@@ -1686,53 +1686,53 @@ export default function TreeViewPage() {
 
                             // Persist to Supabase
                             await supaAddPerson({
-                                handle: treeNode.handle,
+                                id: treeNode.id,
                                 displayName: treeNode.displayName,
                                 gender: treeNode.gender,
                                 generation: treeNode.generation,
                                 birthYear: treeNode.birthYear,
                                 isLiving: true,
-                                families: treeNode.families,
-                                parentFamilies: treeNode.parentFamilies,
+                                familyIds: treeNode.familyIds,
+                                parentFamilyIds: treeNode.parentFamilyIds,
                             });
 
                             // If we created a new family, persist it too
-                            if (newPerson.parentFamilyHandle) {
-                                const existingFamily = treeData?.families.find(f => f.handle === newPerson.parentFamilyHandle);
+                            if (newPerson.parentFamilyId) {
+                                const existingFamily = treeData?.families.find(f => f.id === newPerson.parentFamilyId);
                                 if (!existingFamily) {
                                     // New family was created - persist it
-                                    const selectedPerson = treeData?.people.find(p => p.handle === selectedCard);
+                                    const selectedPerson = treeData?.people.find(p => p.id === selectedCard);
                                     if (selectedPerson) {
                                         if (newPerson.generation === selectedPerson.generation) {
                                             await supaAddFamily({
-                                                handle: newPerson.parentFamilyHandle,
-                                                fatherHandle: selectedPerson.gender === 1 ? selectedPerson.handle : newPerson.handle,
-                                                motherHandle: selectedPerson.gender === 2 ? selectedPerson.handle : newPerson.handle,
-                                                children: [],
+                                                id: newPerson.parentFamilyId,
+                                                fatherId: selectedPerson.gender === 1 ? selectedPerson.id : newPerson.id,
+                                                motherId: selectedPerson.gender === 2 ? selectedPerson.id : newPerson.id,
+                                                childIds: [],
                                             });
                                         } else {
                                             await supaAddFamily({
-                                                handle: newPerson.parentFamilyHandle,
-                                                fatherHandle: selectedPerson.gender === 1 ? selectedPerson.handle : undefined,
-                                                motherHandle: selectedPerson.gender === 2 ? selectedPerson.handle : undefined,
-                                                children: [newPerson.handle],
+                                                id: newPerson.parentFamilyId,
+                                                fatherId: selectedPerson.gender === 1 ? selectedPerson.id : undefined,
+                                                motherId: selectedPerson.gender === 2 ? selectedPerson.id : undefined,
+                                                childIds: [newPerson.id],
                                             });
                                         }
                                         // Persist parent's updated families to Supabase (fixes collapse bug after reload)
                                         await supaUpdatePersonFamilies(
-                                            selectedPerson.handle,
-                                            [...(selectedPerson.families || []), newPerson.parentFamilyHandle],
+                                            selectedPerson.id,
+                                            [...(selectedPerson.familyIds || []), newPerson.parentFamilyId],
                                         );
                                     }
                                 } else {
                                     // Existing family - update children or spouse
                                     const parentInFamily = treeData?.people.find(p =>
-                                        p.handle === existingFamily.fatherHandle || p.handle === existingFamily.motherHandle
+                                        p.id === existingFamily.fatherId || p.id === existingFamily.motherId
                                     );
                                     if (parentInFamily && newPerson.generation === (parentInFamily as any).generation) {
                                         // Spouse update handled by supabase
                                     } else {
-                                        await supaUpdateFamilyChildren(newPerson.parentFamilyHandle, [...existingFamily.children, newPerson.handle]);
+                                        await supaUpdateFamilyChildren(newPerson.parentFamilyId, [...existingFamily.childIds, newPerson.id]);
                                     }
                                 }
                             }
@@ -1741,13 +1741,13 @@ export default function TreeViewPage() {
                             setTreeData(prev => {
                                 if (!prev) return null;
                                 return {
-                                    people: prev.people.filter(p => p.handle !== handle),
+                                    people: prev.people.filter(p => p.id !== handle),
                                     families: prev.families.map(f => ({
                                         ...f,
-                                        children: f.children.filter(c => c !== handle),
-                                        fatherHandle: f.fatherHandle === handle ? undefined : f.fatherHandle,
-                                        motherHandle: f.motherHandle === handle ? undefined : f.motherHandle,
-                                    })).filter(f => f.fatherHandle || f.motherHandle || f.children.length > 0),
+                                        childIds: f.childIds.filter(c => c !== handle),
+                                        fatherId: f.fatherId === handle ? undefined : f.fatherId,
+                                        motherId: f.motherId === handle ? undefined : f.motherId,
+                                    })).filter(f => f.fatherId || f.motherId || f.childIds.length > 0),
                                 };
                             });
                             setSelectedCard(null);
@@ -1775,7 +1775,7 @@ export default function TreeViewPage() {
             {/* Contribute dialog */}
             {contributePerson && (
                 <ContributeDialog
-                    personHandle={contributePerson.handle}
+                    personId={contributePerson.id}
                     personName={contributePerson.name}
                     onClose={() => setContributePerson(null)}
                 />
@@ -1784,7 +1784,7 @@ export default function TreeViewPage() {
             {/* Person detail panel */}
             {detailPerson && (
                 <PersonDetailPanel
-                    handle={detailPerson}
+                    personId={detailPerson}
                     treeData={treeData}
                     onClose={() => setDetailPerson(null)}
                     onNavigate={(h) => setDetailPerson(h)}
@@ -1794,7 +1794,7 @@ export default function TreeViewPage() {
                             return {
                                 ...prev,
                                 people: prev.people.map(p => {
-                                    if (p.handle !== h) return p;
+                                    if (p.id !== h) return p;
                                     return {
                                         ...p,
                                         ...(fields.displayName !== undefined && { displayName: fields.displayName }),
@@ -1958,24 +1958,24 @@ function MenuAction({ icon, label, desc, onClick }: { icon: React.ReactNode; lab
 }
 
 // === Quick Add Person Dialog (full form from context menu) ===
-function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, onClose, nextChildHandle, nextSpouseHandle, nextFamilyHandle, treeData }: {
+function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, onClose, nextChildId, nextSpouseId, nextFamilyId, treeData }: {
     person: TreeNode;
     x: number;
     y: number;
     viewportRef: React.RefObject<HTMLDivElement | null>;
     transform: { x: number; y: number; scale: number };
     onSubmit: (data: {
-        handle: string; displayName: string; gender: number; generation: number;
-        birthYear?: number; parentFamilyHandle?: string;
+        id: string; displayName: string; gender: number; generation: number;
+        birthYear?: number; parentFamilyId?: string;
         nickName?: string; birthDate?: string; phone?: string;
         currentAddress?: string; education?: string; occupation?: string;
         notes?: string; title?: string; birthOrder?: number;
         maritalStatus?: string; bloodType?: string; isLiving?: boolean;
     }) => void;
     onClose: () => void;
-    nextChildHandle: (generation: number) => string;
-    nextSpouseHandle: (contextPersonHandle: string) => string;
-    nextFamilyHandle: () => string;
+    nextChildId: (generation: number) => string;
+    nextSpouseId: (contextPersonHandle: string) => string;
+    nextFamilyId: () => string;
     treeData: { people: TreeNode[]; families: TreeFamily[] } | null;
 }) {
     const [type, setType] = useState<'child' | 'spouse'>('child');
@@ -2038,15 +2038,15 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
 
         const generation = type === 'child' ? person.generation + 1 : person.generation;
         const handle = type === 'spouse'
-            ? nextSpouseHandle(person.handle)
-            : nextChildHandle(generation);
+            ? nextSpouseId(person.id)
+            : nextChildId(generation);
 
-        let familyHandle: string | undefined;
+        let familyId: string | undefined;
         if (type === 'child') {
-            const existingFamily = treeData.families.find(f => f.fatherHandle === person.handle || f.motherHandle === person.handle);
-            familyHandle = existingFamily?.handle || nextFamilyHandle();
+            const existingFamily = treeData.families.find(f => f.fatherId === person.id || f.motherId === person.id);
+            familyId = existingFamily?.id || nextFamilyId();
         } else {
-            familyHandle = nextFamilyHandle();
+            familyId = nextFamilyId();
         }
 
         // Build birthDate string from day/month/year
@@ -2060,12 +2060,12 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
         }
 
         onSubmit({
-            handle,
+            id: handle,
             displayName: name.trim(),
             gender,
             generation,
             birthYear: birthYear ? parseInt(birthYear) : undefined,
-            parentFamilyHandle: familyHandle,
+            parentFamilyId: familyId,
             nickName: nickName || undefined,
             birthDate,
             phone: phone || undefined,
@@ -2339,9 +2339,9 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
             <div
                 className="absolute group"
                 style={{ left: x + CARD_W / 2 - 6, top: y + CARD_H / 2 - 6, width: 12, height: 12 }}
-                onMouseEnter={() => onHover(node.handle)}
+                onMouseEnter={() => onHover(node.id)}
                 onMouseLeave={() => onHover(null)}
-                onClick={(e) => { e.stopPropagation(); onClick(node.handle, x + CARD_W, y + CARD_H / 2); }}
+                onClick={(e) => { e.stopPropagation(); onClick(node.id, x + CARD_W, y + CARD_H / 2); }}
             >
                 <div className={`w-3 h-3 rounded-full shadow-sm ${isKinshipA ? 'ring-2 ring-emerald-400 ring-offset-1' : ''}`} style={{ backgroundColor: dotColor }} />
                 {isKinshipA && <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-md"><span className="text-white text-[8px] font-bold">✓</span></div>}
@@ -2398,10 +2398,10 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                     ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} hover:shadow-md ${bgClass} ${glowClass}
                     ${isDead && !isDragging ? 'opacity-70' : ''} ${!isPatri && !isDragging ? 'opacity-80' : ''}`}
                 style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
-                onMouseEnter={() => onHover(node.handle)}
+                onMouseEnter={() => onHover(node.id)}
                 onMouseLeave={() => onHover(null)}
-                onClick={(e) => { e.stopPropagation(); onClick(node.handle, x + CARD_W, y + CARD_H / 2); }}
-                onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.handle, e.clientX, e.clientY); } }}
+                onClick={(e) => { e.stopPropagation(); onClick(node.id, x + CARD_W, y + CARD_H / 2); }}
+                onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
             >
                 <div className="px-2 py-1.5 h-full flex items-center gap-2">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center
@@ -2425,7 +2425,7 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                         className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-10 w-5 h-5 rounded-full
                             bg-white border border-slate-300 shadow-sm flex items-center justify-center
                             hover:bg-slate-100 transition-colors"
-                        onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.handle); }}
+                        onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.id); }}
                     >
                         {isCollapsed ? <ChevronRight className="w-3 h-3 text-slate-500" /> : <ChevronDown className="w-3 h-3 text-slate-500" />}
                     </button>
@@ -2441,11 +2441,11 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} hover:shadow-md hover:-translate-y-0.5 ${bgClass} ${glowClass}
                 ${isDead && !isDragging ? 'opacity-70' : ''} ${!isPatri && !isDragging ? 'opacity-80' : ''}`}
             style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
-            onMouseEnter={() => onHover(node.handle)}
+            onMouseEnter={() => onHover(node.id)}
             onMouseLeave={() => onHover(null)}
-            onClick={(e) => { e.stopPropagation(); onClick(node.handle, x + CARD_W, y + CARD_H / 2); }}
-            onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.handle, e.clientX, e.clientY); } }}
-            onContextMenu={(e) => { e.preventDefault(); onSetFocus(node.handle); }}
+            onClick={(e) => { e.stopPropagation(); onClick(node.id, x + CARD_W, y + CARD_H / 2); }}
+            onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
+            onContextMenu={(e) => { e.preventDefault(); onSetFocus(node.id); }}
         >
             <div className="px-2.5 py-2 h-full flex items-center gap-2.5">
                 {/* Avatar */}
@@ -2494,7 +2494,7 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                     className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 w-6 h-6 rounded-full
                         bg-white border border-slate-300 shadow-sm flex items-center justify-center
                         hover:bg-amber-50 hover:border-amber-400 transition-colors"
-                    onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.handle); }}
+                    onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.id); }}
                     title={isCollapsed ? 'Mở rộng nhánh' : 'Thu gọn nhánh'}
                 >
                     {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-amber-600" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
@@ -2688,12 +2688,12 @@ function StatsOverlay({ stats, onClose }: { stats: TreeStats; onClose: () => voi
 function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, onRemoveChild, onToggleLiving, onUpdatePerson, onAddPerson, onDeletePerson, onReset, onClose }: {
     selectedCard: string | null;
     treeData: { people: TreeNode[]; families: TreeFamily[] } | null;
-    onReorderChildren: (familyHandle: string, newOrder: string[]) => void;
-    onMoveChild: (childHandle: string, fromFamily: string, toFamily: string) => void;
-    onRemoveChild: (childHandle: string, familyHandle: string) => void;
+    onReorderChildren: (familyId: string, newOrder: string[]) => void;
+    onMoveChild: (childId: string, fromFamily: string, toFamily: string) => void;
+    onRemoveChild: (childId: string, familyId: string) => void;
     onToggleLiving: (handle: string, isLiving: boolean) => void;
     onUpdatePerson: (handle: string, fields: Record<string, unknown>) => void;
-    onAddPerson: (person: { handle: string; displayName: string; gender: number; generation: number; birthYear?: number; parentFamilyHandle?: string }) => void;
+    onAddPerson: (person: { id: string; displayName: string; gender: number; generation: number; birthYear?: number; parentFamilyId?: string }) => void;
     onDeletePerson: (handle: string) => void;
     onReset: () => void;
     onClose: () => void;
@@ -2723,7 +2723,7 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
 
     if (!treeData) return null;
 
-    const person = selectedCard ? treeData.people.find(p => p.handle === selectedCard) : null;
+    const person = selectedCard ? treeData.people.find(p => p.id === selectedCard) : null;
 
     // Sync local state when selection changes
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -2745,7 +2745,7 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
             setShowAddChild(false);
             setShowAddSpouse(false);
         }
-    }, [person?.handle]);
+    }, [person?.id]);
 
     // Close parent dropdown on outside click
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -2761,30 +2761,30 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
 
     // Find the family where this person is a parent
     const parentFamily = person
-        ? treeData.families.find(f => f.fatherHandle === person.handle || f.motherHandle === person.handle)
+        ? treeData.families.find(f => f.fatherId === person.id || f.motherId === person.id)
         : null;
 
     // Find the family where this person is a child
     const childOfFamily = person
-        ? treeData.families.find(f => f.children.includes(person.handle))
+        ? treeData.families.find(f => f.childIds.includes(person.id))
         : null;
 
     // Get parent person name
     const parentPerson = childOfFamily
-        ? treeData.people.find(p => p.handle === childOfFamily.fatherHandle || p.handle === childOfFamily.motherHandle)
+        ? treeData.people.find(p => p.id === childOfFamily.fatherId || p.id === childOfFamily.motherId)
         : null;
 
     // Children of the selected person's family
     const children = parentFamily
-        ? parentFamily.children.map(ch => treeData.people.find(p => p.handle === ch)).filter(Boolean) as TreeNode[]
+        ? parentFamily.childIds.map(ch => treeData.people.find(p => p.id === ch)).filter(Boolean) as TreeNode[]
         : [];
 
     // All families (for "change parent" dropdown) with labels
-    const allParentFamilies = treeData.families.filter(f => f.fatherHandle || f.motherHandle);
+    const allParentFamilies = treeData.families.filter(f => f.fatherId || f.motherId);
     const parentFamiliesWithLabels = allParentFamilies.map(f => {
-        const father = treeData.people.find(p => p.handle === f.fatherHandle);
+        const father = treeData.people.find(p => p.id === f.fatherId);
         const gen = father ? (father as any).generation : '';
-        const label = father ? father.displayName : f.handle;
+        const label = father ? father.displayName : f.id;
         return { ...f, label, gen };
     });
 
@@ -2792,30 +2792,30 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
     const filteredParentFamilies = parentSearch.trim()
         ? parentFamiliesWithLabels.filter(f =>
             f.label.toLowerCase().includes(parentSearch.toLowerCase()) ||
-            f.handle.toLowerCase().includes(parentSearch.toLowerCase())
+            f.id.toLowerCase().includes(parentSearch.toLowerCase())
         )
         : parentFamiliesWithLabels;
 
     // Generate next handle (Dxx-yyy format for children, S_Dxx-yyy for spouses)
-    const nextChildHandleEditor = (generation: number) => {
+    const nextChildIdEditor = (generation: number) => {
         const genStr = String(generation).padStart(2, '0');
         const prefix = `D${genStr}-`;
         const maxIdx = treeData.people
-            .filter(p => p.handle.startsWith(prefix))
+            .filter(p => p.id.startsWith(prefix))
             .reduce((max, p) => {
-                const idx = parseInt(p.handle.replace(prefix, '')) || 0;
+                const idx = parseInt(p.id.replace(prefix, '')) || 0;
                 return Math.max(max, idx);
             }, 0);
         return `${prefix}${String(maxIdx + 1).padStart(3, '0')}`;
     };
 
-    const nextSpouseHandleEditor = (contextPersonHandle: string) => {
+    const nextSpouseIdEditor = (contextPersonHandle: string) => {
         return `S_${contextPersonHandle}`;
     };
 
-    const nextFamilyHandle = () => {
+    const nextFamilyId = () => {
         const maxNum = treeData.families.reduce((max, f) => {
-            const num = parseInt(f.handle.replace(/\D/g, '')) || 0;
+            const num = parseInt(f.id.replace(/\D/g, '')) || 0;
             return Math.max(max, num);
         }, 0);
         return `F${String(maxNum + 1).padStart(3, '0')}`;
@@ -2837,7 +2837,7 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
         if (editEducation) fields.education = editEducation;
         if (editNotes) fields.notes = editNotes;
         if (Object.keys(fields).length > 0) {
-            onUpdatePerson(person.handle, fields);
+            onUpdatePerson(person.id, fields);
         }
         setDirty(false);
         setSaving(false);
@@ -2846,21 +2846,21 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
     const handleAddChild = () => {
         if (!person || !newChildName.trim()) return;
         const generation = (person as any).generation + 1;
-        const handle = nextChildHandleEditor(generation);
-        let familyHandle = parentFamily?.handle;
+        const handle = nextChildIdEditor(generation);
+        let familyId = parentFamily?.id;
 
         // If person has no family yet, create one
-        if (!familyHandle) {
-            familyHandle = nextFamilyHandle();
+        if (!familyId) {
+            familyId = nextFamilyId();
         }
 
         onAddPerson({
-            handle,
+            id: handle,
             displayName: newChildName.trim(),
             gender: newChildGender,
             generation,
             birthYear: newChildBirthYear ? parseInt(newChildBirthYear) : undefined,
-            parentFamilyHandle: familyHandle,
+            parentFamilyId: familyId,
         });
 
         setNewChildName('');
@@ -2872,16 +2872,16 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
     const handleAddSpouse = () => {
         if (!person || !newSpouseName.trim()) return;
         const generation = (person as any).generation;
-        const handle = nextSpouseHandleEditor(person.handle);
-        const familyHandle = parentFamily?.handle || nextFamilyHandle();
+        const handle = nextSpouseIdEditor(person.id);
+        const familyId = parentFamily?.id || nextFamilyId();
 
         onAddPerson({
-            handle,
+            id: handle,
             displayName: newSpouseName.trim(),
             gender: person.gender === 1 ? 2 : 1, // opposite gender
             generation,
             birthYear: newSpouseBirthYear ? parseInt(newSpouseBirthYear) : undefined,
-            parentFamilyHandle: familyHandle,
+            parentFamilyId: familyId,
         });
 
         setNewSpouseName('');
@@ -2918,12 +2918,12 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                     {/* Editable person info */}
                     <div className="p-3 border-b space-y-2">
                         <div className="flex items-center justify-between">
-                            <p className="text-xs text-muted-foreground">Đời {(person as any).generation ?? '?'} · {person.handle}</p>
+                            <p className="text-xs text-muted-foreground">Đời {(person as any).generation ?? '?'} · {person.id}</p>
                             <button
                                 className="text-[10px] px-1.5 py-0.5 rounded text-red-600 hover:bg-red-50 border border-red-200"
                                 onClick={() => {
                                     if (confirm(`Xóa "${person.displayName}" khỏi gia phả? Hành động này không thể hoàn tác.`)) {
-                                        onDeletePerson(person.handle);
+                                        onDeletePerson(person.id);
                                     }
                                 }}
                             >
@@ -2965,7 +2965,7 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                     : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                     }`}
-                                onClick={() => onToggleLiving(person.handle, !person.isLiving)}
+                                onClick={() => onToggleLiving(person.id, !person.isLiving)}
                             >
                                 {person.isLiving ? '● Còn sống' : '○ Đã mất'}
                             </button>
@@ -3069,7 +3069,7 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                         {children.length > 0 && (
                             <div className="space-y-1">
                                 {children.map((child, idx) => (
-                                    <div key={child.handle} className="flex items-center gap-1 group">
+                                    <div key={child.id} className="flex items-center gap-1 group">
                                         <GripVertical className="h-3 w-3 text-muted-foreground/40" />
                                         <span className={`text-xs mr-0.5 ${child.gender === 1 ? 'text-blue-500' : 'text-pink-500'}`}>{child.gender === 1 ? '♂' : '♀'}</span>
                                         <span className="flex-1 text-xs truncate">{child.displayName}</span>
@@ -3077,9 +3077,9 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                                             {idx > 0 && (
                                                 <button className="p-0.5 rounded hover:bg-muted" title="Lên"
                                                     onClick={() => {
-                                                        const newOrder = [...parentFamily!.children];
+                                                        const newOrder = [...parentFamily!.childIds];
                                                         [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
-                                                        onReorderChildren(parentFamily!.handle, newOrder);
+                                                        onReorderChildren(parentFamily!.id, newOrder);
                                                     }}>
                                                     <ArrowUp className="h-3 w-3" />
                                                 </button>
@@ -3087,9 +3087,9 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                                             {idx < children.length - 1 && (
                                                 <button className="p-0.5 rounded hover:bg-muted" title="Xuống"
                                                     onClick={() => {
-                                                        const newOrder = [...parentFamily!.children];
+                                                        const newOrder = [...parentFamily!.childIds];
                                                         [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
-                                                        onReorderChildren(parentFamily!.handle, newOrder);
+                                                        onReorderChildren(parentFamily!.id, newOrder);
                                                     }}>
                                                     <ArrowDown className="h-3 w-3" />
                                                 </button>
@@ -3097,7 +3097,7 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                                             <button className="p-0.5 rounded hover:bg-red-100 text-red-500" title="Xóa liên kết"
                                                 onClick={() => {
                                                     if (confirm(`Xóa "${child.displayName}" khỏi danh sách con?`)) {
-                                                        onRemoveChild(child.handle, parentFamily!.handle);
+                                                        onRemoveChild(child.id, parentFamily!.id);
                                                     }
                                                 }}>
                                                 <Trash2 className="h-3 w-3" />
@@ -3138,7 +3138,7 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                                 Đổi cha
                             </p>
                             <p className="text-xs text-muted-foreground mb-1">
-                                Hiện tại: <span className="font-medium text-foreground">{parentPerson?.displayName ?? childOfFamily.handle}</span>
+                                Hiện tại: <span className="font-medium text-foreground">{parentPerson?.displayName ?? childOfFamily.id}</span>
                             </p>
                             <div className="relative">
                                 <input
@@ -3155,12 +3155,12 @@ function EditorPanel({ selectedCard, treeData, onReorderChildren, onMoveChild, o
                                             <div className="px-2 py-2 text-xs text-muted-foreground text-center">Không tìm thấy</div>
                                         ) : (
                                             filteredParentFamilies.map(f => {
-                                                const isSelected = f.handle === childOfFamily.handle;
+                                                const isSelected = f.id === childOfFamily.id;
                                                 return (
-                                                    <button key={f.handle}
+                                                    <button key={f.id}
                                                         className={`w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 flex items-center gap-1 transition-colors ${isSelected ? 'bg-blue-100 font-semibold text-blue-700' : ''}`}
                                                         onClick={() => {
-                                                            if (f.handle !== childOfFamily.handle) onMoveChild(person.handle, childOfFamily.handle, f.handle);
+                                                            if (f.id !== childOfFamily.id) onMoveChild(person.id, childOfFamily.id, f.id);
                                                             setShowParentDropdown(false);
                                                             setParentSearch('');
                                                         }}>
@@ -3191,8 +3191,8 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
     onDeselect: (handle: string) => void;
     onClose: () => void;
 }) {
-    const personA = selected[0] ? people.find(p => p.handle === selected[0]) : null;
-    const personB = selected[1] ? people.find(p => p.handle === selected[1]) : null;
+    const personA = selected[0] ? people.find(p => p.id === selected[0]) : null;
+    const personB = selected[1] ? people.find(p => p.id === selected[1]) : null;
 
     return (
         <>
@@ -3278,7 +3278,7 @@ function KinshipOverlay({ selected, result, people, onSwap, onDeselect, onClose 
                                         <p className="text-xs font-semibold text-slate-400 mb-2">Đường đi trong gia phả</p>
                                         <div className="flex flex-wrap items-center gap-1">
                                             {result.path.map((step, i) => (
-                                                <div key={step.personHandle} className="flex items-center gap-1">
+                                                <div key={step.personId} className="flex items-center gap-1">
                                                     <span
                                                         className={`px-2 py-1 rounded-md text-xs font-medium border
                                                             ${i === 0 ? 'bg-blue-100 border-blue-300 text-blue-700' :

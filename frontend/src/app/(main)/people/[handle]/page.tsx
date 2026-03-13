@@ -35,12 +35,12 @@ export default function PersonProfilePage() {
                 const { data, error } = await supabase
                     .from('people')
                     .select('*')
-                    .eq('handle', handle)
+                    .eq('id', handle)
                     .single();
                 if (!error && data) {
                     const row = data as Record<string, unknown>;
                     setPerson({
-                        handle: row.handle as string,
+                        id: row.id as string,
                         displayName: row.display_name as string,
                         gender: row.gender as number,
                         birthYear: row.birth_year as number | undefined,
@@ -53,8 +53,8 @@ export default function PersonProfilePage() {
                         isLiving: row.is_living as boolean,
                         isPrivacyFiltered: row.is_privacy_filtered as boolean,
                         isPatrilineal: row.is_patrilineal as boolean,
-                        families: (row.families as string[]) || [],
-                        parentFamilies: (row.parent_families as string[]) || [],
+                        familyIds: (row.family_ids as string[]) || [],
+                        parentFamilyIds: (row.parent_family_ids as string[]) || [],
                         phone: row.phone as string | undefined,
                         email: row.email as string | undefined,
                         zalo: row.zalo as string | undefined,
@@ -110,7 +110,7 @@ export default function PersonProfilePage() {
             if (v === '' || v === undefined) (cleaned as Record<string, unknown>)[k] = null;
             else (cleaned as Record<string, unknown>)[k] = v;
         }
-        const { error } = await supaUpdatePerson(person.handle, cleaned);
+        const { error } = await supaUpdatePerson(person.id, cleaned);
         if (error) {
             setSaveMsg({ type: 'err', text: `Lỗi: ${error}` });
         } else {
@@ -440,8 +440,8 @@ export default function PersonProfilePage() {
                             <div className="space-y-3">
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground">Gia đình (cha/mẹ)</p>
-                                    {person.parentFamilies && person.parentFamilies.length > 0 ? (
-                                        person.parentFamilies.map((f) => (
+                                    {person.parentFamilyIds && person.parentFamilyIds.length > 0 ? (
+                                        person.parentFamilyIds.map((f) => (
                                             <Badge key={f} variant="outline" className="mr-1">{f}</Badge>
                                         ))
                                     ) : (
@@ -451,8 +451,8 @@ export default function PersonProfilePage() {
                                 <Separator />
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground">Gia đình (vợ/chồng, con)</p>
-                                    {person.families && person.families.length > 0 ? (
-                                        person.families.map((f) => (
+                                    {person.familyIds && person.familyIds.length > 0 ? (
+                                        person.familyIds.map((f) => (
                                             <Badge key={f} variant="outline" className="mr-1">{f}</Badge>
                                         ))
                                     ) : (
@@ -504,7 +504,7 @@ export default function PersonProfilePage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <CommentSection personHandle={handle} />
+                            <CommentSection personId={handle} />
                         </CardContent>
                     </Card>
                 </TabsContent>

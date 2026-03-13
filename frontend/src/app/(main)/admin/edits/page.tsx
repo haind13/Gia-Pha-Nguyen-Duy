@@ -13,7 +13,7 @@ interface Contribution {
     id: string;
     author_id: string;
     author_email: string;
-    person_handle: string;
+    person_id: string;
     person_name: string;
     field_name: string;
     field_label: string;
@@ -123,7 +123,7 @@ export default function AdminEditsPage() {
                                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${statusColors[c.status]}`}>
                                                 {statusLabels[c.status]}
                                             </span>
-                                            <span className="text-xs font-semibold">{c.person_name || c.person_handle}</span>
+                                            <span className="text-xs font-semibold">{c.person_name || c.person_id}</span>
                                             <span className="text-xs text-muted-foreground">→ {c.field_label || c.field_name}</span>
                                         </div>
 

@@ -36,7 +36,7 @@ interface TreeRecord {
     description: string | null;
     slug: string;
     is_default: boolean;
-    root_person_handle: string | null;
+    root_person_id: string | null;
     cover_color: string;
     member_count: number;
     generation_count: number;
@@ -108,7 +108,7 @@ const FALLBACK_TREE: TreeRecord = {
     description: 'Phả đồ tổng hợp toàn bộ dòng họ Nguyễn Duy — nhánh cụ Khoan Giản',
     slug: 'main',
     is_default: true,
-    root_person_handle: null,
+    root_person_id: null,
     cover_color: 'amber',
     member_count: 0,
     generation_count: 16,

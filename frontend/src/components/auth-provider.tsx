@@ -11,7 +11,7 @@ interface Profile {
     email: string;
     display_name: string | null;
     role: UserRole;
-    person_handle: string | null;
+    person_id: string | null;
     avatar_url: string | null;
 }
 

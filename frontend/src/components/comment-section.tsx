@@ -16,10 +16,10 @@ interface Comment {
 }
 
 interface CommentSectionProps {
-    personHandle: string;
+    personId: string;
 }
 
-export function CommentSection({ personHandle }: CommentSectionProps) {
+export function CommentSection({ personId }: CommentSectionProps) {
     const { user, profile, isAdmin, isLoggedIn } = useAuth();
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -30,11 +30,11 @@ export function CommentSection({ personHandle }: CommentSectionProps) {
         const { data } = await supabase
             .from('comments')
             .select('*')
-            .eq('person_handle', personHandle)
+            .eq('person_id', personId)
             .order('created_at', { ascending: true });
         setComments((data as Comment[]) || []);
         setLoading(false);
-    }, [personHandle]);
+    }, [personId]);
 
     useEffect(() => { fetchComments(); }, [fetchComments]);
 
@@ -45,7 +45,7 @@ export function CommentSection({ personHandle }: CommentSectionProps) {
             author_id: user.id,
             author_email: profile?.email || user.email || '',
             author_name: profile?.display_name || user.email?.split('@')[0] || 'Ẩn danh',
-            person_handle: personHandle,
+            person_id: personId,
             content: content.trim(),
         });
         setContent('');

@@ -10,7 +10,7 @@ import type { TreeNode, TreeFamily } from './tree-layout';
 // ═══ Book Data Types ═══
 
 export interface BookPerson {
-    handle: string;
+    id: string;
     name: string;
     gender: number;
     birthYear?: number;
@@ -77,45 +77,45 @@ export function generateBookData(
     families: TreeFamily[],
     familyName: string = 'Nguyễn Duy',
 ): BookData {
-    const personMap = new Map(people.map(p => [p.handle, p]));
-    const familyMap = new Map(families.map(f => [f.handle, f]));
+    const personMap = new Map(people.map(p => [p.id, p]));
+    const familyMap = new Map(families.map(f => [f.id, f]));
 
     // ── Step 1: Assign generations via BFS from roots ──
     const generations = new Map<string, number>();
     const childOfFamily = new Set<string>();
     for (const f of families) {
-        for (const ch of f.children) childOfFamily.add(ch);
+        for (const ch of f.childIds) childOfFamily.add(ch);
     }
 
     // Find root persons (not a child of any family)
-    const roots = people.filter(p => !childOfFamily.has(p.handle));
+    const roots = people.filter(p => !childOfFamily.has(p.id));
 
     function setGen(handle: string, gen: number) {
         if (generations.has(handle)) return;
         generations.set(handle, gen);
         const person = personMap.get(handle);
         if (!person) return;
-        for (const famId of person.families) {
+        for (const famId of person.familyIds) {
             const fam = familyMap.get(famId);
             if (!fam) continue;
             // Spouse gets same generation
-            if (fam.fatherHandle && fam.fatherHandle !== handle) {
-                if (!generations.has(fam.fatherHandle)) generations.set(fam.fatherHandle, gen);
+            if (fam.fatherId && fam.fatherId !== handle) {
+                if (!generations.has(fam.fatherId)) generations.set(fam.fatherId, gen);
             }
-            if (fam.motherHandle && fam.motherHandle !== handle) {
-                if (!generations.has(fam.motherHandle)) generations.set(fam.motherHandle, gen);
+            if (fam.motherId && fam.motherId !== handle) {
+                if (!generations.has(fam.motherId)) generations.set(fam.motherId, gen);
             }
             // Children get gen+1
-            for (const ch of fam.children) setGen(ch, gen + 1);
+            for (const ch of fam.childIds) setGen(ch, gen + 1);
         }
     }
 
     for (const r of roots) {
-        setGen(r.handle, 0);
+        setGen(r.id, 0);
     }
     // Catch any unassigned
     for (const p of people) {
-        if (!generations.has(p.handle)) generations.set(p.handle, 0);
+        if (!generations.has(p.id)) generations.set(p.id, 0);
     }
 
     // ── Step 2: Build person entries ──
@@ -124,7 +124,7 @@ export function generateBookData(
     // Group by generation
     const genGroups = new Map<number, TreeNode[]>();
     for (const p of people) {
-        const gen = generations.get(p.handle) ?? 0;
+        const gen = generations.get(p.id) ?? 0;
         if (!genGroups.has(gen)) genGroups.set(gen, []);
         genGroups.get(gen)!.push(p);
     }
@@ -133,20 +133,20 @@ export function generateBookData(
     for (const p of people) {
         if (!p.isPatrilineal) continue;
 
-        const gen = generations.get(p.handle) ?? 0;
+        const gen = generations.get(p.id) ?? 0;
 
         // Find parent info
         let fatherName: string | undefined;
         let motherName: string | undefined;
-        for (const pfId of p.parentFamilies) {
+        for (const pfId of p.parentFamilyIds) {
             const pf = familyMap.get(pfId);
             if (pf) {
-                if (pf.fatherHandle) {
-                    const father = personMap.get(pf.fatherHandle);
+                if (pf.fatherId) {
+                    const father = personMap.get(pf.fatherId);
                     if (father) fatherName = father.displayName;
                 }
-                if (pf.motherHandle) {
-                    const mother = personMap.get(pf.motherHandle);
+                if (pf.motherId) {
+                    const mother = personMap.get(pf.motherId);
                     if (mother) motherName = mother.displayName;
                 }
             }
@@ -158,12 +158,12 @@ export function generateBookData(
         let spouseNote: string | undefined;
         const children: BookPerson['children'] = [];
 
-        for (const famId of p.families) {
+        for (const famId of p.familyIds) {
             const fam = familyMap.get(famId);
             if (!fam) continue;
 
             // Determine spouse
-            const spouseHandle = fam.fatherHandle === p.handle ? fam.motherHandle : fam.fatherHandle;
+            const spouseHandle = fam.fatherId === p.id ? fam.motherId : fam.fatherId;
             if (spouseHandle) {
                 const spouse = personMap.get(spouseHandle);
                 if (spouse) {
@@ -174,8 +174,8 @@ export function generateBookData(
             }
 
             // Children
-            for (let i = 0; i < fam.children.length; i++) {
-                const childHandle = fam.children[i];
+            for (let i = 0; i < fam.childIds.length; i++) {
+                const childHandle = fam.childIds[i];
                 const child = personMap.get(childHandle);
                 if (child) {
                     children.push({
@@ -189,16 +189,16 @@ export function generateBookData(
 
         // Find child index within parent family
         let childIndex: number | undefined;
-        if (p.parentFamilies.length > 0) {
-            const pf = familyMap.get(p.parentFamilies[0]);
+        if (p.parentFamilyIds.length > 0) {
+            const pf = familyMap.get(p.parentFamilyIds[0]);
             if (pf) {
-                const idx = pf.children.indexOf(p.handle);
+                const idx = pf.childIds.indexOf(p.id);
                 if (idx >= 0) childIndex = idx + 1;
             }
         }
 
         bookPersons.push({
-            handle: p.handle,
+            id: p.id,
             name: p.displayName,
             gender: p.gender,
             birthYear: p.birthYear,
@@ -239,7 +239,7 @@ export function generateBookData(
     const nameIndex = people
         .map(p => ({
             name: p.displayName,
-            generation: generations.get(p.handle) ?? 0,
+            generation: generations.get(p.id) ?? 0,
             isPatrilineal: p.isPatrilineal,
         }))
         .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
