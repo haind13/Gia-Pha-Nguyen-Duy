@@ -191,24 +191,47 @@ function analyzeRelationship(
     }
 
     // Determine if paternal (nội) or maternal (ngoại)
-    // Walk path from A toward LCA, skip spouse edges, find first parent
+    // Rule: con của con trai = nội, con của con gái = ngoại
     let isPaternal = true;
-    for (let i = 1; i < path.length; i++) {
-        if (path[i].edgeType === 'spouse') continue;
-        if (path[i].edgeType === 'parent') {
-            const parentPerson = people.find(p => p.id === path[i].personId);
-            if (parentPerson) {
-                // Use gender + isPatrilineal for accurate nội/ngoại:
-                // - Female parent → maternal side (ngoại), even if she's patrilineal
-                //   (con gái chính tộc lấy chồng → con của cô ấy là ngoại tộc)
-                // - Male parent who is NOT patrilineal (married in) → also ngoại
-                //   (the main family connection is through the other parent)
-                if (parentPerson.gender === 2 || !parentPerson.isPatrilineal) {
+
+    if (stepsUp > 0 && stepsDown === 0) {
+        // Pure ancestor: A → parent → ... → B (ancestor)
+        // Check first parent from A: male parent → nội, female parent → ngoại
+        for (let i = 1; i < path.length; i++) {
+            if (path[i].edgeType === 'spouse') continue;
+            if (path[i].edgeType === 'parent') {
+                const parentPerson = people.find(p => p.id === path[i].personId);
+                if (parentPerson && parentPerson.gender === 2) {
                     isPaternal = false;
                 }
             }
+            break;
         }
-        break;
+    } else if (stepsDown > 0 && stepsUp === 0) {
+        // Pure descendant: A (ancestor) → child → ... → B (descendant)
+        // Check first child from A: con trai → nội, con gái → ngoại
+        for (let i = 1; i < path.length; i++) {
+            if (path[i].edgeType === 'spouse') continue;
+            if (path[i].edgeType === 'child') {
+                const childPerson = people.find(p => p.id === path[i].personId);
+                if (childPerson && childPerson.gender === 2) {
+                    isPaternal = false;
+                }
+            }
+            break;
+        }
+    } else {
+        // Mixed path (uncle/aunt, cousin, etc.): check first parent from A toward LCA
+        for (let i = 1; i < path.length; i++) {
+            if (path[i].edgeType === 'spouse') continue;
+            if (path[i].edgeType === 'parent') {
+                const parentPerson = people.find(p => p.id === path[i].personId);
+                if (parentPerson && parentPerson.gender === 2) {
+                    isPaternal = false;
+                }
+            }
+            break;
+        }
     }
 
     // Check same parents
