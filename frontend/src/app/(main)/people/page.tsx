@@ -1,28 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Users, Search, MoreHorizontal, Eye, Pencil, GitBranch } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Users, Search, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { PersonDetailPanel } from '@/components/person-detail-panel';
 import { useAuth } from '@/components/auth-provider';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { RequireAuth } from '@/components/require-auth';
 
 interface Person {
@@ -33,6 +18,7 @@ interface Person {
     deathYear?: number;
     isLiving: boolean;
     isPrivacyFiltered: boolean;
+    generation: number;
 }
 
 export default function PeopleListPage() {
@@ -41,10 +27,7 @@ export default function PeopleListPage() {
     const [search, setSearch] = useState('');
     const [genderFilter, setGenderFilter] = useState<number | null>(null);
     const [livingFilter, setLivingFilter] = useState<boolean | null>(null);
-    const [selectedHandle, setSelectedHandle] = useState<string | null>(null);
-    const [editHandle, setEditHandle] = useState<string | null>(null);
-    const { canEdit, isLoggedIn, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const { isLoggedIn, loading: authLoading } = useAuth();
 
     useEffect(() => {
         const fetchPeople = async () => {
@@ -52,7 +35,8 @@ export default function PeopleListPage() {
                 const { supabase } = await import('@/lib/supabase');
                 const { data, error } = await supabase
                     .from('people')
-                    .select('id, display_name, gender, birth_year, death_year, is_living, is_privacy_filtered')
+                    .select('id, display_name, gender, birth_year, death_year, is_living, is_privacy_filtered, generation')
+                    .order('generation', { ascending: true })
                     .order('display_name', { ascending: true });
                 if (!error && data) {
                     setPeople(data.map((row: Record<string, unknown>) => ({
@@ -63,6 +47,7 @@ export default function PeopleListPage() {
                         deathYear: row.death_year as number | undefined,
                         isLiving: row.is_living as boolean,
                         isPrivacyFiltered: row.is_privacy_filtered as boolean,
+                        generation: (row.generation as number) || 0,
                     })));
                 }
             } catch { /* ignore */ }
@@ -82,6 +67,18 @@ export default function PeopleListPage() {
         if (livingFilter !== null && p.isLiving !== livingFilter) return false;
         return true;
     });
+
+    // Group by generation
+    const grouped = useMemo(() => {
+        const map = new Map<number, Person[]>();
+        for (const p of filtered) {
+            const gen = p.generation || 0;
+            if (!map.has(gen)) map.set(gen, []);
+            map.get(gen)!.push(p);
+        }
+        // Sort generations ascending
+        return Array.from(map.entries()).sort(([a], [b]) => a - b);
+    }, [filtered]);
 
     return (
         <div className="space-y-6">
@@ -111,108 +108,65 @@ export default function PeopleListPage() {
                 </div>
             </div>
 
-            {/* Table */}
-            <Card>
-                <CardContent className="p-0 overflow-x-auto">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-48">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                        </div>
-                    ) : (
-                        <Table className="min-w-[500px]">
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Họ tên</TableHead>
-                                    <TableHead>Giới tính</TableHead>
-                                    <TableHead>Năm sinh</TableHead>
-                                    <TableHead>Năm mất</TableHead>
-                                    <TableHead>Trạng thái</TableHead>
-                                    <TableHead className="w-10"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filtered.map((p) => (
-                                    <TableRow
-                                        key={p.id}
-                                        className="cursor-pointer hover:bg-accent/50"
-                                        onClick={() => setSelectedHandle(p.id)}
-                                    >
-                                        <TableCell className="font-medium">
-                                            {p.displayName}
-                                            {p.isPrivacyFiltered && <span className="ml-1 text-amber-500">🔒</span>}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">
-                                                {p.gender === 1 ? 'Nam' : p.gender === 2 ? 'Nữ' : '?'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{p.birthYear || '—'}</TableCell>
-                                        <TableCell>{p.deathYear || (p.isLiving ? '—' : '?')}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={p.isLiving ? 'default' : 'secondary'}>
-                                                {p.isLiving ? 'Còn sống' : 'Đã mất'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => setSelectedHandle(p.id)}>
-                                                        <Eye className="h-4 w-4 mr-2" />
-                                                        Xem chi tiết
-                                                    </DropdownMenuItem>
-                                                    {canEdit && (
-                                                        <DropdownMenuItem onClick={() => setEditHandle(p.id)}>
-                                                            <Pencil className="h-4 w-4 mr-2" />
-                                                            Chỉnh sửa
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    <DropdownMenuItem onClick={() => { window.location.href = `/pha-do?focus=${p.id}`; }}>
-                                                        <GitBranch className="h-4 w-4 mr-2" />
-                                                        Xem trên cây
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {filtered.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                                            {search ? 'Không tìm thấy kết quả' : 'Chưa có dữ liệu gia phả'}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Person detail panel (slide-in) */}
-            {(selectedHandle || editHandle) && (
-                <PersonDetailPanel
-                    personId={(editHandle || selectedHandle)!}
-                    initialEdit={!!editHandle}
-                    onClose={() => { setSelectedHandle(null); setEditHandle(null); }}
-                    onNavigate={(h) => { setSelectedHandle(h); setEditHandle(null); }}
-                    onPersonUpdated={(h, fields) => {
-                        setPeople(prev => prev.map(p => {
-                            if (p.id !== h) return p;
-                            return {
-                                ...p,
-                                ...(fields.displayName !== undefined && { displayName: fields.displayName }),
-                                ...(fields.birthYear !== undefined && { birthYear: fields.birthYear ?? undefined }),
-                                ...(fields.deathYear !== undefined && { deathYear: fields.deathYear ?? undefined }),
-                                ...(fields.isLiving !== undefined && { isLiving: fields.isLiving }),
-                            };
-                        }));
-                    }}
-                />
+            {/* Members grouped by generation */}
+            {loading ? (
+                <div className="flex items-center justify-center h-48">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+            ) : filtered.length === 0 ? (
+                <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                        {search ? 'Không tìm thấy kết quả' : 'Chưa có dữ liệu gia phả'}
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="space-y-4">
+                    {grouped.map(([gen, members]) => (
+                        <Card key={gen}>
+                            <CardContent className="p-0">
+                                {/* Generation header */}
+                                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                        {gen > 0 ? `Đời thứ ${gen}` : 'Chưa xác định đời'}
+                                    </h3>
+                                    <Badge variant="secondary" className="text-xs">{members.length} người</Badge>
+                                </div>
+                                {/* Member list */}
+                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {members.map((p) => (
+                                        <Link
+                                            key={p.id}
+                                            href={`/people/${p.id}`}
+                                            className="flex items-center px-4 py-3 gap-3 hover:bg-accent/50 transition-colors group"
+                                        >
+                                            {/* Avatar */}
+                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0
+                                                ${p.gender === 1 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300'}`}>
+                                                {p.displayName.split(' ').pop()?.[0] || '?'}
+                                            </div>
+                                            {/* Name + info */}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-sm truncate">
+                                                    {p.displayName}
+                                                    {p.isPrivacyFiltered && <span className="ml-1 text-amber-500">🔒</span>}
+                                                </p>
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                                        {p.gender === 1 ? 'Nam' : p.gender === 2 ? 'Nữ' : '?'}
+                                                    </Badge>
+                                                    <span>{p.birthYear || '—'}{p.deathYear ? ` – ${p.deathYear}` : ''}</span>
+                                                    {!p.isLiving && <span className="text-slate-400">✝</span>}
+                                                </div>
+                                            </div>
+                                            {/* Arrow */}
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </Link>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
             )}
         </div>
     );

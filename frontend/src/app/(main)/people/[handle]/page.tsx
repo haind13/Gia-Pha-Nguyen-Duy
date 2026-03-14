@@ -1,16 +1,15 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-    ArrowLeft, User, Heart, Phone, MapPin, Briefcase, GraduationCap,
-    Pencil, Save, X, Copy, Check, Users, Baby, Calendar, Droplets,
-    StickyNote, BookOpen, ChevronRight,
+    ArrowLeft, User, Phone, MapPin, Briefcase,
+    Pencil, Save, X, Copy, Check, Users, Calendar, Droplets,
+    StickyNote, ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { zodiacYear } from '@/lib/genealogy-types';
 import type { PersonDetail } from '@/lib/genealogy-types';
@@ -252,25 +251,6 @@ export default function PersonProfilePage() {
         setTimeout(() => setCopied(false), 2000);
     }, []);
 
-    // Derived
-    const allChildren = useMemo(() => {
-        const all: FamilyMember[] = [];
-        const seen = new Set<string>();
-        for (const unit of familyUnits) {
-            for (const ch of unit.children) {
-                if (!seen.has(ch.id)) {
-                    seen.add(ch.id);
-                    all.push(ch);
-                }
-            }
-        }
-        return all;
-    }, [familyUnits]);
-
-    const allSpouses = useMemo(() => {
-        return familyUnits.map(u => u.spouse).filter(Boolean) as FamilyMember[];
-    }, [familyUnits]);
-
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -385,273 +365,215 @@ export default function PersonProfilePage() {
                 </div>
             )}
 
-            {/* ═══ Tabs ═══ */}
-            <Tabs defaultValue="info" className="w-full">
-                <TabsList className="w-full grid grid-cols-3 h-11">
-                    <TabsTrigger value="info" className="gap-1.5 text-sm">
-                        <User className="h-4 w-4" /> Thông tin
-                    </TabsTrigger>
-                    <TabsTrigger value="spouse" className="gap-1.5 text-sm">
-                        <Heart className="h-4 w-4" /> Phu thê
-                        {allSpouses.length > 0 && <span className="ml-1 text-xs opacity-60">({allSpouses.length})</span>}
-                    </TabsTrigger>
-                    <TabsTrigger value="children" className="gap-1.5 text-sm">
-                        <Baby className="h-4 w-4" /> Con
-                        {allChildren.length > 0 && <span className="ml-1 text-xs opacity-60">({allChildren.length})</span>}
-                    </TabsTrigger>
-                </TabsList>
-
-                {/* ═══ Tab: Thông tin ═══ */}
-                <TabsContent value="info" className="mt-4 space-y-4">
-                    {editing ? (
-                        /* ── Edit Mode ── */
-                        <div className="space-y-4">
-                            <SectionCard icon={<User className="h-4 w-4" />} title="Thông tin cơ bản">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <EditRow label="Họ tên" value={form.displayName || ''} onChange={v => setField('displayName', v)} />
-                                    <EditRow label="Tên thường gọi" value={form.nickName || ''} onChange={v => setField('nickName', v)} placeholder="Biệt danh" />
-                                    <EditRow label="Chức danh" value={form.title || ''} onChange={v => setField('title', v)} placeholder="Trưởng tộc..." />
-                                    <EditRow label="Thứ tự (con thứ)" value={form.birthOrder?.toString() || ''} onChange={v => setField('birthOrder', v ? parseInt(v) || null : null)} type="number" />
-                                </div>
-                            </SectionCard>
-
-                            <SectionCard icon={<Calendar className="h-4 w-4" />} title="Ngày tháng">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <EditRow label="Năm sinh" value={form.birthYear?.toString() || ''} onChange={v => setField('birthYear', v ? parseInt(v) || null : null)} type="number" />
-                                    <EditRow label="Ngày sinh (DD/MM)" value={form.birthDate || ''} onChange={v => setField('birthDate', v)} placeholder="15/03" />
-                                    <EditRow label="Nơi sinh" value={form.birthPlace || ''} onChange={v => setField('birthPlace', v)} />
-                                    <div className="flex items-center gap-3">
-                                        <p className="text-xs font-medium text-muted-foreground">Trạng thái</p>
-                                        <Button
-                                            type="button" variant="outline" size="sm"
-                                            onClick={() => setField('isLiving', !form.isLiving)}
-                                            className={form.isLiving ? 'border-emerald-300 text-emerald-700' : 'border-slate-300 text-slate-500'}
-                                        >
-                                            {form.isLiving ? '● Còn sống' : '✝ Đã mất'}
-                                        </Button>
-                                    </div>
-                                </div>
-                                {!form.isLiving && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                                        <EditRow label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
-                                        <EditRow label="Ngày mất Âm lịch (DD/MM)" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="15/08" />
-                                        <EditRow label="Nơi mất" value={form.deathPlace || ''} onChange={v => setField('deathPlace', v)} />
-                                    </div>
-                                )}
-                            </SectionCard>
-
-                            <SectionCard icon={<Phone className="h-4 w-4" />} title="Liên hệ">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <EditRow label="Điện thoại" value={form.phone || ''} onChange={v => setField('phone', v)} placeholder="0912345678" />
-                                    <EditRow label="Email" value={form.email || ''} onChange={v => setField('email', v)} placeholder="email@example.com" />
-                                    <EditRow label="Zalo" value={form.zalo || ''} onChange={v => setField('zalo', v)} placeholder="Số Zalo" />
-                                    <EditRow label="Facebook" value={form.facebook || ''} onChange={v => setField('facebook', v)} placeholder="Link Facebook" />
-                                </div>
-                            </SectionCard>
-
-                            <SectionCard icon={<MapPin className="h-4 w-4" />} title="Địa chỉ">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <EditRow label="Quê quán" value={form.hometown || ''} onChange={v => setField('hometown', v)} />
-                                    <EditRow label="Nơi ở hiện tại" value={form.currentAddress || ''} onChange={v => setField('currentAddress', v)} />
-                                </div>
-                            </SectionCard>
-
-                            <SectionCard icon={<Briefcase className="h-4 w-4" />} title="Nghề nghiệp & Học vấn">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <EditRow label="Nghề nghiệp" value={form.occupation || ''} onChange={v => setField('occupation', v)} placeholder="Giáo viên, Kỹ sư..." />
-                                    <EditRow label="Nơi công tác" value={form.company || ''} onChange={v => setField('company', v)} placeholder="Công ty ABC..." />
-                                    <EditRow label="Học vấn" value={form.education || ''} onChange={v => setField('education', v)} placeholder="Đại học Bách khoa..." />
-                                </div>
-                            </SectionCard>
-
-                            <SectionCard icon={<Droplets className="h-4 w-4" />} title="Thông tin khác">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <EditRow label="Nhóm máu" value={form.bloodType || ''} onChange={v => setField('bloodType', v)} placeholder="A, B, AB, O" />
-                                    <EditRow label="Tình trạng hôn nhân" value={form.maritalStatus || ''} onChange={v => setField('maritalStatus', v)} placeholder="married / single / divorced" />
-                                </div>
-                            </SectionCard>
-
-                            <SectionCard icon={<StickyNote className="h-4 w-4" />} title="Ghi chú">
-                                <textarea
-                                    className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-y min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
-                                    rows={3}
-                                    value={form.notes || ''}
-                                    onChange={e => setField('notes', e.target.value)}
-                                    placeholder="Ghi chú thêm về người này..."
-                                />
-                            </SectionCard>
+            {/* ═══ Content ═══ */}
+            {editing ? (
+                /* ── Edit Mode ── */
+                <div className="space-y-4">
+                    <SectionCard icon={<User className="h-4 w-4" />} title="Thông tin cơ bản">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <EditRow label="Họ tên" value={form.displayName || ''} onChange={v => setField('displayName', v)} />
+                            <EditRow label="Tên thường gọi" value={form.nickName || ''} onChange={v => setField('nickName', v)} placeholder="Biệt danh" />
+                            <EditRow label="Chức danh" value={form.title || ''} onChange={v => setField('title', v)} placeholder="Trưởng tộc..." />
+                            <EditRow label="Thứ tự (con thứ)" value={form.birthOrder?.toString() || ''} onChange={v => setField('birthOrder', v ? parseInt(v) || null : null)} type="number" />
                         </div>
-                    ) : (
-                        /* ── View Mode ── */
-                        <div className="space-y-4">
-                            {/* Thông tin cơ bản */}
-                            <SectionCard icon={<User className="h-4 w-4" />} title="Thông tin cơ bản">
-                                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                                    <InfoField label="Giới tính" value={genderLabel} />
-                                    {person.generation && <InfoField label="Đời thứ" value={`${person.generation}`} />}
-                                    {person.birthOrder && <InfoField label="Thứ tự con" value={`Con thứ ${person.birthOrder}`} />}
-                                    {person.title && <InfoField label="Chức danh" value={person.title} />}
-                                </div>
-                            </SectionCard>
+                    </SectionCard>
 
-                            {/* Ngày tháng */}
-                            <SectionCard icon={<Calendar className="h-4 w-4" />} title="Ngày tháng">
-                                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                                    <InfoField label="Ngày sinh" value={formatDateDisplay(person.birthDate, person.birthYear)} />
-                                    {person.birthYear && <InfoField label="Năm âm lịch (sinh)" value={zodiacYear(person.birthYear) || '—'} />}
-                                    {person.birthPlace && <InfoField label="Nơi sinh" value={person.birthPlace} />}
-                                    {!person.isLiving && (
-                                        <>
-                                            <InfoField label="Ngày mất" value={formatDateDisplay(person.deathDate, person.deathYear, true)} />
-                                            {person.deathYear && <InfoField label="Năm âm lịch (mất)" value={zodiacYear(person.deathYear) || '—'} />}
-                                            {person.deathPlace && <InfoField label="Nơi mất" value={person.deathPlace} />}
-                                        </>
-                                    )}
-                                </div>
-                            </SectionCard>
-
-                            {/* Liên hệ */}
-                            {(person.phone || person.email || person.zalo || person.facebook) && (
-                                <SectionCard icon={<Phone className="h-4 w-4" />} title="Liên hệ">
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                                        {person.phone && <InfoField label="Điện thoại" value={person.phone} />}
-                                        {person.email && <InfoField label="Email" value={person.email} />}
-                                        {person.zalo && <InfoField label="Zalo" value={person.zalo} />}
-                                        {person.facebook && <InfoField label="Facebook" value={person.facebook} />}
-                                    </div>
-                                </SectionCard>
-                            )}
-
-                            {/* Địa chỉ */}
-                            {(person.hometown || person.currentAddress) && (
-                                <SectionCard icon={<MapPin className="h-4 w-4" />} title="Địa chỉ">
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                                        {person.hometown && <InfoField label="Quê quán" value={person.hometown} />}
-                                        {person.currentAddress && <InfoField label="Nơi ở hiện tại" value={person.currentAddress} />}
-                                    </div>
-                                </SectionCard>
-                            )}
-
-                            {/* Nghề nghiệp & Học vấn */}
-                            {(person.occupation || person.company || person.education) && (
-                                <SectionCard icon={<Briefcase className="h-4 w-4" />} title="Nghề nghiệp & Học vấn">
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                                        {person.occupation && <InfoField label="Nghề nghiệp" value={person.occupation} />}
-                                        {person.company && <InfoField label="Nơi công tác" value={person.company} />}
-                                        {person.education && <InfoField label="Học vấn" value={person.education} />}
-                                    </div>
-                                </SectionCard>
-                            )}
-
-                            {/* Thông tin khác */}
-                            {(person.maritalStatus || person.bloodType) && (
-                                <SectionCard icon={<Droplets className="h-4 w-4" />} title="Thông tin khác">
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                                        {person.maritalStatus && <InfoField label="Tình trạng hôn nhân" value={maritalStatusLabel(person.maritalStatus)} />}
-                                        {person.bloodType && <InfoField label="Nhóm máu" value={person.bloodType} />}
-                                    </div>
-                                </SectionCard>
-                            )}
-
-                            {/* Ghi chú */}
-                            {(person.notes || person.biography) && (
-                                <SectionCard icon={<StickyNote className="h-4 w-4" />} title="Ghi chú">
-                                    {person.biography && (
-                                        <div className="mb-2">
-                                            <p className="text-xs font-medium text-muted-foreground mb-1">Tiểu sử</p>
-                                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{person.biography}</p>
-                                        </div>
-                                    )}
-                                    {person.notes && (
-                                        <div>
-                                            <p className="text-xs font-medium text-muted-foreground mb-1">Ghi chú</p>
-                                            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">{person.notes}</p>
-                                        </div>
-                                    )}
-                                </SectionCard>
-                            )}
-
-                            {/* Cha mẹ & Anh chị em */}
-                            {(parents.length > 0 || siblings.length > 0) && (
-                                <SectionCard icon={<Users className="h-4 w-4" />} title="Gia đình gốc">
-                                    {parents.length > 0 && (
-                                        <div className="mb-3">
-                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Cha mẹ</p>
-                                            <div className="space-y-1.5">
-                                                {parents.map(p => (
-                                                    <PersonChip
-                                                        key={p.id}
-                                                        person={p}
-                                                        label={p.gender === 1 ? 'Cha' : 'Mẹ'}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {siblings.length > 0 && (
-                                        <div>
-                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Anh chị em ({siblings.length})</p>
-                                            <div className="space-y-1.5">
-                                                {siblings.map(s => (
-                                                    <PersonChip
-                                                        key={s.id}
-                                                        person={s}
-                                                        label={s.gender === 1 ? 'Anh/Em trai' : 'Chị/Em gái'}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </SectionCard>
-                            )}
+                    <SectionCard icon={<Calendar className="h-4 w-4" />} title="Ngày tháng">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <EditRow label="Năm sinh" value={form.birthYear?.toString() || ''} onChange={v => setField('birthYear', v ? parseInt(v) || null : null)} type="number" />
+                            <EditRow label="Ngày sinh (DD/MM)" value={form.birthDate || ''} onChange={v => setField('birthDate', v)} placeholder="15/03" />
+                            <EditRow label="Nơi sinh" value={form.birthPlace || ''} onChange={v => setField('birthPlace', v)} />
+                            <div className="flex items-center gap-3">
+                                <p className="text-xs font-medium text-muted-foreground">Trạng thái</p>
+                                <Button
+                                    type="button" variant="outline" size="sm"
+                                    onClick={() => setField('isLiving', !form.isLiving)}
+                                    className={form.isLiving ? 'border-emerald-300 text-emerald-700' : 'border-slate-300 text-slate-500'}
+                                >
+                                    {form.isLiving ? '● Còn sống' : '✝ Đã mất'}
+                                </Button>
+                            </div>
                         </div>
-                    )}
-                </TabsContent>
+                        {!form.isLiving && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                <EditRow label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
+                                <EditRow label="Ngày mất Âm lịch (DD/MM)" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="15/08" />
+                                <EditRow label="Nơi mất" value={form.deathPlace || ''} onChange={v => setField('deathPlace', v)} />
+                            </div>
+                        )}
+                    </SectionCard>
 
-                {/* ═══ Tab: Phu thê ═══ */}
-                <TabsContent value="spouse" className="mt-4">
-                    {allSpouses.length === 0 ? (
-                        <EmptyState icon={<Heart className="h-10 w-10" />} text="Chưa có thông tin phu thê" />
-                    ) : (
-                        <div className="space-y-4">
-                            {familyUnits.map((unit, idx) => (
-                                unit.spouse && (
-                                    <SectionCard key={idx} icon={<Heart className="h-4 w-4" />} title={unit.spouse.gender === 2 ? 'Vợ' : 'Chồng'}>
-                                        <PersonChip person={unit.spouse} label={unit.spouse.gender === 2 ? 'Vợ' : 'Chồng'} large />
-                                        {unit.children.length > 0 && (
-                                            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                                                    Con chung ({unit.children.length})
-                                                </p>
-                                                <div className="space-y-1.5">
-                                                    {unit.children.map(ch => (
-                                                        <PersonChip key={ch.id} person={ch} label={ch.gender === 1 ? 'Con trai' : 'Con gái'} />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </SectionCard>
-                                )
-                            ))}
+                    <SectionCard icon={<Phone className="h-4 w-4" />} title="Liên hệ">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <EditRow label="Điện thoại" value={form.phone || ''} onChange={v => setField('phone', v)} placeholder="0912345678" />
+                            <EditRow label="Email" value={form.email || ''} onChange={v => setField('email', v)} placeholder="email@example.com" />
+                            <EditRow label="Zalo" value={form.zalo || ''} onChange={v => setField('zalo', v)} placeholder="Số Zalo" />
+                            <EditRow label="Facebook" value={form.facebook || ''} onChange={v => setField('facebook', v)} placeholder="Link Facebook" />
                         </div>
-                    )}
-                </TabsContent>
+                    </SectionCard>
 
-                {/* ═══ Tab: Con ═══ */}
-                <TabsContent value="children" className="mt-4">
-                    {allChildren.length === 0 ? (
-                        <EmptyState icon={<Baby className="h-10 w-10" />} text="Chưa có thông tin con cái" />
-                    ) : (
-                        <SectionCard icon={<Baby className="h-4 w-4" />} title={`Danh sách con (${allChildren.length})`}>
-                            <div className="space-y-1.5">
-                                {allChildren.map(ch => (
-                                    <PersonChip key={ch.id} person={ch} label={ch.gender === 1 ? 'Con trai' : 'Con gái'} large />
-                                ))}
+                    <SectionCard icon={<MapPin className="h-4 w-4" />} title="Địa chỉ">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <EditRow label="Quê quán" value={form.hometown || ''} onChange={v => setField('hometown', v)} />
+                            <EditRow label="Nơi ở hiện tại" value={form.currentAddress || ''} onChange={v => setField('currentAddress', v)} />
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard icon={<Briefcase className="h-4 w-4" />} title="Nghề nghiệp & Học vấn">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <EditRow label="Nghề nghiệp" value={form.occupation || ''} onChange={v => setField('occupation', v)} placeholder="Giáo viên, Kỹ sư..." />
+                            <EditRow label="Nơi công tác" value={form.company || ''} onChange={v => setField('company', v)} placeholder="Công ty ABC..." />
+                            <EditRow label="Học vấn" value={form.education || ''} onChange={v => setField('education', v)} placeholder="Đại học Bách khoa..." />
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard icon={<Droplets className="h-4 w-4" />} title="Thông tin khác">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <EditRow label="Nhóm máu" value={form.bloodType || ''} onChange={v => setField('bloodType', v)} placeholder="A, B, AB, O" />
+                            <EditRow label="Tình trạng hôn nhân" value={form.maritalStatus || ''} onChange={v => setField('maritalStatus', v)} placeholder="married / single / divorced" />
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard icon={<StickyNote className="h-4 w-4" />} title="Ghi chú">
+                        <textarea
+                            className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-y min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
+                            rows={3}
+                            value={form.notes || ''}
+                            onChange={e => setField('notes', e.target.value)}
+                            placeholder="Ghi chú thêm về người này..."
+                        />
+                    </SectionCard>
+                </div>
+            ) : (
+                /* ── View Mode ── */
+                <div className="space-y-4">
+                    {/* Thông tin cá nhân */}
+                    <SectionCard icon={<User className="h-4 w-4" />} title="Thông tin cá nhân">
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                            <InfoField label="Giới tính" value={genderLabel} />
+                            {person.generation && <InfoField label="Đời thứ" value={`${person.generation}`} />}
+                            {person.birthOrder && <InfoField label="Thứ tự con" value={`Con thứ ${person.birthOrder}`} />}
+                            <InfoField label="Ngày sinh" value={formatDateDisplay(person.birthDate, person.birthYear)} />
+                            {person.birthYear && <InfoField label="Năm âm lịch (sinh)" value={zodiacYear(person.birthYear) || '—'} />}
+                            {person.birthPlace && <InfoField label="Nơi sinh" value={person.birthPlace} />}
+                            {!person.isLiving && (
+                                <>
+                                    <InfoField label="Ngày mất" value={formatDateDisplay(person.deathDate, person.deathYear, true)} />
+                                    {person.deathYear && <InfoField label="Năm âm lịch (mất)" value={zodiacYear(person.deathYear) || '—'} />}
+                                    {person.deathPlace && <InfoField label="Nơi mất" value={person.deathPlace} />}
+                                </>
+                            )}
+                            {person.maritalStatus && <InfoField label="Hôn nhân" value={maritalStatusLabel(person.maritalStatus)} />}
+                            {person.bloodType && <InfoField label="Nhóm máu" value={person.bloodType} />}
+                        </div>
+                    </SectionCard>
+
+                    {/* Liên hệ */}
+                    {(person.phone || person.email || person.zalo || person.facebook) && (
+                        <SectionCard icon={<Phone className="h-4 w-4" />} title="Liên hệ">
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                {person.phone && <InfoField label="Điện thoại" value={person.phone} />}
+                                {person.email && <InfoField label="Email" value={person.email} />}
+                                {person.zalo && <InfoField label="Zalo" value={person.zalo} />}
+                                {person.facebook && <InfoField label="Facebook" value={person.facebook} />}
                             </div>
                         </SectionCard>
                     )}
-                </TabsContent>
-            </Tabs>
+
+                    {/* Địa chỉ */}
+                    {(person.hometown || person.currentAddress) && (
+                        <SectionCard icon={<MapPin className="h-4 w-4" />} title="Địa chỉ">
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                {person.hometown && <InfoField label="Quê quán" value={person.hometown} />}
+                                {person.currentAddress && <InfoField label="Nơi ở hiện tại" value={person.currentAddress} />}
+                            </div>
+                        </SectionCard>
+                    )}
+
+                    {/* Nghề nghiệp & Học vấn */}
+                    {(person.occupation || person.company || person.education) && (
+                        <SectionCard icon={<Briefcase className="h-4 w-4" />} title="Nghề nghiệp & Học vấn">
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                {person.occupation && <InfoField label="Nghề nghiệp" value={person.occupation} />}
+                                {person.company && <InfoField label="Nơi công tác" value={person.company} />}
+                                {person.education && <InfoField label="Học vấn" value={person.education} />}
+                            </div>
+                        </SectionCard>
+                    )}
+
+                    {/* Ghi chú */}
+                    {(person.notes || person.biography) && (
+                        <SectionCard icon={<StickyNote className="h-4 w-4" />} title="Ghi chú">
+                            {person.biography && (
+                                <div className="mb-2">
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">Tiểu sử</p>
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{person.biography}</p>
+                                </div>
+                            )}
+                            {person.notes && (
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">Ghi chú</p>
+                                    <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">{person.notes}</p>
+                                </div>
+                            )}
+                        </SectionCard>
+                    )}
+
+                    {/* ═══ Quan hệ gia đình ═══ */}
+                    <SectionCard icon={<Users className="h-4 w-4" />} title="Quan hệ gia đình">
+                        {parents.length > 0 && (
+                            <div className="mb-4">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Cha mẹ</p>
+                                <div className="space-y-1.5">
+                                    {parents.map(p => (
+                                        <PersonChip key={p.id} person={p} label={p.gender === 1 ? 'Cha' : 'Mẹ'} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {familyUnits.map((unit, idx) => (
+                            <div key={idx} className="mb-4">
+                                {unit.spouse && (
+                                    <>
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                            {unit.spouse.gender === 2 ? 'Vợ' : 'Chồng'}
+                                        </p>
+                                        <PersonChip person={unit.spouse} label={unit.spouse.gender === 2 ? 'Vợ' : 'Chồng'} />
+                                    </>
+                                )}
+                                {unit.children.length > 0 && (
+                                    <div className="mt-2">
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                            Con ({unit.children.length})
+                                        </p>
+                                        <div className="space-y-1.5">
+                                            {unit.children.map(ch => (
+                                                <PersonChip key={ch.id} person={ch} label={ch.gender === 1 ? 'Con trai' : 'Con gái'} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+
+                        {siblings.length > 0 && (
+                            <div className="mb-4">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Anh chị em ({siblings.length})</p>
+                                <div className="space-y-1.5">
+                                    {siblings.map(s => (
+                                        <PersonChip key={s.id} person={s} label={s.gender === 1 ? 'Anh/Em trai' : 'Chị/Em gái'} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {parents.length === 0 && familyUnits.length === 0 && siblings.length === 0 && (
+                            <p className="text-sm text-muted-foreground italic">Chưa có thông tin quan hệ</p>
+                        )}
+                    </SectionCard>
+                </div>
+            )}
         </div>
     );
 }
@@ -736,11 +658,3 @@ function PersonChip({ person, label, large }: { person: FamilyMember; label: str
     );
 }
 
-function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
-    return (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <span className="opacity-30 mb-3">{icon}</span>
-            <p className="text-sm">{text}</p>
-        </div>
-    );
-}
