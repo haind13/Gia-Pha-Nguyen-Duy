@@ -330,6 +330,31 @@ function determineBranchSeniority(
     return fallback;
 }
 
+// ═══ Helper: Compare seniority between two siblings ═══
+// Priority: birthOrder > birthYear > childIds position
+function compareSeniority(
+    personX: TreeNode,
+    personY: TreeNode | null | undefined,
+    families: TreeFamily[],
+): boolean {
+    if (!personY) return false;
+    if (personX.birthOrder != null && personY.birthOrder != null) {
+        return personX.birthOrder < personY.birthOrder;
+    }
+    if (personX.birthYear && personY.birthYear && personX.birthYear !== personY.birthYear) {
+        return personX.birthYear < personY.birthYear;
+    }
+    // Fallback: position in shared family's children array (thứ tự con)
+    for (const fam of families) {
+        const xIdx = fam.childIds.indexOf(personX.id);
+        const yIdx = fam.childIds.indexOf(personY.id);
+        if (xIdx >= 0 && yIdx >= 0) {
+            return xIdx < yIdx;
+        }
+    }
+    return false;
+}
+
 // ═══ Vietnamese Kinship Terms ═══
 
 /**
@@ -383,53 +408,22 @@ function getKinshipTerms(
     // Uncle/Aunt - Nephew/Niece: asymmetric
     if (stepsUp === 1 && stepsDown === 2) {
         // A is uncle/aunt, B is nephew/niece
-        // Path: A→parent(LCA)→sibling_of_A(B's parent)→B
-        // Need to compare A with B's parent (the sibling of A) to determine Bác vs Chú/Cô
-        const parentOfB = path.length >= 3 ? people.find(p => p.id === path[path.length - 2].personId) : null;
-        let aIsOlderThanParentOfB = false;
-        if (parentOfB) {
-            if (personA.birthOrder != null && parentOfB.birthOrder != null) {
-                aIsOlderThanParentOfB = personA.birthOrder < parentOfB.birthOrder;
-            } else if (personA.birthYear && parentOfB.birthYear && personA.birthYear !== parentOfB.birthYear) {
-                aIsOlderThanParentOfB = personA.birthYear < parentOfB.birthYear;
-            } else {
-                for (const fam of families) {
-                    const aIdx = fam.childIds.indexOf(personA.id);
-                    const pIdx = fam.childIds.indexOf(parentOfB.id);
-                    if (aIdx >= 0 && pIdx >= 0) {
-                        aIsOlderThanParentOfB = aIdx < pIdx;
-                        break;
-                    }
-                }
-            }
-        }
-        return getUncleNieceTerms(genderA, genderB, isPaternal, aIsOlderThanParentOfB, false);
+        // Find B's parent (sibling of A) = child of LCA on B's side
+        const lcaIdx = info.lcaId ? path.findIndex(p => p.personId === info.lcaId) : -1;
+        const siblingOfA = lcaIdx >= 0 && lcaIdx < path.length - 1
+            ? people.find(p => p.id === path[lcaIdx + 1].personId) : null;
+        const aIsOlderThanSibling = compareSeniority(personA, siblingOfA, families);
+        return getUncleNieceTerms(genderA, genderB, isPaternal, aIsOlderThanSibling, false);
     }
 
     if (stepsUp === 2 && stepsDown === 1) {
         // B is uncle/aunt of A
-        // A is nephew/niece, B is uncle/aunt
-        // Need to compare B with A's parent (the sibling of B) to determine Bác vs Chú/Cô
-        const parentOfA = path.length >= 2 ? people.find(p => p.id === path[1].personId) : null;
-        let uncleIsOlderThanParent = false;
-        if (parentOfA) {
-            if (personB.birthOrder != null && parentOfA.birthOrder != null) {
-                uncleIsOlderThanParent = personB.birthOrder < parentOfA.birthOrder;
-            } else if (personB.birthYear && parentOfA.birthYear && personB.birthYear !== parentOfA.birthYear) {
-                uncleIsOlderThanParent = personB.birthYear < parentOfA.birthYear;
-            } else {
-                for (const fam of families) {
-                    const bIdx = fam.childIds.indexOf(personB.id);
-                    const pIdx = fam.childIds.indexOf(parentOfA.id);
-                    if (bIdx >= 0 && pIdx >= 0) {
-                        uncleIsOlderThanParent = bIdx < pIdx;
-                        break;
-                    }
-                }
-            }
-        }
-        const reverse = getUncleNieceTerms(genderB, genderA, isPaternal, uncleIsOlderThanParent, true);
-        return reverse;
+        // Find A's parent (sibling of B) = child of LCA on A's side
+        const lcaIdx = info.lcaId ? path.findIndex(p => p.personId === info.lcaId) : -1;
+        const siblingOfB = lcaIdx > 0
+            ? people.find(p => p.id === path[lcaIdx - 1].personId) : null;
+        const uncleIsOlderThanSibling = compareSeniority(personB, siblingOfB, families);
+        return getUncleNieceTerms(genderB, genderA, isPaternal, uncleIsOlderThanSibling, true);
     }
 
     // Cousins & same-generation collateral: seniority by LCA branch
