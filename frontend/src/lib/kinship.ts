@@ -550,22 +550,22 @@ function getAncestorTerms(
 
     if (stepsUp === 3) {
         if (genderB === 1) {
-            return { aCallsB: 'Cụ ông', bCallsA: 'Chắt', relationship: 'Cụ — Chắt' };
+            return { aCallsB: `Cụ ông ${side}`, bCallsA: 'Chắt', relationship: `Cụ ${side} — Chắt` };
         }
-        return { aCallsB: 'Cụ bà', bCallsA: 'Chắt', relationship: 'Cụ — Chắt' };
+        return { aCallsB: `Cụ bà ${side}`, bCallsA: 'Chắt', relationship: `Cụ ${side} — Chắt` };
     }
 
     if (stepsUp === 4) {
         if (genderB === 1) {
-            return { aCallsB: `Kỵ ông`, bCallsA: 'Chút', relationship: `Kỵ — Chút` };
+            return { aCallsB: `Kỵ ông ${side}`, bCallsA: 'Chút', relationship: `Kỵ ${side} — Chút` };
         }
-        return { aCallsB: `Kỵ bà`, bCallsA: 'Chút', relationship: `Kỵ — Chút` };
+        return { aCallsB: `Kỵ bà ${side}`, bCallsA: 'Chút', relationship: `Kỵ ${side} — Chút` };
     }
 
     // Very distant ancestor (5+ generations)
     const prefix = genderB === 1 ? 'Ông' : 'Bà';
     const genWord = stepsUp === 5 ? 'Tổ' : `Tổ ${stepsUp} đời`;
-    return { aCallsB: `${prefix} ${genWord}`, bCallsA: `Hậu duệ đời ${stepsUp}`, relationship: `Tổ tiên đời ${stepsUp}` };
+    return { aCallsB: `${prefix} ${genWord} ${side}`, bCallsA: `Hậu duệ đời ${stepsUp}`, relationship: `Tổ tiên đời ${stepsUp} (${side})` };
 }
 
 // ═══ Helper: Descendant terms ═══
@@ -573,13 +573,15 @@ function getDescendantTerms(
     stepsDown: number,
     genderA: number,
     genderB: number,
-    _isPaternal: boolean,
+    isPaternal: boolean,
     throughSpouse: boolean,
 ): { aCallsB: string; bCallsA: string; relationship: string } {
+    const side = isPaternal ? 'nội' : 'ngoại';
+
     // In-law descendants (con dâu/rể, cháu dâu/rể, ...)
     if (throughSpouse) {
         const inLawSuffix = genderB === 1 ? 'rể' : 'dâu';
-        const inLawParent = genderB === 1 ? 'vợ' : 'chồng'; // con rể gọi bố/mẹ vợ, con dâu gọi bố/mẹ chồng
+        const inLawParent = genderB === 1 ? 'vợ' : 'chồng';
         if (stepsDown === 1) {
             const label = `Con ${inLawSuffix}`;
             if (genderA === 1) {
@@ -589,24 +591,18 @@ function getDescendantTerms(
         }
         if (stepsDown === 2) {
             const label = `Cháu ${inLawSuffix}`;
-            if (genderA === 1) {
-                return { aCallsB: label, bCallsA: 'Ông', relationship: `Ông — ${label}` };
-            }
-            return { aCallsB: label, bCallsA: 'Bà', relationship: `Bà — ${label}` };
+            const title = genderA === 1 ? `Ông ${side}` : `Bà ${side}`;
+            return { aCallsB: label, bCallsA: title, relationship: `${title} — ${label}` };
         }
         if (stepsDown === 3) {
             const label = `Chắt ${inLawSuffix}`;
-            if (genderA === 1) {
-                return { aCallsB: label, bCallsA: 'Cụ ông', relationship: `Cụ — ${label}` };
-            }
-            return { aCallsB: label, bCallsA: 'Cụ bà', relationship: `Cụ — ${label}` };
+            const title = genderA === 1 ? `Cụ ông ${side}` : `Cụ bà ${side}`;
+            return { aCallsB: label, bCallsA: title, relationship: `Cụ ${side} — ${label}` };
         }
         if (stepsDown === 4) {
             const label = `Chút ${inLawSuffix}`;
-            if (genderA === 1) {
-                return { aCallsB: label, bCallsA: 'Kỵ ông', relationship: `Kỵ — ${label}` };
-            }
-            return { aCallsB: label, bCallsA: 'Kỵ bà', relationship: `Kỵ — ${label}` };
+            const title = genderA === 1 ? `Kỵ ông ${side}` : `Kỵ bà ${side}`;
+            return { aCallsB: label, bCallsA: title, relationship: `Kỵ ${side} — ${label}` };
         }
         return { aCallsB: `Hậu duệ ${inLawSuffix} đời ${stepsDown}`, bCallsA: 'Tổ tiên', relationship: `Tổ tiên — Hậu duệ ${inLawSuffix} đời ${stepsDown}` };
     }
@@ -619,27 +615,21 @@ function getDescendantTerms(
     }
 
     if (stepsDown === 2) {
-        if (genderA === 1) {
-            return { aCallsB: 'Cháu', bCallsA: 'Ông', relationship: 'Ông — Cháu' };
-        }
-        return { aCallsB: 'Cháu', bCallsA: 'Bà', relationship: 'Bà — Cháu' };
+        const title = genderA === 1 ? `Ông ${side}` : `Bà ${side}`;
+        return { aCallsB: 'Cháu', bCallsA: title, relationship: `${title} — Cháu` };
     }
 
     if (stepsDown === 3) {
-        if (genderA === 1) {
-            return { aCallsB: 'Chắt', bCallsA: 'Cụ ông', relationship: 'Cụ — Chắt' };
-        }
-        return { aCallsB: 'Chắt', bCallsA: 'Cụ bà', relationship: 'Cụ — Chắt' };
+        const title = genderA === 1 ? `Cụ ông ${side}` : `Cụ bà ${side}`;
+        return { aCallsB: 'Chắt', bCallsA: title, relationship: `Cụ ${side} — Chắt` };
     }
 
     if (stepsDown === 4) {
-        if (genderA === 1) {
-            return { aCallsB: 'Chút', bCallsA: 'Kỵ ông', relationship: 'Kỵ — Chút' };
-        }
-        return { aCallsB: 'Chút', bCallsA: 'Kỵ bà', relationship: 'Kỵ — Chút' };
+        const title = genderA === 1 ? `Kỵ ông ${side}` : `Kỵ bà ${side}`;
+        return { aCallsB: 'Chút', bCallsA: title, relationship: `Kỵ ${side} — Chút` };
     }
 
-    return { aCallsB: `Hậu duệ đời ${stepsDown}`, bCallsA: 'Tổ tiên', relationship: `Tổ tiên — Hậu duệ đời ${stepsDown}` };
+    return { aCallsB: `Hậu duệ đời ${stepsDown}`, bCallsA: 'Tổ tiên', relationship: `Tổ tiên — Hậu duệ đời ${stepsDown} (${side})` };
 }
 
 // ═══ Helper: Sibling terms ═══

@@ -21,6 +21,7 @@ import {
     UserPlus,
     Menu,
     Bell,
+    FileSpreadsheet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,7 @@ const adminItems = [
     { href: '/admin/notifications', label: 'Nhắc sự kiện', icon: Bell },
     { href: '/admin/audit', label: 'Audit Log', icon: FileText },
     { href: '/admin/backup', label: 'Backup', icon: Database },
+    { href: '/admin/excel', label: 'Nhập/Xuất Excel', icon: FileSpreadsheet },
 ];
 
 /* ── Shared navigation content (used in both desktop sidebar and mobile drawer) ── */
