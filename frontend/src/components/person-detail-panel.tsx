@@ -190,13 +190,21 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
         setForm(prev => ({ ...prev, [key]: value }));
     }, []);
 
-    // Family relationships (only when treeData provided)
-    const parents = useMemo(() => {
+    // Family relationships — computed directly from families data (not denormalized arrays)
+    const parentFamilies = useMemo(() => {
         if (!treeData || !person) return [];
+        return treeData.families.filter(f => f.childIds.includes(person.id));
+    }, [treeData, person]);
+
+    const spouseFamilies = useMemo(() => {
+        if (!treeData || !person) return [];
+        return treeData.families.filter(f => f.fatherId === person.id || f.motherId === person.id);
+    }, [treeData, person]);
+
+    const parents = useMemo(() => {
+        if (!treeData) return [];
         const result: { label: string; person: SimpleTreeNode }[] = [];
-        for (const pfId of person.parentFamilyIds) {
-            const fam = treeData.families.find(f => f.id === pfId);
-            if (!fam) continue;
+        for (const fam of parentFamilies) {
             if (fam.fatherId) {
                 const parent = treeData.people.find(p => p.id === fam.fatherId);
                 if (parent) result.push({ label: parent.gender === 2 ? 'Mẹ' : 'Cha', person: parent });
@@ -207,37 +215,35 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
             }
         }
         return result;
-    }, [treeData, person]);
+    }, [treeData, parentFamilies]);
 
     const spousesAndChildren = useMemo(() => {
         if (!treeData || !person) return [];
         const result: { spouse?: SimpleTreeNode; children: SimpleTreeNode[]; familyId: string }[] = [];
-        for (const fId of person.familyIds) {
-            const fam = treeData.families.find(f => f.id === fId);
-            if (!fam) continue;
-            const spouseHandle = fam.fatherId === person.id ? fam.motherId : fam.fatherId;
-            const spouse = spouseHandle ? treeData.people.find(p => p.id === spouseHandle) : undefined;
+        for (const fam of spouseFamilies) {
+            const spouseId = fam.fatherId === person.id ? fam.motherId : fam.fatherId;
+            const spouse = spouseId ? treeData.people.find(p => p.id === spouseId) : undefined;
             const children = fam.childIds.map(ch => treeData.people.find(p => p.id === ch)).filter(Boolean) as SimpleTreeNode[];
             result.push({ spouse, children, familyId: fam.id });
         }
         return result;
-    }, [treeData, person]);
+    }, [treeData, person, spouseFamilies]);
 
     const siblings = useMemo(() => {
         if (!treeData || !person) return [];
         const result: SimpleTreeNode[] = [];
-        for (const pfId of person.parentFamilyIds) {
-            const fam = treeData.families.find(f => f.id === pfId);
-            if (!fam) continue;
+        const seen = new Set<string>();
+        for (const fam of parentFamilies) {
             for (const ch of fam.childIds) {
-                if (ch !== person.id) {
+                if (ch !== person.id && !seen.has(ch)) {
+                    seen.add(ch);
                     const sib = treeData.people.find(p => p.id === ch);
                     if (sib) result.push(sib);
                 }
             }
         }
         return result;
-    }, [treeData, person]);
+    }, [treeData, person, parentFamilies]);
 
     const hasRelations = parents.length > 0 || spousesAndChildren.length > 0 || siblings.length > 0;
 
