@@ -106,6 +106,26 @@ function lunarToSolar(lunarMonth: number, lunarDay: number, lunarYear: number) {
     return { month: startDate.getMonth() + 1, day: startDate.getDate(), year: startDate.getFullYear() };
 }
 
+/* ── Solar → Lunar conversion (reverse lookup) ── */
+function solarToLunar(solarYear: number, solarMonth: number, solarDay: number): { day: number; month: number; year: number } | null {
+    // Try current year and previous year (lunar new year is in Jan/Feb)
+    for (const lunarYear of [solarYear, solarYear - 1]) {
+        const yearData = LUNAR_YEAR_DATA[lunarYear];
+        if (!yearData) continue;
+        // Check each lunar month (in reverse to find the latest matching one)
+        for (let i = yearData.length - 1; i >= 0; i--) {
+            const ms = yearData[i];
+            const startDate = new Date(ms.solarYear, ms.solarMonth - 1, ms.solarDay);
+            const solarDate = new Date(solarYear, solarMonth - 1, solarDay);
+            const diffDays = Math.floor((solarDate.getTime() - startDate.getTime()) / 86400000);
+            if (diffDays >= 0 && diffDays < 30) {
+                return { day: diffDays + 1, month: ms.month, year: lunarYear };
+            }
+        }
+    }
+    return null;
+}
+
 /* ── Parse date string → {day, month, isLunar} ── */
 function parseDateString(dateStr: string | null | undefined): { day: number; month: number; isLunar: boolean } | null {
     if (!dateStr) return null;
@@ -268,12 +288,20 @@ function BigCalendar({
                             ${isSelected ? 'bg-amber-100 dark:bg-amber-900/30 ring-2 ring-amber-400 ring-inset z-10' : ''}
                         `}>
                             <div className="flex items-center gap-1">
-                                <span className={`text-sm font-medium leading-none
-                                    ${isToday ? 'bg-amber-500 text-white w-6 h-6 rounded-full flex items-center justify-center' : ''}
-                                    ${!isToday && dayOfWeek === 0 ? 'text-red-500' : ''}
-                                    ${!isToday && dayOfWeek === 6 ? 'text-blue-500' : ''}
-                                    ${!isToday && dayOfWeek !== 0 && dayOfWeek !== 6 ? 'text-foreground' : ''}
-                                `}>{day}</span>
+                                <div className="flex flex-col items-center">
+                                    <span className={`text-sm font-medium leading-none
+                                        ${isToday ? 'bg-amber-500 text-white w-6 h-6 rounded-full flex items-center justify-center' : ''}
+                                        ${!isToday && dayOfWeek === 0 ? 'text-red-500' : ''}
+                                        ${!isToday && dayOfWeek === 6 ? 'text-blue-500' : ''}
+                                        ${!isToday && dayOfWeek !== 0 && dayOfWeek !== 6 ? 'text-foreground' : ''}
+                                    `}>{day}</span>
+                                    {(() => {
+                                        const lunar = solarToLunar(year, month, day);
+                                        if (!lunar) return null;
+                                        const label = lunar.day === 1 ? `${lunar.day}/${lunar.month}` : `${lunar.day}`;
+                                        return <span className="text-[9px] leading-none text-muted-foreground/70">{label}</span>;
+                                    })()}
+                                </div>
                             </div>
                             {hasEvents && (
                                 <div className="mt-0.5 space-y-0.5 flex-1 overflow-hidden">
@@ -327,9 +355,7 @@ function EventCard({ event }: { event: CalendarEvent }) {
                 <p className="text-xs text-muted-foreground mt-0.5">
                     {isBirthday
                         ? <>Sinh nhật: {event.day}/{event.month}</>
-                        : event.isLunar
-                            ? <>Giỗ: {event.day}/{event.month} ÂL {' → '}{event.solarDay}/{event.solarMonth} DL</>
-                            : <>Giỗ: {event.day}/{event.month}</>
+                        : <>Giỗ: {event.day}/{event.month}{event.isLunar ? ' ÂL' : ''}</>
                     }
                     {event.year && <span className="ml-1 text-muted-foreground/60">· {isBirthday ? 'Sinh' : 'Mất'} {event.year}</span>}
                 </p>
@@ -469,16 +495,31 @@ export default function EventsPage() {
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevYear} title="Năm trước"><ChevronsLeft className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevMonth} title="Tháng trước"><ChevronLeft className="h-4 w-4" /></Button>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-lg font-bold">{SOLAR_MONTH_NAMES[calendarMonth]} — {calendarYear}</h2>
+                        <div className="flex items-center gap-2">
+                            <select
+                                className="rounded-md border px-2 py-1.5 text-sm font-bold bg-background"
+                                value={calendarMonth}
+                                onChange={e => { setCalendarMonth(parseInt(e.target.value)); setSelectedDay(null); }}
+                            >
+                                {SOLAR_MONTH_NAMES.slice(1).map((name, i) => (
+                                    <option key={i + 1} value={i + 1}>{name}</option>
+                                ))}
+                            </select>
+                            <select
+                                className="rounded-md border px-2 py-1.5 text-sm font-bold bg-background"
+                                value={calendarYear}
+                                onChange={e => { setCalendarYear(parseInt(e.target.value)); setSelectedDay(null); }}
+                            >
+                                {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 3 + i).map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
                             <Button variant="outline" size="sm" className="text-xs h-7" onClick={goToToday}>Hôm nay</Button>
                         </div>
                         <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth} title="Tháng sau"><ChevronRight className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextYear} title="Năm sau"><ChevronsRight className="h-4 w-4" /></Button>
                         </div>
                     </div>
 
