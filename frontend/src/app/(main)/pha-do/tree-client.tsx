@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { ContributeDialog } from '@/components/contribute-dialog';
-import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight, Camera } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { determineKinship, type KinshipResult } from '@/lib/kinship';
 import { PersonDetailPanel } from '@/components/person-detail-panel';
 import { Button } from '@/components/ui/button';
@@ -207,6 +208,10 @@ export default function TreeViewPage() {
     const [editorMode, setEditorMode] = useState(false);
     const [selectedCard, setSelectedCard] = useState<string | null>(null);
     const { isAdmin, canEdit, isLoggedIn } = useAuth();
+
+    // Export image state
+    const [exporting, setExporting] = useState(false);
+    const treeContentRef = useRef<HTMLDivElement>(null);
 
     // Quick add person from context menu
     const [quickAdd, setQuickAdd] = useState<{ person: TreeNode; x: number; y: number } | null>(null);
@@ -588,7 +593,10 @@ export default function TreeViewPage() {
     const CULL_PAD = 300; // px padding around viewport
 
     const visibleNodes = useMemo(() => {
-        if (!layout || !viewportRef.current) return layout?.nodes ?? [];
+        if (!layout) return [];
+        // When exporting, render ALL nodes (no culling)
+        if (exporting) return layout.nodes;
+        if (!viewportRef.current) return layout.nodes;
         const vw = viewportRef.current.clientWidth;
         const vh = viewportRef.current.clientHeight;
         const { x: tx, y: ty, scale } = transform;
@@ -601,7 +609,7 @@ export default function TreeViewPage() {
             n.x + CARD_W >= left && n.x <= right &&
             n.y + CARD_H >= top && n.y <= bottom
         );
-    }, [layout, transform]);
+    }, [layout, transform, exporting]);
 
     const visibleIds = useMemo(() => new Set(visibleNodes.map(n => n.node.id)), [visibleNodes]);
 
@@ -611,7 +619,8 @@ export default function TreeViewPage() {
         let pp = '';
         let cp = '';
         const vc: PositionedCouple[] = [];
-        // Only render connections where the line segment intersects visible area
+
+        const shouldCull = !exporting;
         const vw = viewportRef.current?.clientWidth ?? 1200;
         const vh = viewportRef.current?.clientHeight ?? 900;
         const { x: tx, y: ty, scale } = transform;
@@ -619,30 +628,29 @@ export default function TreeViewPage() {
         const top = (-ty / scale) - CULL_PAD;
         const right = ((vw - tx) / scale) + CULL_PAD;
         const bottom = ((vh - ty) / scale) + CULL_PAD;
-        for (const c of layout.connections) {
-            // Check if the line segment's bounding box intersects the viewport
-            const minX = Math.min(c.fromX, c.toX);
-            const maxX = Math.max(c.fromX, c.toX);
-            const minY = Math.min(c.fromY, c.toY);
-            const maxY = Math.max(c.fromY, c.toY);
-            if (maxX < left || minX > right || maxY < top || minY > bottom) continue;
 
+        for (const c of layout.connections) {
+            if (shouldCull) {
+                const minX = Math.min(c.fromX, c.toX);
+                const maxX = Math.max(c.fromX, c.toX);
+                const minY = Math.min(c.fromY, c.toY);
+                const maxY = Math.max(c.fromY, c.toY);
+                if (maxX < left || minX > right || maxY < top || minY > bottom) continue;
+            }
             if (c.type === 'couple') {
                 cp += `M${c.fromX},${c.fromY}L${c.toX},${c.toY}`;
             } else {
-                // Each connection segment is already a single straight line
-                // (either horizontal or vertical) from the layout engine
                 pp += `M${c.fromX},${c.fromY}L${c.toX},${c.toY}`;
             }
         }
         // Visible couples for hearts
         for (const c of layout.couples) {
-            if (visibleIds.has(c.fatherPos?.node.id ?? '') || visibleIds.has(c.motherPos?.node.id ?? '')) {
+            if (!shouldCull || visibleIds.has(c.fatherPos?.node.id ?? '') || visibleIds.has(c.motherPos?.node.id ?? '')) {
                 vc.push(c);
             }
         }
         return { parentPaths: pp, couplePaths: cp, visibleCouples: vc };
-    }, [layout, transform, visibleIds]);
+    }, [layout, transform, visibleIds, exporting]);
 
     // Stable callbacks for PersonCard
     const handleCardHover = useCallback((h: string | null) => setHoveredId(h), []);
@@ -965,6 +973,36 @@ export default function TreeViewPage() {
             y: (vh - layout.height * scale) / 2,
             scale,
         });
+    }, [layout]);
+
+    // Export tree as PNG image
+    const handleExportImage = useCallback(async () => {
+        if (!layout || !treeContentRef.current) return;
+        setExporting(true);
+        // Wait for React to re-render with all nodes visible (no culling)
+        await new Promise(r => setTimeout(r, 500));
+        try {
+            const el = treeContentRef.current;
+            const dataUrl = await toPng(el, {
+                width: layout.width,
+                height: layout.height,
+                backgroundColor: '#faf9f6',
+                style: {
+                    transform: 'none',
+                    transformOrigin: '0 0',
+                },
+                pixelRatio: 2,
+            });
+            const link = document.createElement('a');
+            link.download = `pha-do-${new Date().toISOString().slice(0, 10)}.png`;
+            link.href = dataUrl;
+            link.click();
+        } catch (err) {
+            console.error('Export failed:', err);
+            alert('Xuất ảnh thất bại. Vui lòng thử lại.');
+        } finally {
+            setExporting(false);
+        }
     }, [layout]);
 
     // Center on root ancestor at readable zoom on first load
@@ -1364,6 +1402,15 @@ export default function TreeViewPage() {
                             return { scale: ns, x: cx - (cx - t.x) * r, y: cy - (cy - t.y) * r };
                         })}><ZoomOut className="h-3.5 w-3.5" /></Button>
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={fitAll}><Maximize2 className="h-3.5 w-3.5" /></Button>
+                        <Button
+                            variant="outline" size="icon"
+                            className={`h-8 w-8 ${exporting ? 'animate-pulse bg-amber-100' : ''}`}
+                            title="Xuất ảnh Phả đồ"
+                            onClick={handleExportImage}
+                            disabled={exporting || !layout}
+                        >
+                            <Camera className="h-3.5 w-3.5" />
+                        </Button>
                         {canEdit && (
                             <Button
                                 variant={editorMode ? 'default' : 'outline'}
@@ -1387,13 +1434,22 @@ export default function TreeViewPage() {
                     onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
                     onClick={() => { setShowSearch(false); setContextMenu(null); setQuickAdd(null); if (editorMode) setSelectedCard(null); }}
                 >
+                    {/* Exporting overlay */}
+                    {exporting && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500" />
+                                <span className="text-sm font-medium text-amber-700">Đang xuất ảnh Phả đồ...</span>
+                            </div>
+                        </div>
+                    )}
                     {loading ? (
                         <div className="flex items-center justify-center h-full">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                         </div>
                     ) : layout && (
-                        <div style={{
-                            transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+                        <div ref={treeContentRef} style={{
+                            transform: exporting ? 'none' : `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
                             transformOrigin: '0 0', width: layout.width, height: layout.height,
                             position: 'absolute', top: 0, left: 0,
                         }}>
