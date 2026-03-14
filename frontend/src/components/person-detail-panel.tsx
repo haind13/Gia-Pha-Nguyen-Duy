@@ -15,19 +15,20 @@ import type { PersonDetail } from '@/lib/genealogy-types';
 import { zodiacYear } from '@/lib/genealogy-types';
 
 // ─── Helper: format date display (DD/MM/YYYY or fallback to year) ───
-function formatDateDisplay(dateStr?: string, year?: number): string {
+function formatDateDisplay(dateStr?: string, year?: number, appendLunar = false): string {
+    const suffix = appendLunar ? ' (Âm lịch)' : '';
     if (dateStr) {
         // dateStr might be "DD/MM/YYYY", "DD/MM", "YYYY", or other formats
         const parts = dateStr.split('/');
         if (parts.length === 3) {
-            return `${parts[0]}/${parts[1]}/${parts[2]}`; // DD/MM/YYYY
+            return `${parts[0]}/${parts[1]}/${parts[2]}${suffix}`; // DD/MM/YYYY
         }
         if (parts.length === 2) {
-            return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}`; // DD/MM + year
+            return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}${suffix}`; // DD/MM + year
         }
-        return dateStr;
+        return `${dateStr}${suffix}`;
     }
-    return year ? `${year}` : '—';
+    return year ? `${year}${suffix}` : '—';
 }
 
 // ─── Helper: marital status label ───
@@ -441,7 +442,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                                     <DetailInfo label="Thứ tự" value={`Con thứ ${detail.birthOrder}`} />
                                 )}
                                 {!detail.isLiving && detail.deathYear && (
-                                    <DetailInfo label="Ngày mất (Âm lịch)" value={formatDateDisplay(detail.deathDate, detail.deathYear)} />
+                                    <DetailInfo label="Ngày mất" value={formatDateDisplay(detail.deathDate, detail.deathYear, true)} />
                                 )}
                                 {!detail.isLiving && detail.deathYear && (
                                     <DetailInfo label="Năm âm lịch (mất)" value={zodiacYear(detail.deathYear) || '—'} />

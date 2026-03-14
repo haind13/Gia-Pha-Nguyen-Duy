@@ -277,7 +277,7 @@ export default function PersonProfilePage() {
                                     {person.birthPlace && <InfoRow label="Nơi sinh" value={person.birthPlace} />}
                                     {!person.isLiving && (
                                         <>
-                                            <InfoRow label="Ngày mất (Âm lịch)" value={formatDeathDate(person.deathDate, person.deathYear)} />
+                                            <InfoRow label="Ngày mất" value={formatDeathDate(person.deathDate, person.deathYear)} />
                                             {person.deathPlace && <InfoRow label="Nơi mất" value={person.deathPlace} />}
                                         </>
                                     )}
@@ -514,17 +514,18 @@ export default function PersonProfilePage() {
 }
 
 function formatDeathDate(dateStr?: string, year?: number): string {
+    const suffix = ' (Âm lịch)';
     if (dateStr) {
         const parts = dateStr.split('/');
         if (parts.length === 3) {
-            return `${parts[0]}/${parts[1]}/${parts[2]}`; // DD/MM/YYYY
+            return `${parts[0]}/${parts[1]}/${parts[2]}${suffix}`; // DD/MM/YYYY
         }
         if (parts.length === 2) {
-            return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}`; // DD/MM + year
+            return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}${suffix}`; // DD/MM + year
         }
-        return dateStr;
+        return `${dateStr}${suffix}`;
     }
-    return year ? `${year}` : '—';
+    return year ? `${year}${suffix}` : '—';
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
