@@ -134,6 +134,7 @@ function buildEventsFromPeople(
     const memorialHandles = new Set<string>();
 
     // 1. Extract memorial events from people's death_date
+    // Death dates are always lunar calendar (Âm lịch) in this gia phả
     for (const p of people) {
         if (p.death_date) {
             const parsed = parseDateString(p.death_date);
@@ -146,7 +147,7 @@ function buildEventsFromPeople(
                     day: parsed.day,
                     month: parsed.month,
                     year: p.death_year ?? undefined,
-                    isLunar: parsed.isLunar,
+                    isLunar: true, // death_date is always Âm lịch
                     isPatrilineal: p.is_patrilineal,
                     type: 'memorial',
                 });
