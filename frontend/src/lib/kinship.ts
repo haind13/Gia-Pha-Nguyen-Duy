@@ -697,12 +697,16 @@ function getUncleNieceTerms(
         }
     } else {
         // Maternal side (bên ngoại)
-        if (genderSenior === 1) {
+        // Nếu anh/chị LỚN HƠN bố/mẹ → luôn gọi "Bác" (cả nam lẫn nữ)
+        if (seniorIsOlderThanParent) {
+            seniorTitle = 'Bác';
+            relationship = 'Bác — Cháu';
+        } else if (genderSenior === 1) {
             seniorTitle = 'Cậu';
             relationship = 'Cậu — Cháu';
         } else {
-            seniorTitle = seniorIsOlderThanParent ? 'Bác' : 'Dì';
-            relationship = seniorIsOlderThanParent ? 'Bác — Cháu' : 'Dì — Cháu';
+            seniorTitle = 'Dì';
+            relationship = 'Dì — Cháu';
         }
     }
 
