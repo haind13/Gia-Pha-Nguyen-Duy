@@ -190,17 +190,25 @@ function analyzeRelationship(
         lcaId = path[path.length - 1].personId;
     }
 
-    // Determine if paternal or maternal
-    // Check if the path from A upward goes through father (paternal) or mother (maternal)
+    // Determine if paternal (nội) or maternal (ngoại)
+    // Walk path from A toward LCA, skip spouse edges, find first parent
     let isPaternal = true;
-    if (path.length > 1 && path[1].edgeType === 'parent') {
-        // Check if path[1] is father or mother of A
-        const parentId = path[1].personId;
-        const parentPerson = people.find(p => p.id === parentId);
-        // If the parent in the path is female → maternal side
-        if (parentPerson && parentPerson.gender === 2) {
-            isPaternal = false;
+    for (let i = 1; i < path.length; i++) {
+        if (path[i].edgeType === 'spouse') continue;
+        if (path[i].edgeType === 'parent') {
+            const parentPerson = people.find(p => p.id === path[i].personId);
+            if (parentPerson) {
+                // Use gender + isPatrilineal for accurate nội/ngoại:
+                // - Female parent → maternal side (ngoại), even if she's patrilineal
+                //   (con gái chính tộc lấy chồng → con của cô ấy là ngoại tộc)
+                // - Male parent who is NOT patrilineal (married in) → also ngoại
+                //   (the main family connection is through the other parent)
+                if (parentPerson.gender === 2 || !parentPerson.isPatrilineal) {
+                    isPaternal = false;
+                }
+            }
         }
+        break;
     }
 
     // Check same parents
