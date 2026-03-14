@@ -369,7 +369,7 @@ export default function TreeViewPage() {
     }, [treeData, viewMode, focusPerson]);
 
     // F1: Zoom level
-    const zoomLevel = useMemo<ZoomLevel>(() => getZoomLevel(transform.scale), [transform.scale]);
+    const zoomLevel = useMemo<ZoomLevel>(() => exporting ? 'full' : getZoomLevel(transform.scale), [transform.scale, exporting]);
 
     // F4: Get all descendants of collapsed branches
     const getDescendantIds = useCallback((handle: string): Set<string> => {
@@ -979,19 +979,17 @@ export default function TreeViewPage() {
     const handleExportImage = useCallback(async () => {
         if (!layout || !treeContentRef.current) return;
         setExporting(true);
-        // Wait for React to re-render with all nodes visible (no culling)
-        await new Promise(r => setTimeout(r, 500));
+        // Wait for React to re-render with all nodes at full detail (no culling, zoomLevel='full')
+        await new Promise(r => setTimeout(r, 800));
         try {
             const el = treeContentRef.current;
             const dataUrl = await toPng(el, {
-                width: layout.width,
-                height: layout.height,
                 backgroundColor: '#faf9f6',
                 style: {
                     transform: 'none',
                     transformOrigin: '0 0',
                 },
-                pixelRatio: 2,
+                pixelRatio: 1,
             });
             const link = document.createElement('a');
             link.download = `pha-do-${new Date().toISOString().slice(0, 10)}.png`;
