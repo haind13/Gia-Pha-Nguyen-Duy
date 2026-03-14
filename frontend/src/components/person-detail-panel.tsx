@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import {
     X, Pencil, Save, User, Phone, Mail, MapPin, Briefcase,
-    GraduationCap, StickyNote, Users, ChevronRight,
+    GraduationCap, StickyNote, Users, ChevronRight, ScrollText,
 } from 'lucide-react';
 import {
     fetchPersonDetail,
@@ -458,6 +458,26 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                                 )}
                             </div>
                         </DetailSection>
+
+                        {/* Thông tin gia phả (from members table) */}
+                        {(detail.tenHuy || detail.hieu || detail.tu || detail.chiName || detail.phanChi || detail.nganh || detail.phanNganh || detail.nhanh || detail.phanNhanh || detail.chucVu || detail.noiAnTang || detail.tho) && (
+                            <DetailSection icon={<ScrollText className="w-4 h-4" />} title="Thông tin gia phả">
+                                <div className="grid grid-cols-2 gap-3">
+                                    {detail.tenHuy && <DetailInfo label="Tên húy" value={detail.tenHuy} />}
+                                    {detail.hieu && <DetailInfo label="Tên hiệu" value={detail.hieu} />}
+                                    {detail.tu && <DetailInfo label="Tự" value={detail.tu} />}
+                                    {detail.chiName && <DetailInfo label="Chi" value={detail.chiName} />}
+                                    {detail.phanChi && <DetailInfo label="Phân chi" value={detail.phanChi} />}
+                                    {detail.nganh && <DetailInfo label="Ngành" value={detail.nganh} />}
+                                    {detail.phanNganh && <DetailInfo label="Phân ngành" value={detail.phanNganh} />}
+                                    {detail.nhanh && <DetailInfo label="Nhánh" value={detail.nhanh} />}
+                                    {detail.phanNhanh && <DetailInfo label="Phân nhánh" value={detail.phanNhanh} />}
+                                    {detail.chucVu && <DetailInfo label="Chức vụ" value={detail.chucVu} />}
+                                    {detail.noiAnTang && <DetailInfo label="Nơi an táng" value={detail.noiAnTang} />}
+                                    {detail.tho && <DetailInfo label="Thọ" value={detail.tho} />}
+                                </div>
+                            </DetailSection>
+                        )}
 
                         {/* Liên hệ */}
                         {(detail.phone || detail.email || detail.zalo || detail.facebook) && (

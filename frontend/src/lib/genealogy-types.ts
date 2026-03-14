@@ -42,6 +42,19 @@ export interface PersonDetail {
     maritalStatus?: string;
     bloodType?: string;
     _privacyNote?: string;
+    // ── From members table ──
+    tenHuy?: string;
+    hieu?: string;
+    tu?: string;
+    chiName?: string;       // chi (text, e.g. "Thủy Tổ", "Chi 1")
+    phanChi?: string;
+    nganh?: string;
+    phanNganh?: string;
+    nhanh?: string;
+    phanNhanh?: string;
+    chucVu?: string;
+    noiAnTang?: string;
+    tho?: string;            // age at death
 }
 
 // ═══ BookSection Type ═══

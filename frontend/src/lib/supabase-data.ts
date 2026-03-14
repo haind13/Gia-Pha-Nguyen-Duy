@@ -396,20 +396,22 @@ export async function updatePersonFamilies(id: string, familyIds: string[]): Pro
     return { error: null };
 }
 
-/** Fetch full person detail by id */
+/** Fetch full person detail by id (merges people + members tables) */
 export async function fetchPersonDetail(id: string): Promise<PersonDetail | null> {
-    const { data, error } = await supabase
-        .from('people')
-        .select('*')
-        .eq('id', id)
-        .single();
+    // Fetch from both tables in parallel
+    const [peopleRes, membersRes] = await Promise.all([
+        supabase.from('people').select('*').eq('id', id).single(),
+        supabase.from('members').select('*').eq('id', id).single(),
+    ]);
 
-    if (error || !data) {
-        console.error('Failed to fetch person detail:', error?.message);
+    if (peopleRes.error || !peopleRes.data) {
+        console.error('Failed to fetch person detail:', peopleRes.error?.message);
         return null;
     }
 
-    const row = data as Record<string, unknown>;
+    const row = peopleRes.data as Record<string, unknown>;
+    const mem = (membersRes.data as Record<string, unknown>) || {};
+
     return {
         id: row.id as string,
         displayName: row.display_name as string,
@@ -444,6 +446,19 @@ export async function fetchPersonDetail(id: string): Promise<PersonDetail | null
         birthOrder: row.birth_order as number | undefined,
         maritalStatus: row.marital_status as string | undefined,
         bloodType: row.blood_type as string | undefined,
+        // ── From members table ──
+        tenHuy: mem.ten_huy as string | undefined,
+        hieu: mem.hieu as string | undefined,
+        tu: mem.tu as string | undefined,
+        chiName: mem.chi as string | undefined,
+        phanChi: mem.phan_chi as string | undefined,
+        nganh: mem.nganh as string | undefined,
+        phanNganh: mem.phan_nganh as string | undefined,
+        nhanh: mem.nhanh as string | undefined,
+        phanNhanh: mem.phan_nhanh as string | undefined,
+        chucVu: mem.chuc_vu as string | undefined,
+        noiAnTang: mem.noi_an_tang as string | undefined,
+        tho: mem.tho as string | undefined,
     };
 }
 

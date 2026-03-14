@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
     ArrowLeft, User, Phone, MapPin, Briefcase,
     Pencil, Save, X, Copy, Check, Users, Calendar, Droplets,
-    StickyNote, ChevronRight,
+    StickyNote, ChevronRight, ScrollText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -467,6 +467,26 @@ export default function PersonProfilePage() {
                             {person.bloodType && <InfoField label="Nhóm máu" value={person.bloodType} />}
                         </div>
                     </SectionCard>
+
+                    {/* Thông tin gia phả (from members table) */}
+                    {(person.tenHuy || person.hieu || person.tu || person.chiName || person.phanChi || person.nganh || person.phanNganh || person.nhanh || person.phanNhanh || person.chucVu || person.noiAnTang || person.tho) && (
+                        <SectionCard icon={<ScrollText className="h-4 w-4" />} title="Thông tin gia phả">
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                {person.tenHuy && <InfoField label="Tên húy" value={person.tenHuy} />}
+                                {person.hieu && <InfoField label="Tên hiệu" value={person.hieu} />}
+                                {person.tu && <InfoField label="Tự" value={person.tu} />}
+                                {person.chiName && <InfoField label="Chi" value={person.chiName} />}
+                                {person.phanChi && <InfoField label="Phân chi" value={person.phanChi} />}
+                                {person.nganh && <InfoField label="Ngành" value={person.nganh} />}
+                                {person.phanNganh && <InfoField label="Phân ngành" value={person.phanNganh} />}
+                                {person.nhanh && <InfoField label="Nhánh" value={person.nhanh} />}
+                                {person.phanNhanh && <InfoField label="Phân nhánh" value={person.phanNhanh} />}
+                                {person.chucVu && <InfoField label="Chức vụ" value={person.chucVu} />}
+                                {person.noiAnTang && <InfoField label="Nơi an táng" value={person.noiAnTang} />}
+                                {person.tho && <InfoField label="Thọ" value={person.tho} />}
+                            </div>
+                        </SectionCard>
+                    )}
 
                     {/* Liên hệ */}
                     {(person.phone || person.email || person.zalo || person.facebook) && (
