@@ -498,7 +498,8 @@ function getKinshipTerms(
                 }
             } else {
                 if (genderB === 1) {
-                    return { aCallsB: 'Cậu', bCallsA: 'Cháu', relationship: 'Cậu họ — Cháu' };
+                    const title = bBranchIsOlder ? 'Bác' : 'Cậu';
+                    return { aCallsB: title, bCallsA: 'Cháu', relationship: `${title} họ — Cháu` };
                 } else {
                     const title = bBranchIsOlder ? 'Bác' : 'Dì';
                     return { aCallsB: title, bCallsA: 'Cháu', relationship: `${title} họ — Cháu` };
@@ -523,7 +524,8 @@ function getKinshipTerms(
                 }
             } else {
                 if (genderA === 1) {
-                    return { aCallsB: 'Cháu', bCallsA: 'Cậu', relationship: 'Cậu họ — Cháu' };
+                    const title = branchAIsOlder ? 'Bác' : 'Cậu';
+                    return { aCallsB: 'Cháu', bCallsA: title, relationship: `${title} họ — Cháu` };
                 } else {
                     const title = branchAIsOlder ? 'Bác' : 'Dì';
                     return { aCallsB: 'Cháu', bCallsA: title, relationship: `${title} họ — Cháu` };
@@ -757,49 +759,60 @@ function getCousinTerms(
 // ═══ Helper: Distant relation terms ═══
 function getDistantRelationTerms(
     genGap: number,
-    _genderA: number,
+    genderA: number,
     genderB: number,
     whoIsSenior: 'A_is_senior' | 'B_is_senior',
     isPaternal: boolean,
 ): { aCallsB: string; bCallsA: string; relationship: string } {
     const side = isPaternal ? 'nội' : 'ngoại';
 
+    // Determine the senior person's gender for title
+    const seniorGender = whoIsSenior === 'A_is_senior' ? genderA : genderB;
+
     if (genGap === 1) {
         // One generation difference
         if (whoIsSenior === 'B_is_senior') {
-            // B is senior → same as uncle/aunt
+            // B is senior → A calls B by title
             if (isPaternal) {
-                const title = genderB === 1 ? 'Chú/Bác' : 'Cô/Bác';
+                const title = seniorGender === 1 ? 'Chú/Bác' : 'Cô/Bác';
                 return { aCallsB: title, bCallsA: 'Cháu', relationship: `${title} họ — Cháu` };
             } else {
-                const title = genderB === 1 ? 'Cậu' : 'Dì';
+                const title = seniorGender === 1 ? 'Cậu' : 'Dì';
                 return { aCallsB: title, bCallsA: 'Cháu', relationship: `${title} họ — Cháu` };
             }
         } else {
-            return { aCallsB: 'Cháu', bCallsA: genderB === 1 ? 'Chú/Bác' : 'Cô/Dì', relationship: `Họ hàng chênh 1 đời (${side})` };
+            // A is senior → B calls A by title
+            if (isPaternal) {
+                const title = seniorGender === 1 ? 'Chú/Bác' : 'Cô/Bác';
+                return { aCallsB: 'Cháu', bCallsA: title, relationship: `${title} họ — Cháu` };
+            } else {
+                const title = seniorGender === 1 ? 'Cậu' : 'Dì';
+                return { aCallsB: 'Cháu', bCallsA: title, relationship: `${title} họ — Cháu` };
+            }
         }
     }
 
     if (genGap === 2) {
+        const title = seniorGender === 1 ? 'Ông' : 'Bà';
         if (whoIsSenior === 'B_is_senior') {
-            const title = genderB === 1 ? 'Ông' : 'Bà';
             return { aCallsB: `${title} (họ)`, bCallsA: 'Cháu', relationship: `${title} họ — Cháu (${side})` };
         } else {
-            return { aCallsB: 'Cháu', bCallsA: genderB === 1 ? 'Ông (họ)' : 'Bà (họ)', relationship: `Họ hàng chênh 2 đời (${side})` };
+            return { aCallsB: 'Cháu', bCallsA: `${title} (họ)`, relationship: `${title} họ — Cháu (${side})` };
         }
     }
 
-    // Very distant
+    // Very distant (3+ generation gap)
+    const title = seniorGender === 1 ? 'Ông' : 'Bà';
     if (whoIsSenior === 'B_is_senior') {
         return {
-            aCallsB: genderB === 1 ? `Ông (họ, ${genGap} đời)` : `Bà (họ, ${genGap} đời)`,
+            aCallsB: `${title} (họ, ${genGap} đời)`,
             bCallsA: 'Cháu (họ)',
             relationship: `Họ hàng chênh ${genGap} đời (${side})`,
         };
     } else {
         return {
             aCallsB: 'Cháu (họ)',
-            bCallsA: genderB === 1 ? `Ông (họ)` : `Bà (họ)`,
+            bCallsA: `${title} (họ, ${genGap} đời)`,
             relationship: `Họ hàng chênh ${genGap} đời (${side})`,
         };
     }
