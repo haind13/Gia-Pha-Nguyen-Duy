@@ -14,24 +14,30 @@ export interface TraditionalTemplateProps {
     children: ReactNode; // tree content
 }
 
-/** Hồi văn / Meander / Greek-key border — 3 layers: gold line + pattern + gold line */
-function MeanderBorder() {
-    // SVG encodes a single meander tile (48×24) with classic right-angle spiral
+/** Chim hạc trống đồng — Dong Son bronze drum crane border */
+function CraneBorder() {
+    // SVG tile: two stylized flying cranes (lạc điểu) in Dong Son bronze drum style
     const tile = encodeURIComponent(
-        `<svg width='48' height='24' viewBox='0 0 48 24' xmlns='http://www.w3.org/2000/svg'>` +
-        `<path d='M0,0 h12 v24 h12 v-12 h-12 v-12 h24 v24 h12 v-24' fill='none' stroke='%23b8860b' stroke-width='2.5'/>` +
-        `</svg>`
+        `<svg width='80' height='26' viewBox='0 0 80 26' xmlns='http://www.w3.org/2000/svg'>` +
+        `<g fill='%23b8860b' fill-opacity='0.6'>` +
+        // Crane 1: long neck forward, wings spread, legs trailing
+        `<path d='M10,18 Q12,16 14,12 Q15,10 16,8 L17,6 Q17.5,5 18,5.5 Q18,7 17,9 L16,12 Q18,10 22,8 Q26,6 30,7 Q28,8 25,10 Q22,12 20,14 L18,15 Q20,15 24,16 Q27,17 28,18 Q26,18 23,17 L19,16 Q17,16 16,17 L14,20 Q13,22 12,23 Q11.5,23 12,21 L13,19 Q11,19 9,20 Q7,20 6,19 Q8,18 10,18 Z'/>` +
+        `<circle cx='17.5' cy='5.8' r='0.6'/>` +
+        // Crane 2: offset copy
+        `<path d='M50,18 Q52,16 54,12 Q55,10 56,8 L57,6 Q57.5,5 58,5.5 Q58,7 57,9 L56,12 Q58,10 62,8 Q66,6 70,7 Q68,8 65,10 Q62,12 60,14 L58,15 Q60,15 64,16 Q67,17 68,18 Q66,18 63,17 L59,16 Q57,16 56,17 L54,20 Q53,22 52,23 Q51.5,23 52,21 L53,19 Q51,19 49,20 Q47,20 46,19 Q48,18 50,18 Z'/>` +
+        `<circle cx='57.5' cy='5.8' r='0.6'/>` +
+        `</g></svg>`
     );
     return (
         <div className="w-full flex flex-col items-stretch">
             {/* Outer gold line */}
             <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-amber-600 to-transparent" />
-            {/* Meander pattern row */}
+            {/* Crane pattern row */}
             <div className="w-full" style={{
                 height: 28,
                 backgroundImage: `url("data:image/svg+xml,${tile}")`,
                 backgroundRepeat: 'repeat-x',
-                backgroundSize: '48px 24px',
+                backgroundSize: '80px 26px',
                 backgroundPosition: 'center',
             }} />
             {/* Inner gold line */}
@@ -215,7 +221,7 @@ export function TraditionalTemplate({
             }} />
 
             {/* Top meander border (hồi văn) */}
-            <MeanderBorder />
+            <CraneBorder />
 
             {/* Header — cuốn thư with dragons */}
             <div className="pt-6 pb-4">
@@ -241,7 +247,7 @@ export function TraditionalTemplate({
             </div>
 
             {/* Bottom meander border (hồi văn) */}
-            <MeanderBorder />
+            <CraneBorder />
         </div>
     );
 }

@@ -165,9 +165,9 @@
   background-attachment: fixed;
 }
 
-/* Meander / hồi văn border pattern — Vietnamese traditional style
-   Uses a classic Greek-key (hồi văn) SVG tile repeated horizontally,
-   sandwiched between thin gold gradient lines for an authentic look. */
+/* Chim hạc trống đồng — Dong Son bronze drum crane border pattern
+   Stylized flying cranes (lạc điểu) repeating horizontally,
+   sandwiched between thin gold gradient lines. */
 .meander-border {
   position: relative;
 }
@@ -177,10 +177,10 @@
   content: '';
   display: block;
   flex-shrink: 0;
-  height: 20px;
+  height: 28px;
   background:
     linear-gradient(to right, transparent, #b8860b44, transparent) top / 100% 1px no-repeat,
-    url("data:image/svg+xml,%3Csvg width='48' height='18' viewBox='0 0 48 18' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,0 h9 v18 h9 v-9 h-9 v-9 h18 v18 h9 v-18 h3' fill='none' stroke='%23b8860b' stroke-width='2' stroke-opacity='0.35'/%3E%3C/svg%3E") center / 48px 18px repeat-x,
+    url("data:image/svg+xml,%3Csvg width='80' height='26' viewBox='0 0 80 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23b8860b' fill-opacity='0.35'%3E%3C!-- Dong Son crane: long neck, spread wings, trailing legs --%3E%3Cpath d='M10,18 Q12,16 14,12 Q15,10 16,8 L17,6 Q17.5,5 18,5.5 Q18,7 17,9 L16,12 Q18,10 22,8 Q26,6 30,7 Q28,8 25,10 Q22,12 20,14 L18,15 Q20,15 24,16 Q27,17 28,18 Q26,18 23,17 L19,16 Q17,16 16,17 L14,20 Q13,22 12,23 Q11.5,23 12,21 L13,19 Q11,19 9,20 Q7,20 6,19 Q8,18 10,18 Z'/%3E%3Ccircle cx='17.5' cy='5.8' r='0.6'/%3E%3C!-- Second crane offset --%3E%3Cpath d='M50,18 Q52,16 54,12 Q55,10 56,8 L57,6 Q57.5,5 58,5.5 Q58,7 57,9 L56,12 Q58,10 62,8 Q66,6 70,7 Q68,8 65,10 Q62,12 60,14 L58,15 Q60,15 64,16 Q67,17 68,18 Q66,18 63,17 L59,16 Q57,16 56,17 L54,20 Q53,22 52,23 Q51.5,23 52,21 L53,19 Q51,19 49,20 Q47,20 46,19 Q48,18 50,18 Z'/%3E%3Ccircle cx='57.5' cy='5.8' r='0.6'/%3E%3C/g%3E%3C/svg%3E") center / 80px 26px repeat-x,
     linear-gradient(to right, transparent, #b8860b44, transparent) bottom / 100% 1px no-repeat;
 }
 
@@ -188,6 +188,6 @@
 .dark .meander-border::after {
   background:
     linear-gradient(to right, transparent, #b8860b33, transparent) top / 100% 1px no-repeat,
-    url("data:image/svg+xml,%3Csvg width='48' height='18' viewBox='0 0 48 18' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,0 h9 v18 h9 v-9 h-9 v-9 h18 v18 h9 v-18 h3' fill='none' stroke='%23c9a95c' stroke-width='2' stroke-opacity='0.2'/%3E%3C/svg%3E") center / 48px 18px repeat-x,
+    url("data:image/svg+xml,%3Csvg width='80' height='26' viewBox='0 0 80 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c9a95c' fill-opacity='0.2'%3E%3Cpath d='M10,18 Q12,16 14,12 Q15,10 16,8 L17,6 Q17.5,5 18,5.5 Q18,7 17,9 L16,12 Q18,10 22,8 Q26,6 30,7 Q28,8 25,10 Q22,12 20,14 L18,15 Q20,15 24,16 Q27,17 28,18 Q26,18 23,17 L19,16 Q17,16 16,17 L14,20 Q13,22 12,23 Q11.5,23 12,21 L13,19 Q11,19 9,20 Q7,20 6,19 Q8,18 10,18 Z'/%3E%3Ccircle cx='17.5' cy='5.8' r='0.6'/%3E%3Cpath d='M50,18 Q52,16 54,12 Q55,10 56,8 L57,6 Q57.5,5 58,5.5 Q58,7 57,9 L56,12 Q58,10 62,8 Q66,6 70,7 Q68,8 65,10 Q62,12 60,14 L58,15 Q60,15 64,16 Q67,17 68,18 Q66,18 63,17 L59,16 Q57,16 56,17 L54,20 Q53,22 52,23 Q51.5,23 52,21 L53,19 Q51,19 49,20 Q47,20 46,19 Q48,18 50,18 Z'/%3E%3Ccircle cx='57.5' cy='5.8' r='0.6'/%3E%3C/g%3E%3C/svg%3E") center / 80px 26px repeat-x,
     linear-gradient(to right, transparent, #b8860b33, transparent) bottom / 100% 1px no-repeat;
 }
