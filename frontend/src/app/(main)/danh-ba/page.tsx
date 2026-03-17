@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/auth-provider';
+import { getAccessTier, maskPhone, maskEmail, maskAddress, maskSocial } from '@/lib/privacy';
 
 // ─── Types ────────────────────────────────────────────────────────
 interface DirectoryMember {
@@ -61,7 +62,8 @@ function dbRowToContact(row: Record<string, unknown>): GenealogyContact {
 // ─── Main Page ──────────────────────────────────────────────────
 export default function DirectoryPage() {
     const router = useRouter();
-    const { isLoggedIn, loading: authLoading } = useAuth();
+    const { isLoggedIn, loading: authLoading, role } = useAuth();
+    const tier = getAccessTier(role);
     const [members, setMembers] = useState<DirectoryMember[]>([]);
     const [contacts, setContacts] = useState<GenealogyContact[]>([]);
     const [loading, setLoading] = useState(true);
@@ -79,7 +81,7 @@ export default function DirectoryPage() {
                     .eq('status', 'active')
                     .order('created_at', { ascending: true }),
                 supabase
-                    .from('people')
+                    .from('people_safe')
                     .select('id, display_name, gender, generation, is_living, phone, email, zalo, facebook, current_address, occupation, company')
                     .order('generation', { ascending: true })
                     .order('display_name', { ascending: true }),
@@ -220,27 +222,41 @@ export default function DirectoryPage() {
                                         <p className="text-xs text-muted-foreground">Đời {c.generation}{c.occupation ? ` · ${c.occupation}` : ''}</p>
                                     </div>
 
-                                    {/* Contact info — inline */}
+                                    {/* Contact info — inline (masked for non-admin) */}
                                     <div className="flex-1 flex items-center gap-3 sm:gap-4 flex-wrap text-sm text-muted-foreground min-w-0">
                                         {c.phone && (
-                                            <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
-                                                <Phone className="h-3.5 w-3.5" />
-                                                <span className="hidden sm:inline">{c.phone}</span>
-                                            </a>
+                                            tier === 'admin' ? (
+                                                <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
+                                                    <Phone className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline">{c.phone}</span>
+                                                </a>
+                                            ) : (
+                                                <span className="flex items-center gap-1.5 shrink-0">
+                                                    <Phone className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline">{maskPhone(c.phone)}</span>
+                                                </span>
+                                            )
                                         )}
                                         {c.zalo && (
                                             <span className="flex items-center gap-1.5 shrink-0">
                                                 <MessageCircle className="h-3.5 w-3.5" />
-                                                <span className="hidden sm:inline">{c.zalo}</span>
+                                                <span className="hidden sm:inline">{tier === 'admin' ? c.zalo : maskSocial(c.zalo)}</span>
                                             </span>
                                         )}
                                         {c.email && (
-                                            <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
-                                                <Mail className="h-3.5 w-3.5" />
-                                                <span className="hidden lg:inline truncate max-w-[180px]">{c.email}</span>
-                                            </a>
+                                            tier === 'admin' ? (
+                                                <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
+                                                    <Mail className="h-3.5 w-3.5" />
+                                                    <span className="hidden lg:inline truncate max-w-[180px]">{c.email}</span>
+                                                </a>
+                                            ) : (
+                                                <span className="flex items-center gap-1.5 shrink-0">
+                                                    <Mail className="h-3.5 w-3.5" />
+                                                    <span className="hidden lg:inline truncate max-w-[180px]">{maskEmail(c.email)}</span>
+                                                </span>
+                                            )
                                         )}
-                                        {c.facebook && (
+                                        {c.facebook && tier === 'admin' && (
                                             <a href={c.facebook.startsWith('http') ? c.facebook : `https://facebook.com/${c.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
                                                 <ExternalLink className="h-3.5 w-3.5" />
                                                 <span className="hidden sm:inline">Facebook</span>
@@ -249,7 +265,7 @@ export default function DirectoryPage() {
                                         {c.currentAddress && (
                                             <span className="flex items-center gap-1.5 shrink-0 hidden lg:flex">
                                                 <MapPin className="h-3.5 w-3.5" />
-                                                <span className="truncate max-w-[200px]">{c.currentAddress}</span>
+                                                <span className="truncate max-w-[200px]">{tier === 'admin' ? c.currentAddress : maskAddress(c.currentAddress)}</span>
                                             </span>
                                         )}
                                     </div>
@@ -283,7 +299,7 @@ export default function DirectoryPage() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-medium truncate">{m.display_name || m.email.split('@')[0]}</p>
-                                                <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{tier === 'admin' ? m.email : maskEmail(m.email)}</p>
                                             </div>
                                             {getRoleBadge(m.role)}
                                         </div>

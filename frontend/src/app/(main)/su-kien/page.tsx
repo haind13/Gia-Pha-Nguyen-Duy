@@ -386,7 +386,7 @@ export default function EventsPage() {
         setLoading(true);
         try {
             const { data } = await supabase
-                .from('people')
+                .from('people_safe')
                 .select('id, display_name, gender, generation, birth_date, death_date, birth_year, death_year, is_living, is_patrilineal')
                 .order('generation', { ascending: true });
             if (data) {

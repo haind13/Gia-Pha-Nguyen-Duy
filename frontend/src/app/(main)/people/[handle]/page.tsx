@@ -19,6 +19,7 @@ import {
     updatePerson as supaUpdatePerson,
     type PersonEditFields,
 } from '@/lib/supabase-data';
+import { lunarToSolar, solarToLunar, isValidDDMM } from '@/lib/lunar-utils';
 
 /* ─── Types for family relationship display ─── */
 interface FamilyMember {
@@ -37,15 +38,37 @@ interface FamilyUnit {
 }
 
 /* ─── Helper: format date display ─── */
-function formatDateDisplay(dateStr?: string, year?: number, appendLunar = false): string {
-    const suffix = appendLunar ? ' (Âm lịch)' : '';
+function formatDateDisplay(dateStr?: string, year?: number): string {
     if (dateStr) {
         const parts = dateStr.split('/');
-        if (parts.length === 3) return `${parts[0]}/${parts[1]}/${parts[2]}${suffix}`;
-        if (parts.length === 2) return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}${suffix}`;
-        return `${dateStr}${suffix}`;
+        if (parts.length === 3) return `${parts[0]}/${parts[1]}/${parts[2]}`;
+        if (parts.length === 2) return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}`;
+        return dateStr;
     }
-    return year ? `${year}${suffix}` : '—';
+    return year ? `${year}` : '—';
+}
+
+/* ─── Helper: format death date ─── */
+// VD: "8/5/2022 (tức 8/4 năm Nhâm Dần)"
+function formatDeathDateDisplay(
+    deathDateSolar?: string,
+    deathDate?: string,
+    deathYear?: number,
+): string {
+    const zodiac = deathYear ? zodiacYear(deathYear) : undefined;
+    let solarPart = '';
+    if (deathDateSolar) {
+        const parts = deathDateSolar.split('/');
+        if (parts.length === 2 && deathYear) solarPart = `${parts[0]}/${parts[1]}/${deathYear}`;
+        else solarPart = deathDateSolar;
+    } else if (deathYear) {
+        solarPart = `${deathYear}`;
+    }
+    const lunarParts: string[] = [];
+    if (deathDate) lunarParts.push(deathDate);
+    if (zodiac) lunarParts.push(`năm ${zodiac}`);
+    const lunarSuffix = lunarParts.length > 0 ? ` (tức ${lunarParts.join(' ')})` : '';
+    return solarPart ? `${solarPart}${lunarSuffix}` : (deathYear ? `${deathYear}` : '—');
 }
 
 function maritalStatusLabel(status?: string): string {
@@ -121,7 +144,7 @@ export default function PersonProfilePage() {
             if (personIds.size === 0) return;
 
             const { data: relatedPeople } = await supabase
-                .from('people')
+                .from('people_safe')
                 .select('id, display_name, gender, birth_year, death_year, is_living, generation')
                 .in('id', Array.from(personIds));
 
@@ -196,6 +219,7 @@ export default function PersonProfilePage() {
             birthPlace: person.birthPlace || '',
             deathYear: person.deathYear ?? null,
             deathDate: person.deathDate || '',
+            deathDateSolar: person.deathDateSolar || '',
             deathPlace: person.deathPlace || '',
             isLiving: person.isLiving,
             phone: person.phone || '',
@@ -395,9 +419,25 @@ export default function PersonProfilePage() {
                             </div>
                         </div>
                         {!form.isLiving && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                                <EditRow label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
-                                <EditRow label="Ngày mất Âm lịch (DD/MM)" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="15/08" />
+                            <div className="space-y-3 mt-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <EditRow label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
+                                    <EditRow label="Ngày mất DL (DD/MM)" value={form.deathDateSolar || ''} onChange={v => {
+                                        setField('deathDateSolar', v);
+                                        if (isValidDDMM(v) && form.deathYear) {
+                                            const lunar = solarToLunar(v, form.deathYear as number);
+                                            if (lunar) setField('deathDate', lunar);
+                                        }
+                                    }} placeholder="VD: 8/5" />
+                                    <EditRow label="Ngày giỗ ÂL (DD/MM)" value={form.deathDate || ''} onChange={v => {
+                                        setField('deathDate', v);
+                                        if (isValidDDMM(v) && form.deathYear) {
+                                            const solar = lunarToSolar(v, form.deathYear as number);
+                                            if (solar) setField('deathDateSolar', solar);
+                                        }
+                                    }} placeholder="VD: 8/4" />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">DL = Dương lịch · ÂL = Âm lịch (ngày giỗ) · Nhập 1 ngày, ngày còn lại tự tính</p>
                                 <EditRow label="Nơi mất" value={form.deathPlace || ''} onChange={v => setField('deathPlace', v)} />
                             </div>
                         )}
@@ -458,8 +498,8 @@ export default function PersonProfilePage() {
                             {person.birthPlace && <InfoField label="Nơi sinh" value={person.birthPlace} />}
                             {!person.isLiving && (
                                 <>
-                                    <InfoField label="Ngày mất" value={formatDateDisplay(person.deathDate, person.deathYear, true)} />
-                                    {person.deathYear && <InfoField label="Năm âm lịch (mất)" value={zodiacYear(person.deathYear) || '—'} />}
+                                    <InfoField label="Ngày mất" value={formatDeathDateDisplay(person.deathDateSolar, person.deathDate, person.deathYear)} />
+                                    {person.deathDate && <InfoField label="Ngày Giỗ (ÂL)" value={`${person.deathDate}${person.deathYear ? ` (${zodiacYear(person.deathYear)})` : ''}`} />}
                                     {person.deathPlace && <InfoField label="Nơi mất" value={person.deathPlace} />}
                                 </>
                             )}

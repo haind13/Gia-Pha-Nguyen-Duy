@@ -55,7 +55,7 @@ export default function PeopleListPage() {
             try {
                 const { supabase } = await import('@/lib/supabase');
                 const { data, error } = await supabase
-                    .from('people')
+                    .from('people_safe')
                     .select('id, display_name, gender, birth_year, death_year, is_living, is_privacy_filtered, is_patrilineal, generation, birth_order')
                     .order('generation', { ascending: true });
                 if (!error && data) {

@@ -16,7 +16,8 @@ export interface PersonDetail {
     birthDate?: string;
     birthPlace?: string;
     deathYear?: number;
-    deathDate?: string;
+    deathDate?: string;       // Ngày mất Âm lịch DD/MM
+    deathDateSolar?: string;  // Ngày mất Dương lịch DD/MM
     deathPlace?: string;
     isLiving: boolean;
     isPrivacyFiltered: boolean;

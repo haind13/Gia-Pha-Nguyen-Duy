@@ -364,7 +364,7 @@ export default function PhaDoListPage() {
     useEffect(() => {
         async function updateDefaultCount() {
             const { count } = await supabase
-                .from('people')
+                .from('people_safe')
                 .select('*', { count: 'exact', head: true });
             if (count && count > 0) {
                 setTrees((prev) =>

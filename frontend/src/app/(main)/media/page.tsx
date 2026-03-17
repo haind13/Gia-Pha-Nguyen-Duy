@@ -1,149 +1,271 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { Image as ImageIcon, Upload, Search, Check, X, Loader2 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Image as ImageIcon, Upload, RefreshCw, Loader2, Check, X, ArrowLeft, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/components/auth-provider';
-import { supabase } from '@/lib/supabase';
-
-interface MediaItem {
-    id: string;
-    file_name: string;
-    mime_type: string | null;
-    file_size: number | null;
-    title: string | null;
-    description: string | null;
-    state: string;
-    uploader_id: string | null;
-    created_at: string;
-    uploader?: { display_name: string | null; email: string };
-}
-
-const STATE_BADGE: Record<string, { variant: 'default' | 'secondary' | 'destructive'; label: string }> = {
-    PENDING: { variant: 'secondary', label: 'Chờ duyệt' },
-    PUBLISHED: { variant: 'default', label: 'Đã duyệt' },
-    REJECTED: { variant: 'destructive', label: 'Bị từ chối' },
-};
+import { PhotoGrid } from '@/components/media/photo-grid';
+import { PhotoLightbox } from '@/components/media/photo-lightbox';
+import { AlbumGrid } from '@/components/media/album-grid';
+import { AlbumCreateDialog } from '@/components/media/album-create-dialog';
+import { PhotoUploadDialog } from '@/components/media/photo-upload-dialog';
+import {
+    fetchAlbums, fetchPhotos, fetchAlbumDetail, updatePhoto, syncFromOneDrive,
+    type Album, type Photo,
+} from '@/lib/media-data';
 
 export default function MediaLibraryPage() {
-    const { user, isAdmin, isLoggedIn } = useAuth();
-    const [items, setItems] = useState<MediaItem[]>([]);
+    const { user, isAdmin, isLoggedIn, canEdit } = useAuth();
+    const [tab, setTab] = useState('photos');
+    const [albums, setAlbums] = useState<Album[]>([]);
+    const [photos, setPhotos] = useState<Photo[]>([]);
+    const [pendingPhotos, setPendingPhotos] = useState<Photo[]>([]);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState('all');
-    const fileRef = useRef<HTMLInputElement>(null);
-    const [uploading, setUploading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-    const fetchMedia = useCallback(async (state?: string) => {
+    // Album detail view
+    const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+    const [albumPhotos, setAlbumPhotos] = useState<Photo[]>([]);
+    const [albumLoading, setAlbumLoading] = useState(false);
+
+    const loadData = useCallback(async () => {
         setLoading(true);
-        let query = supabase.from('media').select('*, uploader:profiles(display_name, email)').order('created_at', { ascending: false });
-        if (state && state !== 'all') query = query.eq('state', state);
-        const { data } = await query;
-        if (data) setItems(data);
-        setLoading(false);
-    }, []);
-
-    useEffect(() => { fetchMedia(tab === 'all' ? undefined : tab); }, [tab, fetchMedia]);
-
-    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !user) return;
-        setUploading(true);
         try {
-            const { error } = await supabase.from('media').insert({
-                file_name: file.name,
-                mime_type: file.type,
-                file_size: file.size,
-                state: 'PENDING',
-                uploader_id: user.id,
-            });
-            if (!error) fetchMedia(tab === 'all' ? undefined : tab);
+            const [albumsData, photosData] = await Promise.all([
+                fetchAlbums(),
+                fetchPhotos({ state: 'PUBLISHED', limit: 60 }),
+            ]);
+            setAlbums(albumsData);
+            setPhotos(photosData.photos);
+
+            if (isAdmin) {
+                const pendingData = await fetchPhotos({ state: 'PENDING', limit: 50 });
+                setPendingPhotos(pendingData.photos);
+            }
+        } catch (err) {
+            console.error('Load media error:', err);
         } finally {
-            setUploading(false);
-            if (fileRef.current) fileRef.current.value = '';
+            setLoading(false);
+        }
+    }, [isAdmin]);
+
+    useEffect(() => { loadData(); }, [loadData]);
+
+    const handleSync = async () => {
+        setSyncing(true);
+        try {
+            const result = await syncFromOneDrive();
+            alert(`Đồng bộ thành công! ${result.albumsSynced} album mới, ${result.photosSynced} ảnh mới.`);
+            await loadData();
+        } catch {
+            alert('Đồng bộ thất bại. Kiểm tra cấu hình OneDrive.');
+        } finally {
+            setSyncing(false);
         }
     };
 
-    const handleAction = async (id: string, action: 'approve' | 'reject') => {
-        const newState = action === 'approve' ? 'PUBLISHED' : 'REJECTED';
-        await supabase.from('media').update({ state: newState }).eq('id', id);
-        fetchMedia(tab === 'all' ? undefined : tab);
+    const handleApprove = async (photoId: string) => {
+        await updatePhoto(photoId, { state: 'PUBLISHED' });
+        await loadData();
     };
 
-    const formatSize = (bytes: number | null) => {
-        if (!bytes) return '—';
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / 1048576).toFixed(1)} MB`;
+    const handleReject = async (photoId: string) => {
+        await updatePhoto(photoId, { state: 'REJECTED' });
+        await loadData();
+    };
+
+    const handleAlbumClick = async (album: Album) => {
+        setSelectedAlbum(album);
+        setAlbumLoading(true);
+        try {
+            const data = await fetchAlbumDetail(album.id);
+            setAlbumPhotos(data.photos);
+        } catch {
+            setAlbumPhotos([]);
+        } finally {
+            setAlbumLoading(false);
+        }
+    };
+
+    const handleBackFromAlbum = () => {
+        setSelectedAlbum(null);
+        setAlbumPhotos([]);
     };
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><ImageIcon className="h-6 w-6" />Thư viện</h1>
-                    <p className="text-muted-foreground">Quản lý hình ảnh và tài liệu</p>
+                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                        <ImageIcon className="h-6 w-6" />Thư viện ảnh
+                    </h1>
+                    <p className="text-muted-foreground text-sm">
+                        {photos.length} ảnh · {albums.length} album
+                    </p>
                 </div>
-                {isLoggedIn && (
-                    <div>
-                        <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} />
-                        <Button onClick={() => fileRef.current?.click()} disabled={uploading}>
-                            <Upload className="mr-2 h-4 w-4" />{uploading ? 'Đang tải...' : 'Tải lên'}
+                <div className="flex items-center gap-2">
+                    {isAdmin && (
+                        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+                            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                            {syncing ? 'Đang đồng bộ...' : 'Đồng bộ OneDrive'}
                         </Button>
-                    </div>
-                )}
+                    )}
+                    {canEdit && (
+                        <AlbumCreateDialog onCreated={loadData} />
+                    )}
+                    {isLoggedIn && (
+                        <PhotoUploadDialog albums={albums} onUploaded={loadData} />
+                    )}
+                </div>
             </div>
 
-            <Tabs value={tab} onValueChange={setTab}>
-                <TabsList>
-                    <TabsTrigger value="all">Tất cả</TabsTrigger>
-                    <TabsTrigger value="PENDING">Chờ duyệt</TabsTrigger>
-                    <TabsTrigger value="PUBLISHED">Đã duyệt</TabsTrigger>
-                </TabsList>
-            </Tabs>
+            {/* Album detail view */}
+            {selectedAlbum ? (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="sm" onClick={handleBackFromAlbum}>
+                            <ArrowLeft className="mr-1 h-4 w-4" />Quay lại
+                        </Button>
+                        <div>
+                            <h2 className="text-lg font-bold flex items-center gap-2">
+                                <FolderOpen className="h-5 w-5" />{selectedAlbum.title}
+                            </h2>
+                            {selectedAlbum.description && (
+                                <p className="text-sm text-muted-foreground">{selectedAlbum.description}</p>
+                            )}
+                        </div>
+                    </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>
-            ) : items.length === 0 ? (
-                <Card><CardContent className="flex flex-col items-center justify-center py-12">
-                    <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">Chưa có tài liệu nào</p>
-                </CardContent></Card>
-            ) : (
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    {items.map(item => (
-                        <Card key={item.id}>
-                            <CardContent className="p-4 space-y-2">
-                                <div className="flex items-start justify-between">
-                                    <div className="min-w-0">
-                                        <p className="font-medium text-sm truncate">{item.title || item.file_name}</p>
-                                        <p className="text-xs text-muted-foreground">{formatSize(item.file_size)} · {item.mime_type}</p>
-                                    </div>
-                                    <Badge variant={STATE_BADGE[item.state]?.variant || 'secondary'}>
-                                        {STATE_BADGE[item.state]?.label || item.state}
-                                    </Badge>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {item.uploader?.display_name || item.uploader?.email?.split('@')[0] || 'Ẩn danh'} · {new Date(item.created_at).toLocaleDateString('vi-VN')}
-                                </p>
-                                {isAdmin && item.state === 'PENDING' && (
-                                    <div className="flex gap-2">
-                                        <Button size="sm" variant="outline" onClick={() => handleAction(item.id, 'approve')}>
-                                            <Check className="h-3 w-3 mr-1" />Duyệt
-                                        </Button>
-                                        <Button size="sm" variant="destructive" onClick={() => handleAction(item.id, 'reject')}>
-                                            <X className="h-3 w-3 mr-1" />Từ chối
-                                        </Button>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ))}
+                    {albumLoading ? (
+                        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                    ) : albumPhotos.length === 0 ? (
+                        <Card><CardContent className="flex flex-col items-center justify-center py-12">
+                            <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                            <p className="text-muted-foreground">Album chưa có ảnh</p>
+                        </CardContent></Card>
+                    ) : (
+                        <>
+                            <PhotoGrid photos={albumPhotos} onPhotoClick={i => setLightboxIndex(i)} />
+                            {lightboxIndex !== null && (
+                                <PhotoLightbox
+                                    photos={albumPhotos}
+                                    initialIndex={lightboxIndex}
+                                    onClose={() => setLightboxIndex(null)}
+                                />
+                            )}
+                        </>
+                    )}
                 </div>
+            ) : (
+                /* Main tabs view */
+                <Tabs value={tab} onValueChange={setTab}>
+                    <TabsList>
+                        <TabsTrigger value="photos">
+                            Tất cả ảnh
+                            {photos.length > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px]">{photos.length}</Badge>}
+                        </TabsTrigger>
+                        <TabsTrigger value="albums">
+                            Albums
+                            {albums.length > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px]">{albums.length}</Badge>}
+                        </TabsTrigger>
+                        {isAdmin && pendingPhotos.length > 0 && (
+                            <TabsTrigger value="pending">
+                                Chờ duyệt
+                                <Badge variant="destructive" className="ml-1.5 text-[10px]">{pendingPhotos.length}</Badge>
+                            </TabsTrigger>
+                        )}
+                    </TabsList>
+
+                    {/* All Photos */}
+                    <TabsContent value="photos" className="mt-4">
+                        {loading ? (
+                            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                        ) : photos.length === 0 ? (
+                            <Card><CardContent className="flex flex-col items-center justify-center py-16">
+                                <ImageIcon className="h-16 w-16 text-muted-foreground/30 mb-4" />
+                                <p className="text-muted-foreground font-medium">Chưa có ảnh nào</p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    Tải ảnh lên hoặc đồng bộ từ OneDrive
+                                </p>
+                            </CardContent></Card>
+                        ) : (
+                            <>
+                                <PhotoGrid photos={photos} onPhotoClick={i => setLightboxIndex(i)} />
+                                {lightboxIndex !== null && (
+                                    <PhotoLightbox
+                                        photos={photos}
+                                        initialIndex={lightboxIndex}
+                                        onClose={() => setLightboxIndex(null)}
+                                    />
+                                )}
+                            </>
+                        )}
+                    </TabsContent>
+
+                    {/* Albums */}
+                    <TabsContent value="albums" className="mt-4">
+                        {loading ? (
+                            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                        ) : albums.length === 0 ? (
+                            <Card><CardContent className="flex flex-col items-center justify-center py-16">
+                                <FolderOpen className="h-16 w-16 text-muted-foreground/30 mb-4" />
+                                <p className="text-muted-foreground font-medium">Chưa có album nào</p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    Tạo album mới hoặc đồng bộ từ OneDrive
+                                </p>
+                            </CardContent></Card>
+                        ) : (
+                            <AlbumGrid albums={albums} onAlbumClick={handleAlbumClick} />
+                        )}
+                    </TabsContent>
+
+                    {/* Pending approval (admin) */}
+                    {isAdmin && (
+                        <TabsContent value="pending" className="mt-4">
+                            {pendingPhotos.length === 0 ? (
+                                <Card><CardContent className="flex flex-col items-center justify-center py-12">
+                                    <Check className="h-12 w-12 text-green-500 mb-4" />
+                                    <p className="text-muted-foreground">Không có ảnh nào chờ duyệt</p>
+                                </CardContent></Card>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    {pendingPhotos.map(photo => (
+                                        <Card key={photo.id} className="overflow-hidden">
+                                            <div className="aspect-square bg-muted">
+                                                {photo.thumbnail_url ? (
+                                                    <img src={photo.thumbnail_url} alt={photo.file_name} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="flex h-full items-center justify-center">
+                                                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <CardContent className="p-2 space-y-1">
+                                                <p className="text-xs font-medium truncate">{photo.title || photo.file_name}</p>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    {new Date(photo.created_at).toLocaleDateString('vi-VN')}
+                                                </p>
+                                                <div className="flex gap-1">
+                                                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => handleApprove(photo.id)}>
+                                                        <Check className="h-3 w-3 mr-1" />Duyệt
+                                                    </Button>
+                                                    <Button size="sm" variant="destructive" className="flex-1 h-7 text-xs" onClick={() => handleReject(photo.id)}>
+                                                        <X className="h-3 w-3 mr-1" />Từ chối
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </TabsContent>
+                    )}
+                </Tabs>
             )}
         </div>
     );

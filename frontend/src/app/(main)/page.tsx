@@ -293,6 +293,10 @@ function AboutSection() {
                 <Card className="border-amber-200/50 dark:border-amber-800/20 bg-gradient-to-br from-amber-50/50 via-transparent to-transparent dark:from-amber-950/10">
                     <CardContent className="p-5 sm:p-6 lg:p-8">
                         <div className="space-y-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
+                            <p className="text-center text-foreground font-bold italic text-base sm:text-lg leading-relaxed">
+                                &ldquo;Cây có gốc mới nở muôn cành vạn lá.<br />
+                                Nước nhờ nguồn mà sinh trăm suối, ngàn sông.&rdquo;
+                            </p>
                             <p>
                                 <span className="text-foreground font-medium">Dòng họ Nguyễn Duy</span> —
                                 nhánh cụ Khoan Giản, có gốc gác tại làng Nghìn, xã An Bài,
@@ -342,7 +346,7 @@ export default function HomePage() {
         async function fetchStats() {
             try {
                 const [{ count: people }, { count: families }] = await Promise.all([
-                    supabase.from('people').select('*', { count: 'exact', head: true }).gte('generation', 10),
+                    supabase.from('people_safe').select('*', { count: 'exact', head: true }).gte('generation', 10),
                     supabase.from('families').select('*', { count: 'exact', head: true }),
                 ]);
                 setStats({ people: people || 0, families: families || 0 });

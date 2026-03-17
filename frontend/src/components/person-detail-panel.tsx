@@ -13,22 +13,52 @@ import {
 } from '@/lib/supabase-data';
 import type { PersonDetail } from '@/lib/genealogy-types';
 import { zodiacYear } from '@/lib/genealogy-types';
+import { Lock } from 'lucide-react';
+import {
+    getAccessTier, isFieldVisible, isFieldMasked, maskFieldValue,
+    maskDate, PRIVACY_LOGIN_MSG, type AccessTier,
+} from '@/lib/privacy';
+import { lunarToSolar, solarToLunar, isValidDDMM } from '@/lib/lunar-utils';
 
 // ─── Helper: format date display (DD/MM/YYYY or fallback to year) ───
-function formatDateDisplay(dateStr?: string, year?: number, appendLunar = false): string {
-    const suffix = appendLunar ? ' (Âm lịch)' : '';
+function formatDateDisplay(dateStr?: string, year?: number): string {
     if (dateStr) {
-        // dateStr might be "DD/MM/YYYY", "DD/MM", "YYYY", or other formats
         const parts = dateStr.split('/');
-        if (parts.length === 3) {
-            return `${parts[0]}/${parts[1]}/${parts[2]}${suffix}`; // DD/MM/YYYY
-        }
-        if (parts.length === 2) {
-            return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}${suffix}`; // DD/MM + year
-        }
-        return `${dateStr}${suffix}`;
+        if (parts.length === 3) return `${parts[0]}/${parts[1]}/${parts[2]}`;
+        if (parts.length === 2) return `${parts[0]}/${parts[1]}${year ? `/${year}` : ''}`;
+        return dateStr;
     }
-    return year ? `${year}${suffix}` : '—';
+    return year ? `${year}` : '—';
+}
+
+// ─── Helper: format death date display ───
+// Format: "DD/MM/YYYY (tức DD/MM năm Can Chi)"
+// VD: "8/5/2022 (tức 8/4 năm Nhâm Dần)"
+function formatDeathDateDisplay(
+    deathDateSolar?: string,  // Dương lịch DD/MM
+    deathDate?: string,       // Âm lịch DD/MM
+    deathYear?: number,
+): string {
+    const zodiac = deathYear ? zodiacYear(deathYear) : undefined;
+
+    // Build solar part: DD/MM/YYYY
+    let solarPart = '';
+    if (deathDateSolar) {
+        const parts = deathDateSolar.split('/');
+        if (parts.length === 2 && deathYear) solarPart = `${parts[0]}/${parts[1]}/${deathYear}`;
+        else solarPart = deathDateSolar;
+    } else if (deathYear) {
+        solarPart = `${deathYear}`;
+    }
+
+    // Build lunar part: "(tức DD/MM năm Can Chi)"
+    const lunarParts: string[] = [];
+    if (deathDate) lunarParts.push(deathDate);
+    if (zodiac) lunarParts.push(`năm ${zodiac}`);
+
+    const lunarSuffix = lunarParts.length > 0 ? ` (tức ${lunarParts.join(' ')})` : '';
+
+    return solarPart ? `${solarPart}${lunarSuffix}` : (deathYear ? `${deathYear}` : '—');
 }
 
 // ─── Helper: marital status label ───
@@ -86,7 +116,8 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saveMsg, setSaveMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-    const { canEdit } = useAuth();
+    const { canEdit, role } = useAuth();
+    const tier = getAccessTier(role);
     const person = treeData?.people.find(p => p.id === personId);
 
     // Edit form state
@@ -130,6 +161,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
             birthPlace: detail.birthPlace || '',
             deathYear: detail.deathYear ?? null,
             deathDate: detail.deathDate || '',
+            deathDateSolar: detail.deathDateSolar || '',
             deathPlace: detail.deathPlace || '',
             isLiving: detail.isLiving,
             phone: detail.phone || '',
@@ -345,13 +377,29 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                                     </button>
                                 </div>
                                 {!form.isLiving && (
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <EditField label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
-                                        <EditField label="Ngày mất Âm lịch (DD/MM)" value={form.deathDate || ''} onChange={v => setField('deathDate', v)} placeholder="15/08" />
-                                    </div>
-                                )}
-                                {!form.isLiving && (
-                                    <EditField label="Nơi mất" value={form.deathPlace || ''} onChange={v => setField('deathPlace', v)} />
+                                    <>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <EditField label="Năm mất" value={form.deathYear?.toString() || ''} onChange={v => setField('deathYear', v ? parseInt(v) || null : null)} type="number" />
+                                            <EditField label="Ngày mất DL (DD/MM)" value={form.deathDateSolar || ''} onChange={v => {
+                                                setField('deathDateSolar', v);
+                                                // Auto-convert: solar → lunar
+                                                if (isValidDDMM(v) && form.deathYear) {
+                                                    const lunar = solarToLunar(v, form.deathYear as number);
+                                                    if (lunar) setField('deathDate', lunar);
+                                                }
+                                            }} placeholder="VD: 8/5" />
+                                            <EditField label="Ngày giỗ ÂL (DD/MM)" value={form.deathDate || ''} onChange={v => {
+                                                setField('deathDate', v);
+                                                // Auto-convert: lunar → solar
+                                                if (isValidDDMM(v) && form.deathYear) {
+                                                    const solar = lunarToSolar(v, form.deathYear as number);
+                                                    if (solar) setField('deathDateSolar', solar);
+                                                }
+                                            }} placeholder="VD: 8/4" />
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 -mt-1">DL = Dương lịch · ÂL = Âm lịch (ngày giỗ) · Nhập 1 ngày, ngày còn lại tự tính</p>
+                                        <EditField label="Nơi mất" value={form.deathPlace || ''} onChange={v => setField('deathPlace', v)} />
+                                    </>
                                 )}
                             </div>
                         </DetailSection>
@@ -423,44 +471,58 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                         {/* Thông tin cá nhân */}
                         <DetailSection icon={<User className="w-4 h-4" />} title="Thông tin cá nhân">
                             <div className="grid grid-cols-2 gap-3">
-                                {detail.nickName && (
+                                {detail.nickName && isFieldVisible('nickName', tier) && (
                                     <DetailInfo label="Tên thường gọi" value={detail.nickName} />
                                 )}
-                                {detail.title && (
+                                {detail.title && isFieldVisible('title', tier) && (
                                     <DetailInfo label="Chức danh" value={detail.title} />
                                 )}
                                 {detail.birthYear && (
-                                    <DetailInfo label="Ngày sinh" value={formatDateDisplay(detail.birthDate, detail.birthYear)} />
+                                    <DetailInfo label="Ngày sinh" value={
+                                        tier === 'guest'
+                                            ? maskDate(detail.birthDate, detail.birthYear)
+                                            : formatDateDisplay(detail.birthDate, detail.birthYear)
+                                    } />
                                 )}
                                 {detail.birthYear && (
                                     <DetailInfo label="Năm âm lịch (sinh)" value={zodiacYear(detail.birthYear) || '—'} />
                                 )}
-                                {detail.birthPlace && (
+
+                                {detail.birthPlace && isFieldVisible('birthPlace', tier) && (
                                     <DetailInfo label="Nơi sinh" value={detail.birthPlace} />
                                 )}
-                                {detail.birthOrder && (
+                                {detail.birthOrder && isFieldVisible('birthOrder', tier) && (
                                     <DetailInfo label="Thứ tự" value={`Con thứ ${detail.birthOrder}`} />
                                 )}
                                 {!detail.isLiving && detail.deathYear && (
-                                    <DetailInfo label="Ngày mất" value={formatDateDisplay(detail.deathDate, detail.deathYear, true)} />
+                                    <DetailInfo label="Ngày mất" value={
+                                        tier === 'guest'
+                                            ? maskDate(detail.deathDate, detail.deathYear)
+                                            : formatDeathDateDisplay(detail.deathDateSolar, detail.deathDate, detail.deathYear)
+                                    } />
                                 )}
-                                {!detail.isLiving && detail.deathYear && (
-                                    <DetailInfo label="Năm âm lịch (mất)" value={zodiacYear(detail.deathYear) || '—'} />
+                                {!detail.isLiving && detail.deathDate && tier !== 'guest' && (
+                                    <DetailInfo label="Ngày Giỗ (ÂL)" value={`${detail.deathDate}${detail.deathYear ? ` (${zodiacYear(detail.deathYear)})` : ''}`} />
                                 )}
-                                {!detail.isLiving && detail.deathPlace && (
+                                {!detail.isLiving && detail.deathPlace && isFieldVisible('deathPlace', tier) && (
                                     <DetailInfo label="Nơi mất" value={detail.deathPlace} />
                                 )}
-                                {detail.maritalStatus && (
+                                {detail.maritalStatus && isFieldVisible('maritalStatus', tier) && (
                                     <DetailInfo label="Hôn nhân" value={maritalStatusLabel(detail.maritalStatus)} />
                                 )}
-                                {detail.bloodType && (
-                                    <DetailInfo label="Nhóm máu" value={detail.bloodType} />
+                                {detail.bloodType && isFieldVisible('bloodType', tier) && (
+                                    <DetailInfo label="Nhóm máu" value={
+                                        isFieldMasked('bloodType', tier) ? maskFieldValue('bloodType', detail.bloodType) : detail.bloodType
+                                    } />
                                 )}
                             </div>
+                            {tier === 'guest' && (
+                                <PrivacyNotice />
+                            )}
                         </DetailSection>
 
                         {/* Thông tin gia phả (from members table) */}
-                        {(detail.tenHuy || detail.hieu || detail.tu || detail.chiName || detail.phanChi || detail.nganh || detail.phanNganh || detail.nhanh || detail.phanNhanh || detail.chucVu || detail.noiAnTang || detail.tho) && (
+                        {tier !== 'guest' && (detail.tenHuy || detail.hieu || detail.tu || detail.chiName || detail.phanChi || detail.nganh || detail.phanNganh || detail.nhanh || detail.phanNhanh || detail.chucVu || detail.noiAnTang || detail.tho) && (
                             <DetailSection icon={<ScrollText className="w-4 h-4" />} title="Thông tin gia phả">
                                 <div className="grid grid-cols-2 gap-3">
                                     {detail.tenHuy && <DetailInfo label="Tên húy" value={detail.tenHuy} />}
@@ -481,28 +543,42 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
 
                         {/* Liên hệ */}
                         {(detail.phone || detail.email || detail.zalo || detail.facebook) && (
-                            <DetailSection icon={<Phone className="w-4 h-4" />} title="Liên hệ">
-                                <div className="space-y-2">
-                                    {detail.phone && <DetailInfo label="Điện thoại" value={detail.phone} icon={<Phone className="w-3.5 h-3.5" />} />}
-                                    {detail.email && <DetailInfo label="Email" value={detail.email} icon={<Mail className="w-3.5 h-3.5" />} />}
-                                    {detail.zalo && <DetailInfo label="Zalo" value={detail.zalo} />}
-                                    {detail.facebook && <DetailInfo label="Facebook" value={detail.facebook} />}
-                                </div>
-                            </DetailSection>
+                            tier === 'guest' ? (
+                                <DetailSection icon={<Phone className="w-4 h-4" />} title="Liên hệ">
+                                    <PrivacyNotice />
+                                </DetailSection>
+                            ) : (
+                                <DetailSection icon={<Phone className="w-4 h-4" />} title="Liên hệ">
+                                    <div className="space-y-2">
+                                        {detail.phone && <DetailInfo label="Điện thoại" value={isFieldMasked('phone', tier) ? maskFieldValue('phone', detail.phone) : detail.phone} icon={<Phone className="w-3.5 h-3.5" />} />}
+                                        {detail.email && <DetailInfo label="Email" value={isFieldMasked('email', tier) ? maskFieldValue('email', detail.email) : detail.email} icon={<Mail className="w-3.5 h-3.5" />} />}
+                                        {detail.zalo && <DetailInfo label="Zalo" value={isFieldMasked('zalo', tier) ? maskFieldValue('zalo', detail.zalo) : detail.zalo} />}
+                                        {detail.facebook && <DetailInfo label="Facebook" value={isFieldMasked('facebook', tier) ? maskFieldValue('facebook', detail.facebook) : detail.facebook} />}
+                                    </div>
+                                    {tier === 'member' && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1"><Lock className="w-3 h-3" />Thông tin đã được che khuyết</p>}
+                                </DetailSection>
+                            )
                         )}
 
                         {/* Địa chỉ */}
                         {(detail.currentAddress || detail.hometown) && (
-                            <DetailSection icon={<MapPin className="w-4 h-4" />} title="Địa chỉ">
-                                <div className="space-y-2">
-                                    {detail.hometown && <DetailInfo label="Quê quán" value={detail.hometown} />}
-                                    {detail.currentAddress && <DetailInfo label="Nơi ở hiện tại" value={detail.currentAddress} />}
-                                </div>
-                            </DetailSection>
+                            tier === 'guest' ? (
+                                <DetailSection icon={<MapPin className="w-4 h-4" />} title="Địa chỉ">
+                                    <PrivacyNotice />
+                                </DetailSection>
+                            ) : (
+                                <DetailSection icon={<MapPin className="w-4 h-4" />} title="Địa chỉ">
+                                    <div className="space-y-2">
+                                        {detail.hometown && <DetailInfo label="Quê quán" value={isFieldMasked('hometown', tier) ? maskFieldValue('hometown', detail.hometown) : detail.hometown} />}
+                                        {detail.currentAddress && <DetailInfo label="Nơi ở hiện tại" value={isFieldMasked('currentAddress', tier) ? maskFieldValue('currentAddress', detail.currentAddress) : detail.currentAddress} />}
+                                    </div>
+                                    {tier === 'member' && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1"><Lock className="w-3 h-3" />Thông tin đã được che khuyết</p>}
+                                </DetailSection>
+                            )
                         )}
 
                         {/* Nghề nghiệp & Học vấn */}
-                        {(detail.occupation || detail.company || detail.education) && (
+                        {tier !== 'guest' && (detail.occupation || detail.company || detail.education) && (
                             <DetailSection icon={<Briefcase className="w-4 h-4" />} title="Nghề nghiệp & Học vấn">
                                 <div className="space-y-2">
                                     {detail.occupation && <DetailInfo label="Nghề nghiệp" value={detail.occupation} icon={<Briefcase className="w-3.5 h-3.5" />} />}
@@ -513,7 +589,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                         )}
 
                         {/* Ghi chú */}
-                        {detail.notes && (
+                        {tier !== 'guest' && detail.notes && (
                             <DetailSection icon={<StickyNote className="w-4 h-4" />} title="Ghi chú">
                                 <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{detail.notes}</p>
                             </DetailSection>
@@ -587,6 +663,17 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                     </div>
                 )}
             </div>
+        </div>
+    );
+}
+
+// ═══ Privacy notice ═══
+
+function PrivacyNotice() {
+    return (
+        <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50">
+            <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+            <p className="text-xs text-amber-700 dark:text-amber-400">{PRIVACY_LOGIN_MSG}</p>
         </div>
     );
 }

@@ -61,7 +61,7 @@ function dbRowToTreeFamily(row: Record<string, unknown>): TreeFamily {
 /** Fetch all people from Supabase */
 export async function fetchPeople(): Promise<TreeNode[]> {
     const { data, error } = await supabase
-        .from('people')
+        .from('people_safe')
         .select('id, display_name, gender, birth_year, death_year, generation, is_living, is_privacy_filtered, is_patrilineal, birth_order, family_ids, parent_family_ids')
         .order('generation')
         .order('id');
@@ -204,6 +204,7 @@ export interface PersonEditFields {
     birthPlace?: string | null;
     deathYear?: number | null;
     deathDate?: string | null;
+    deathDateSolar?: string | null;
     deathPlace?: string | null;
     isLiving?: boolean;
     phone?: string | null;
@@ -236,6 +237,7 @@ export async function updatePerson(
     if (fields.birthPlace !== undefined) dbFields.birth_place = fields.birthPlace;
     if (fields.deathYear !== undefined) dbFields.death_year = fields.deathYear;
     if (fields.deathDate !== undefined) dbFields.death_date = fields.deathDate;
+    if (fields.deathDateSolar !== undefined) dbFields.death_date_solar = fields.deathDateSolar;
     if (fields.deathPlace !== undefined) dbFields.death_place = fields.deathPlace;
     if (fields.isLiving !== undefined) dbFields.is_living = fields.isLiving;
     if (fields.phone !== undefined) dbFields.phone = fields.phone;
@@ -284,6 +286,7 @@ export async function addPerson(person: {
     birthDate?: string | null;
     birthPlace?: string | null;
     deathDate?: string | null;
+    deathDateSolar?: string | null;
     deathPlace?: string | null;
     phone?: string | null;
     currentAddress?: string | null;
@@ -318,6 +321,7 @@ export async function addPerson(person: {
     if (person.birthDate) dbRow.birth_date = person.birthDate;
     if (person.birthPlace) dbRow.birth_place = person.birthPlace;
     if (person.deathDate) dbRow.death_date = person.deathDate;
+    if (person.deathDateSolar) dbRow.death_date_solar = person.deathDateSolar;
     if (person.deathPlace) dbRow.death_place = person.deathPlace;
     if (person.phone) dbRow.phone = person.phone;
     if (person.currentAddress) dbRow.current_address = person.currentAddress;
@@ -400,7 +404,7 @@ export async function updatePersonFamilies(id: string, familyIds: string[]): Pro
 export async function fetchPersonDetail(id: string): Promise<PersonDetail | null> {
     // Fetch from both tables in parallel
     const [peopleRes, membersRes] = await Promise.all([
-        supabase.from('people').select('*').eq('id', id).single(),
+        supabase.from('people_safe').select('*').eq('id', id).single(),
         supabase.from('members').select('*').eq('id', id).single(),
     ]);
 
@@ -421,6 +425,7 @@ export async function fetchPersonDetail(id: string): Promise<PersonDetail | null
         birthDate: row.birth_date as string | undefined,
         birthPlace: row.birth_place as string | undefined,
         deathDate: row.death_date as string | undefined,
+        deathDateSolar: row.death_date_solar as string | undefined,
         deathPlace: row.death_place as string | undefined,
         generation: row.generation as number,
         chi: row.chi as number | undefined,
