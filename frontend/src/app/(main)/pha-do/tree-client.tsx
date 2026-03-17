@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { ContributeDialog } from '@/components/contribute-dialog';
-import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight, Camera } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight, Camera, FileImage } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toPng } from 'html-to-image';
 import { determineKinship, type KinshipResult } from '@/lib/kinship';
 import { PersonDetailPanel } from '@/components/person-detail-panel';
@@ -1400,15 +1401,31 @@ export default function TreeViewPage() {
                             return { scale: ns, x: cx - (cx - t.x) * r, y: cy - (cy - t.y) * r };
                         })}><ZoomOut className="h-3.5 w-3.5" /></Button>
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={fitAll}><Maximize2 className="h-3.5 w-3.5" /></Button>
-                        <Button
-                            variant="outline" size="icon"
-                            className={`h-8 w-8 ${exporting ? 'animate-pulse bg-amber-100' : ''}`}
-                            title="Xuất ảnh Phả đồ"
-                            onClick={handleExportImage}
-                            disabled={exporting || !layout}
-                        >
-                            <Camera className="h-3.5 w-3.5" />
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline" size="icon"
+                                    className={`h-8 w-8 ${exporting ? 'animate-pulse bg-amber-100' : ''}`}
+                                    title="Xuất ảnh phả đồ"
+                                    disabled={exporting || !layout}
+                                >
+                                    <Camera className="h-3.5 w-3.5" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={handleExportImage} disabled={exporting}>
+                                    <Camera className="h-4 w-4 mr-2" />
+                                    Xuất nhanh (PNG)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                    const slug = window.location.pathname.split('/pha-do/')[1] || 'pha-do-chung';
+                                    router.push(`/pha-do/xuat-anh?slug=${slug}`);
+                                }}>
+                                    <FileImage className="h-4 w-4 mr-2" />
+                                    Xuất ảnh có mẫu
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         {canEdit && (
                             <Button
                                 variant={editorMode ? 'default' : 'outline'}
