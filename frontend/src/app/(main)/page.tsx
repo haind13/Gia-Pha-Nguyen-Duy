@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, useInView, animate } from 'framer-motion';
 import {
     TreePine, Users, ArrowRight, GitBranch,
-    MapPin, ScrollText, Sparkles,
+    MapPin, ScrollText, Sparkles, Image, CalendarDays, BookOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -169,7 +169,7 @@ function OrnateBorder() {
 // ─── Hero Section ───────────────────────────────────────────────
 function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
     return (
-        <div className="-mx-3 sm:-mx-4 lg:-mx-6 -mt-3 sm:-mt-4 lg:-mt-6 mb-6 sm:mb-8 overflow-hidden">
+        <div className="-mx-3 sm:-mx-4 lg:-mx-6 -mt-3 sm:-mt-4 lg:-mt-6 mb-4 sm:mb-6 lg:mb-8 overflow-hidden">
             <div className="relative overflow-hidden">
                 {/* Multi-layer background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50/80 to-yellow-100/60 dark:from-slate-950 dark:via-indigo-950/70 dark:to-slate-900" />
@@ -192,13 +192,13 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                 <AnimatedFamilyTree />
 
                 <motion.div
-                    className="relative z-10 px-6 py-6 sm:px-10 sm:py-8 lg:px-16 lg:py-10 max-w-2xl"
+                    className="relative z-10 px-4 py-5 sm:px-10 sm:py-8 lg:px-16 lg:py-10 max-w-2xl"
                     variants={staggerContainer}
                     initial="hidden"
                     animate="visible"
                 >
                     <motion.div variants={fadeUp}>
-                        <Badge className="mb-5 bg-amber-100/90 text-amber-800 border-amber-300/60 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40 hover:bg-amber-100 text-xs sm:text-sm px-3.5 py-1.5 shadow-sm">
+                        <Badge className="mb-4 sm:mb-5 bg-amber-100/90 text-amber-800 border-amber-300/60 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40 hover:bg-amber-100 text-xs sm:text-sm px-3 sm:px-3.5 py-1 sm:py-1.5 shadow-sm">
                             <Sparkles className="h-3 w-3 mr-1.5" />
                             Gia phả điện tử
                         </Badge>
@@ -206,7 +206,7 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
 
                     <motion.h1
                         variants={fadeUp}
-                        className="text-4xl sm:text-5xl lg:text-[4rem] font-semibold tracking-tight mb-3 lg:mb-4 leading-tight"
+                        className="text-3xl sm:text-5xl lg:text-[4rem] font-semibold tracking-tight mb-2 sm:mb-3 lg:mb-4 leading-tight"
                         style={{ fontFamily: 'var(--font-crimson), serif' }}
                     >
                         <span className="bg-gradient-to-r from-amber-950 via-amber-800 to-amber-700 dark:from-amber-100 dark:via-amber-200 dark:to-amber-300 bg-clip-text text-transparent drop-shadow-sm">
@@ -214,43 +214,43 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                         </span>
                     </motion.h1>
 
-                    <motion.div variants={fadeUp} className="flex items-center gap-2 text-muted-foreground mb-5 lg:mb-6">
-                        <MapPin className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                        <p className="text-sm sm:text-base lg:text-lg">
+                    <motion.div variants={fadeUp} className="flex items-start gap-2 text-muted-foreground mb-4 sm:mb-5 lg:mb-6">
+                        <MapPin className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <p className="text-xs sm:text-base lg:text-lg leading-relaxed">
                             Nhánh cụ Khoan Giản — Làng Nghìn, An Bài, Quỳnh Phụ, <span className="whitespace-nowrap">Thái Bình</span>
                         </p>
                     </motion.div>
 
                     <motion.div
                         variants={fadeUp}
-                        className="flex items-center gap-4 sm:gap-6 mb-8 lg:mb-10"
+                        className="flex items-center gap-3 sm:gap-6 mb-6 sm:mb-8 lg:mb-10"
                     >
-                        <div className="flex items-center gap-2.5">
-                            <div className="h-9 w-9 rounded-full bg-amber-200/60 dark:bg-amber-800/30 flex items-center justify-center ring-1 ring-amber-300/40 dark:ring-amber-700/30">
-                                <Users className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                        <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-amber-200/60 dark:bg-amber-800/30 flex items-center justify-center ring-1 ring-amber-300/40 dark:ring-amber-700/30">
+                                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-700 dark:text-amber-400" />
                             </div>
                             <div>
-                                <span className="text-lg sm:text-xl font-bold text-foreground">
+                                <span className="text-base sm:text-xl font-bold text-foreground">
                                     {loading ? <span className="inline-block h-5 w-8 bg-muted animate-pulse rounded" /> : <AnimatedCounter target={stats.people} />}
                                 </span>
-                                <span className="text-xs sm:text-sm text-muted-foreground ml-1">thành viên</span>
+                                <span className="text-[10px] sm:text-sm text-muted-foreground ml-1">thành viên</span>
                             </div>
                         </div>
-                        <div className="w-px h-7 bg-amber-300/50 dark:bg-amber-700/30" />
-                        <div className="flex items-center gap-2.5">
-                            <div className="h-9 w-9 rounded-full bg-amber-200/60 dark:bg-amber-800/30 flex items-center justify-center ring-1 ring-amber-300/40 dark:ring-amber-700/30">
-                                <GitBranch className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                        <div className="w-px h-6 sm:h-7 bg-amber-300/50 dark:bg-amber-700/30" />
+                        <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-amber-200/60 dark:bg-amber-800/30 flex items-center justify-center ring-1 ring-amber-300/40 dark:ring-amber-700/30">
+                                <GitBranch className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-700 dark:text-amber-400" />
                             </div>
                             <div>
-                                <span className="text-lg sm:text-xl font-bold text-foreground">16</span>
-                                <span className="text-xs sm:text-sm text-muted-foreground ml-1">thế hệ</span>
+                                <span className="text-base sm:text-xl font-bold text-foreground">16</span>
+                                <span className="text-[10px] sm:text-sm text-muted-foreground ml-1">thế hệ</span>
                             </div>
                         </div>
                     </motion.div>
 
                     <motion.div variants={fadeUp} className="flex flex-wrap gap-3">
                         <Link href="/pha-do">
-                            <Button size="lg" className="gap-2 bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-800 hover:to-amber-900 dark:from-amber-600 dark:to-amber-700 dark:hover:from-amber-500 dark:hover:to-amber-600 text-white shadow-lg shadow-amber-800/25 dark:shadow-amber-600/20 transition-all duration-300">
+                            <Button size="lg" className="gap-2 bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-800 hover:to-amber-900 dark:from-amber-600 dark:to-amber-700 dark:hover:from-amber-500 dark:hover:to-amber-600 text-white shadow-lg shadow-amber-800/25 dark:shadow-amber-600/20 transition-all duration-300 h-10 sm:h-11 text-sm sm:text-base px-4 sm:px-6">
                                 <TreePine className="h-4 w-4 sm:h-5 sm:w-5" />
                                 Xem Phả đồ
                                 <ArrowRight className="h-4 w-4" />
@@ -262,6 +262,48 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                 <OrnateBorder />
             </div>
         </div>
+    );
+}
+
+// ─── Quick Access Cards (mobile-friendly navigation) ─────────
+const quickLinks = [
+    { href: '/pha-do', label: 'Phả đồ', desc: 'Xem cây phả hệ', icon: TreePine, color: 'text-green-700 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30' },
+    { href: '/media', label: 'Thư viện', desc: 'Ảnh gia đình', icon: Image, color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },
+    { href: '/su-kien', label: 'Sự kiện', desc: 'Giỗ, lễ, họp', icon: CalendarDays, color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/30' },
+    { href: '/gia-pha', label: 'Sách gia phả', desc: 'Đọc gia phả', icon: BookOpen, color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+];
+
+function QuickAccessSection() {
+    const ref = useRef<HTMLDivElement>(null);
+    const inView = useInView(ref, { once: true, margin: '-40px' });
+
+    return (
+        <motion.div
+            ref={ref}
+            initial="hidden"
+            animate={inView ? 'visible' : 'hidden'}
+            variants={staggerContainer}
+        >
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                {quickLinks.map((item) => (
+                    <motion.div key={item.href} variants={fadeUp}>
+                        <Link href={item.href}>
+                            <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-muted/50 cursor-pointer h-full">
+                                <CardContent className="p-3 sm:p-4 flex flex-col items-center text-center gap-2">
+                                    <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl ${item.bg} flex items-center justify-center`}>
+                                        <item.icon className={`h-5 w-5 sm:h-5.5 sm:w-5.5 ${item.color}`} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold leading-tight">{item.label}</p>
+                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 hidden sm:block">{item.desc}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    </motion.div>
+                ))}
+            </div>
+        </motion.div>
     );
 }
 
@@ -277,18 +319,18 @@ function AboutSection() {
             animate={inView ? 'visible' : 'hidden'}
             variants={staggerContainer}
         >
-            <motion.div variants={fadeUp} className="flex items-center gap-3 mb-4">
-                <div className="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                    <ScrollText className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+            <motion.div variants={fadeUp} className="flex items-center gap-3 mb-3 sm:mb-4">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <ScrollText className="h-4 w-4 sm:h-5 sm:w-5 text-amber-700 dark:text-amber-400" />
                 </div>
-                <h2 className="text-lg sm:text-xl font-bold">Lời giới thiệu</h2>
+                <h2 className="text-base sm:text-xl font-bold">Lời giới thiệu</h2>
             </motion.div>
 
             <motion.div variants={fadeUp}>
                 <Card className="border-amber-200/50 dark:border-amber-800/20 bg-gradient-to-br from-amber-50/50 via-transparent to-transparent dark:from-amber-950/10">
-                    <CardContent className="p-5 sm:p-6 lg:p-8">
-                        <div className="space-y-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
-                            <p className="text-center text-foreground font-bold italic text-base sm:text-lg leading-relaxed">
+                    <CardContent className="p-4 sm:p-6 lg:p-8">
+                        <div className="space-y-2.5 sm:space-y-3 text-xs sm:text-sm md:text-base text-muted-foreground leading-relaxed">
+                            <p className="text-center text-foreground font-bold italic text-sm sm:text-base md:text-lg leading-relaxed">
                                 &ldquo;Cây có gốc mới nở muôn cành vạn lá.<br />
                                 Nước nhờ nguồn mà sinh trăm suối, ngàn sông.&rdquo;
                             </p>
@@ -318,8 +360,8 @@ function AboutSection() {
 function CopyrightFooter() {
     return (
         <footer className="mt-0">
-            <div className="border-t border-amber-200/40 dark:border-amber-800/20 bg-gradient-to-b from-amber-50/30 to-amber-50/60 dark:from-transparent dark:to-amber-950/10 px-6 py-5 sm:px-10 sm:py-6">
-                <p className="text-xs sm:text-[13px] text-muted-foreground leading-relaxed text-center">
+            <div className="border-t border-amber-200/40 dark:border-amber-800/20 bg-gradient-to-b from-amber-50/30 to-amber-50/60 dark:from-transparent dark:to-amber-950/10 px-4 py-4 sm:px-10 sm:py-6">
+                <p className="text-[11px] sm:text-[13px] text-muted-foreground leading-relaxed text-center">
                     Được xây dựng bởi{' '}
                     <span className="font-semibold text-foreground">Nguyễn Duy Hải</span>
                     , cháu đời thứ 15 &copy; 2026
@@ -350,8 +392,9 @@ export default function HomePage() {
 
     return (
         <div className="-m-3 sm:-m-4 lg:-m-6">
-            <div className="p-3 sm:p-4 lg:p-6 space-y-8 sm:space-y-10">
+            <div className="p-3 sm:p-4 lg:p-6 space-y-5 sm:space-y-8 lg:space-y-10">
                 <HeroSection stats={stats} loading={loading} />
+                <QuickAccessSection />
                 <AboutSection />
             </div>
             <CopyrightFooter />
