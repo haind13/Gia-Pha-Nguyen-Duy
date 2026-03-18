@@ -297,7 +297,7 @@ function AboutSection() {
                             <p className="text-[11px] sm:text-xs md:text-sm leading-snug sm:leading-relaxed">
                                 <span className="text-foreground font-medium">Dòng họ Nguyễn Duy</span> —
                                 nhánh cụ Khoan Giản, có gốc gác tại làng Nghìn (làng Đông Linh), thị trấn An Bài,
-                                huyện Quỳnh Phụ, tỉnh Thái Bình.
+                                huyện Quỳnh Phụ, tỉnh Thái Bình (nay là xã Phụ Dực, tỉnh Hưng Yên).
                                 Trải qua <span className="text-foreground font-medium">16 thế hệ</span> với
                                 hơn 100 thành viên, dòng họ đã lưu giữ và phát triển những giá trị truyền thống quý báu.
                                 Gia phả điện tử này được xây dựng nhằm <span className="text-foreground font-medium">số hóa và bảo tồn</span> thông tin phả hệ,
@@ -346,8 +346,8 @@ export default function HomePage() {
     }, []);
 
     return (
-        <div className="-m-3 sm:-m-4 lg:-m-6 flex flex-col h-full overflow-hidden">
-            <div className="p-3 sm:p-4 lg:p-6 space-y-2 sm:space-y-4 lg:space-y-6 flex-1 min-h-0">
+        <div className="-m-3 sm:-m-4 lg:-m-6 flex flex-col min-h-full">
+            <div className="p-3 sm:p-4 lg:p-6 space-y-2 sm:space-y-4 lg:space-y-6 flex-1">
                 <HeroSection stats={stats} loading={loading} />
                 <AboutSection />
             </div>
