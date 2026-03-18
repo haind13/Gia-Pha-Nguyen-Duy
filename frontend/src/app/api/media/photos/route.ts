@@ -65,6 +65,26 @@ export async function POST(req: NextRequest) {
         }
 
         const supabase = createServiceClient();
+
+        // Determine user role for auto-publish vs pending
+        let uploaderRole = 'viewer';
+        let uploaderId: string | null = null;
+        const authHeader = req.headers.get('authorization');
+        if (authHeader?.startsWith('Bearer ')) {
+            const token = authHeader.slice(7);
+            const { data: { user } } = await supabase.auth.getUser(token);
+            if (user) {
+                uploaderId = user.id;
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
+                if (profile?.role) uploaderRole = profile.role;
+            }
+        }
+        const autoPublish = uploaderRole === 'admin' || uploaderRole === 'editor';
+
         const useR2 = isR2Configured();
         const uploaded = [];
 
@@ -84,7 +104,10 @@ export async function POST(req: NextRequest) {
 
             if (useR2) {
                 // ── Upload to Cloudflare R2 ──
-                r2Key = generateR2Key(albumId, file.name);
+                // browser-image-compression may return name="blob"; use mime type to determine ext
+                const extFromMime: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' };
+                const safeName = file.name === 'blob' ? `photo.${extFromMime[file.type] || 'jpg'}` : file.name;
+                r2Key = generateR2Key(albumId, safeName);
                 await uploadToR2(r2Key, buffer, file.type);
                 r2Url = getR2PublicUrl(r2Key);
             } else if (isOnedriveConfigured()) {
@@ -131,7 +154,8 @@ export async function POST(req: NextRequest) {
                     thumbnail_url: thumbnailUrl,
                     width,
                     height,
-                    state: 'PUBLISHED',
+                    state: autoPublish ? 'PUBLISHED' : 'PENDING',
+                    uploader_id: uploaderId,
                 })
                 .select('id, file_name, thumbnail_url, r2_url, state')
                 .single();

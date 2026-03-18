@@ -2,7 +2,7 @@
  * Cloudflare R2 integration via S3-compatible API
  * Used for storing and serving media photos
  */
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 // ═══ Config ═══
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
@@ -89,4 +89,19 @@ export function getR2TransformUrl(
 ): string {
     const { width = 400, quality = 80, fit = 'cover' } = opts;
     return `${R2_PUBLIC_URL}/cdn-cgi/image/width=${width},quality=${quality},fit=${fit},format=auto/${key}`;
+}
+
+/** Download a file from R2 as a stream (for proxy serving) */
+export async function getFromR2(key: string): Promise<{ body: ReadableStream | null; contentType: string }> {
+    const client = getS3Client();
+    const resp = await client.send(
+        new GetObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: key,
+        }),
+    );
+    return {
+        body: resp.Body?.transformToWebStream() as ReadableStream | null ?? null,
+        contentType: resp.ContentType || 'application/octet-stream',
+    };
 }

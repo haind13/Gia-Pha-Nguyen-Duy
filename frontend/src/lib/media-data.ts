@@ -34,16 +34,17 @@ export interface Photo {
 
 // ═══ URL Helpers ═══
 
-/** Get the best thumbnail URL for grid display (R2 direct → OneDrive thumbnail) */
+/** Get the best thumbnail URL for grid display (R2 proxy → OneDrive thumbnail) */
 export function getPhotoThumbUrl(photo: Photo, width = 400): string {
-    // Use direct R2 URL (r2.dev public URLs don't support /cdn-cgi/image/ transforms)
+    // Serve R2 images via proxy API to avoid public access / CORS issues
+    if (photo.r2_key) return `/api/media/image?key=${encodeURIComponent(photo.r2_key)}`;
     if (photo.r2_url) return photo.r2_url;
-    if (photo.r2_key && R2_PUBLIC_URL) return `${R2_PUBLIC_URL}/${photo.r2_key}`;
     return photo.thumbnail_url || photo.onedrive_url || '';
 }
 
 /** Get the full-resolution URL for lightbox display */
 export function getPhotoFullUrl(photo: Photo): string {
+    if (photo.r2_key) return `/api/media/image?key=${encodeURIComponent(photo.r2_key)}`;
     if (photo.r2_url) return photo.r2_url;
     return photo.onedrive_url || photo.thumbnail_url || '';
 }
@@ -158,8 +159,19 @@ export async function uploadPhotos(
     if (albumId) formData.append('albumId', albumId);
     if (dimensions) formData.append('dimensions', JSON.stringify(dimensions));
 
+    // Send auth token so API can determine role (admin → auto-publish)
+    const headers: Record<string, string> = {};
+    try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+    } catch { /* no auth token available */ }
+
     const res = await fetch('/api/media/photos', {
         method: 'POST',
+        headers,
         body: formData,
     });
 
