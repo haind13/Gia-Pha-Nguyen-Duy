@@ -320,12 +320,9 @@ function CopyrightFooter() {
         <footer className="-mx-3 sm:-mx-4 lg:-mx-6 -mb-3 sm:-mb-4 lg:-mb-6 mt-8 sm:mt-12">
             <div className="border-t border-amber-200/40 dark:border-amber-800/20 bg-gradient-to-b from-amber-50/30 to-amber-50/60 dark:from-transparent dark:to-amber-950/10 px-6 py-5 sm:px-10 sm:py-6">
                 <p className="text-xs sm:text-[13px] text-muted-foreground leading-relaxed text-center">
-                    Gia phả dòng họ{' '}
-                    <span className="font-semibold text-foreground">Nguyễn Duy</span>
-                    {' '}— Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình nay là xã Phụ Dực, tỉnh Hưng Yên.
-                </p>
-                <p className="text-[11px] sm:text-xs text-muted-foreground/60 text-center mt-1.5">
-                    Copyright by Nguyen Duy Hai &copy; 2026
+                    Được xây dựng bởi{' '}
+                    <span className="font-semibold text-foreground">Nguyễn Duy Hải</span>
+                    , cháu đời thứ 15 &copy; 2026
                 </p>
             </div>
         </footer>
