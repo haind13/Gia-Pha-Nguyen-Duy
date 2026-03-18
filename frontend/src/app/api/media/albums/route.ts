@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
-import { createAlbumFolder, isConfigured } from '@/lib/onedrive';
 
 /**
  * GET /api/media/albums — List all albums with photo counts
@@ -11,14 +10,26 @@ export async function GET() {
 
         const { data: albums, error } = await supabase
             .from('albums')
-            .select(`
-                id, title, description, cover_photo_id, onedrive_folder_id,
-                created_at, updated_at,
-                cover:media!albums_cover_photo_id_fkey(thumbnail_url)
-            `)
+            .select('id, title, description, cover_photo_id, created_at, updated_at')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
+
+        // Get cover photo URLs for albums that have cover_photo_id set
+        const coverIds = (albums || []).map(a => a.cover_photo_id).filter(Boolean);
+        const coverMap = new Map<string, string>();
+        if (coverIds.length > 0) {
+            const { data: covers } = await supabase
+                .from('media')
+                .select('id, thumbnail_url, r2_key')
+                .in('id', coverIds);
+            for (const c of covers || []) {
+                const url = c.r2_key
+                    ? `${process.env.NEXT_PUBLIC_R2_URL || ''}/cdn-cgi/image/width=400,quality=80,fit=cover,format=auto/${c.r2_key}`
+                    : c.thumbnail_url;
+                if (url) coverMap.set(c.id, url);
+            }
+        }
 
         // Get photo counts per album
         const { data: counts } = await supabase
@@ -38,7 +49,7 @@ export async function GET() {
             id: album.id,
             title: album.title,
             description: album.description,
-            coverUrl: (album.cover as any)?.thumbnail_url || null,
+            coverUrl: coverMap.get(album.cover_photo_id) || null,
             photoCount: countMap.get(album.id) || 0,
             createdAt: album.created_at,
         }));
@@ -50,7 +61,7 @@ export async function GET() {
 }
 
 /**
- * POST /api/media/albums — Create a new album (+ OneDrive folder)
+ * POST /api/media/albums — Create a new album
  */
 export async function POST(req: NextRequest) {
     try {
@@ -59,20 +70,11 @@ export async function POST(req: NextRequest) {
 
         const supabase = createServiceClient();
 
-        // Create folder on OneDrive
-        let onedriveFolderId: string | null = null;
-        if (isConfigured()) {
-            const folder = await createAlbumFolder(title);
-            onedriveFolderId = folder.id;
-        }
-
-        // Create album in Supabase
         const { data, error } = await supabase
             .from('albums')
             .insert({
                 title,
                 description: description || '',
-                onedrive_folder_id: onedriveFolderId,
             })
             .select('id, title, description, created_at')
             .single();

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
         let query = supabase
             .from('media')
-            .select('id, file_name, title, description, thumbnail_url, onedrive_url, r2_key, r2_url, storage_provider, width, height, state, album_id, created_at, uploader:profiles(display_name)', { count: 'exact' })
+            .select('id, file_name, title, description, thumbnail_url, onedrive_url, r2_key, r2_url, storage_provider, width, height, state, album_id, created_at, uploader_id', { count: 'exact' })
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 

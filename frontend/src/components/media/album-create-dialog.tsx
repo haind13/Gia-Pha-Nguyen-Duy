@@ -70,7 +70,7 @@ export function AlbumCreateDialog({ onCreated, trigger }: AlbumCreateDialogProps
                         />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        Album sẽ được tạo dưới dạng thư mục trên OneDrive. Bạn có thể thêm ảnh trực tiếp qua OneDrive.
+                        Sau khi tạo album, bạn có thể tải ảnh lên trực tiếp vào album.
                     </p>
                 </div>
 
