@@ -3,11 +3,13 @@
 import { Suspense, useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toPng } from 'html-to-image';
+import { motion } from 'framer-motion';
+import { Move } from 'lucide-react';
 import { fetchTreeData } from '@/lib/supabase-data';
 import { computeLayout, type TreeNode, type TreeFamily, type LayoutResult } from '@/lib/tree-layout';
 import { getMockTreeData } from '@/lib/mock-data';
 import { ExportTreeContent, type ExportTreeSettings } from '@/components/export/export-tree-nodes';
-import { ExportToolbar, getDefaultSettings, type ExportSettings } from '@/components/export/export-toolbar';
+import { ExportToolbar, getDefaultSettings, COUPLET_FONTS, type ExportSettings } from '@/components/export/export-toolbar';
 import { TraditionalTemplate } from '@/components/export/export-template-traditional';
 import { ModernTemplate } from '@/components/export/export-template-modern';
 
@@ -33,6 +35,8 @@ function ExportPage() {
     const [layout, setLayout] = useState<LayoutResult | null>(null);
     const [settings, setSettings] = useState<ExportSettings>(getDefaultSettings);
     const [exporting, setExporting] = useState(false);
+    const [coupletOffsetLeft, setCoupletOffsetLeft] = useState({ x: 0, y: 0 });
+    const [coupletOffsetRight, setCoupletOffsetRight] = useState({ x: 0, y: 0 });
 
     const exportRef = useRef<HTMLDivElement>(null);
 
@@ -145,7 +149,7 @@ function ExportPage() {
                         )}
 
                         {/* Template wrapper — this is what gets exported */}
-                        <div ref={exportRef} className="inline-block">
+                        <div ref={exportRef} className="inline-block relative">
                             {settings.template === 'traditional' ? (
                                 <TraditionalTemplate
                                     title={settings.title}
@@ -153,6 +157,9 @@ function ExportPage() {
                                     coupletLeft={settings.coupletLeft}
                                     coupletRight={settings.coupletRight}
                                     coupletFontSize={settings.coupletFontSize}
+                                    coupletFontFamily={COUPLET_FONTS[settings.coupletFont].family}
+                                    coupletOffsetLeft={coupletOffsetLeft}
+                                    coupletOffsetRight={coupletOffsetRight}
                                     headerScale={settings.headerScale}
                                     treeWidth={layout.width}
                                     treeHeight={layout.height}
@@ -168,6 +175,54 @@ function ExportPage() {
                                 >
                                     <ExportTreeContent layout={layout} settings={treeSettings} />
                                 </ModernTemplate>
+                            )}
+
+                            {/* Drag handles for couplets — only in preview, hidden during export */}
+                            {settings.template === 'traditional' && !exporting && settings.coupletLeft && (
+                                <motion.div
+                                    drag
+                                    dragMomentum={false}
+                                    onDragEnd={(_, info) => setCoupletOffsetLeft(prev => ({
+                                        x: prev.x + info.offset.x,
+                                        y: prev.y + info.offset.y,
+                                    }))}
+                                    className="absolute top-1/4 left-0 z-20 cursor-grab active:cursor-grabbing group"
+                                    style={{
+                                        width: Math.max(settings.coupletFontSize * 1.5, 3) + 'rem',
+                                        height: '40%',
+                                    }}
+                                    title="Kéo để di chuyển câu đối trái"
+                                >
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full
+                                        bg-amber-600/80 text-white rounded-t px-2 py-0.5 text-[10px] font-medium
+                                        opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                        <Move className="h-3 w-3" /> Kéo thả
+                                    </div>
+                                    <div className="w-full h-full border-2 border-dashed border-amber-400/0 group-hover:border-amber-400/60 rounded transition-colors" />
+                                </motion.div>
+                            )}
+                            {settings.template === 'traditional' && !exporting && settings.coupletRight && (
+                                <motion.div
+                                    drag
+                                    dragMomentum={false}
+                                    onDragEnd={(_, info) => setCoupletOffsetRight(prev => ({
+                                        x: prev.x + info.offset.x,
+                                        y: prev.y + info.offset.y,
+                                    }))}
+                                    className="absolute top-1/4 right-0 z-20 cursor-grab active:cursor-grabbing group"
+                                    style={{
+                                        width: Math.max(settings.coupletFontSize * 1.5, 3) + 'rem',
+                                        height: '40%',
+                                    }}
+                                    title="Kéo để di chuyển câu đối phải"
+                                >
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full
+                                        bg-amber-600/80 text-white rounded-t px-2 py-0.5 text-[10px] font-medium
+                                        opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                        <Move className="h-3 w-3" /> Kéo thả
+                                    </div>
+                                    <div className="w-full h-full border-2 border-dashed border-amber-400/0 group-hover:border-amber-400/60 rounded transition-colors" />
+                                </motion.div>
                             )}
                         </div>
                     </div>

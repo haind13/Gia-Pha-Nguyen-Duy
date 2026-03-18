@@ -7,7 +7,10 @@ export interface TraditionalTemplateProps {
     subtitle: string;
     coupletLeft: string;
     coupletRight: string;
-    coupletFontSize: number; // rem
+    coupletFontSize: number; // px
+    coupletFontFamily?: string; // CSS font-family string
+    coupletOffsetLeft?: { x: number; y: number };
+    coupletOffsetRight?: { x: number; y: number };
     headerScale: number; // 50-150 %
     treeWidth: number;
     treeHeight: number;
@@ -162,11 +165,17 @@ function Tassel() {
 }
 
 /** Vertical couplet text — Vietnamese calligraphy style */
-function VerticalCouplet({ text, fontSize, side }: { text: string; fontSize: number; side: 'left' | 'right' }) {
+function VerticalCouplet({ text, fontSize, side, fontFamily, offset }: {
+    text: string; fontSize: number; side: 'left' | 'right';
+    fontFamily?: string; offset?: { x: number; y: number };
+}) {
     return (
         <div
             className={`absolute top-1/4 ${side === 'left' ? 'left-0' : 'right-0'} flex flex-col items-center`}
-            style={{ width: `${Math.max(fontSize * 1.5, 3)}rem` }}
+            style={{
+                width: `${Math.max(fontSize * 1.5, 3)}rem`,
+                transform: offset ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
+            }}
         >
             <div
                 className="text-red-800 font-bold leading-relaxed text-center select-none"
@@ -174,7 +183,7 @@ function VerticalCouplet({ text, fontSize, side }: { text: string; fontSize: num
                     writingMode: 'vertical-rl',
                     textOrientation: 'mixed',
                     fontSize: `${fontSize}px`,
-                    fontFamily: '"Ma Shan Zheng", "Noto Serif", "Times New Roman", cursive, serif',
+                    fontFamily: fontFamily || '"UTM ThuPhap ThienAn", "Noto Serif", "Times New Roman", cursive, serif',
                     letterSpacing: '0.15em',
                     textShadow: '1px 1px 2px rgba(139,0,0,0.2)',
                 }}
@@ -187,7 +196,8 @@ function VerticalCouplet({ text, fontSize, side }: { text: string; fontSize: num
 
 /** Traditional template wrapper — cuốn thư + câu đối + nền giấy cổ */
 export function TraditionalTemplate({
-    title, subtitle, coupletLeft, coupletRight, coupletFontSize, headerScale,
+    title, subtitle, coupletLeft, coupletRight, coupletFontSize, coupletFontFamily,
+    coupletOffsetLeft, coupletOffsetRight, headerScale,
     treeWidth, treeHeight, children,
 }: TraditionalTemplateProps) {
     // Calculate side margins for couplets
@@ -221,7 +231,8 @@ export function TraditionalTemplate({
             <div className="relative" style={{ paddingLeft: sideMargin, paddingRight: sideMargin, paddingBottom: 40 }}>
                 {/* Left couplet */}
                 {coupletLeft && (
-                    <VerticalCouplet text={coupletLeft} fontSize={coupletFontSize} side="left" />
+                    <VerticalCouplet text={coupletLeft} fontSize={coupletFontSize} side="left"
+                        fontFamily={coupletFontFamily} offset={coupletOffsetLeft} />
                 )}
 
                 {/* Tree content */}
@@ -231,7 +242,8 @@ export function TraditionalTemplate({
 
                 {/* Right couplet */}
                 {coupletRight && (
-                    <VerticalCouplet text={coupletRight} fontSize={coupletFontSize} side="right" />
+                    <VerticalCouplet text={coupletRight} fontSize={coupletFontSize} side="right"
+                        fontFamily={coupletFontFamily} offset={coupletOffsetRight} />
                 )}
             </div>
 

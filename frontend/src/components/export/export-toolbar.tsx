@@ -7,6 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 
 export type TemplateType = 'traditional' | 'modern';
+export type CoupletFontType = 'thuphap' | 'serif';
+
+export const COUPLET_FONTS: Record<CoupletFontType, { label: string; family: string }> = {
+    thuphap: { label: 'Thư pháp', family: '"UTM ThuPhap ThienAn", cursive' },
+    serif: { label: 'Unicode (Noto Serif)', family: '"Noto Serif", "Times New Roman", serif' },
+};
 
 export interface ExportSettings {
     template: TemplateType;
@@ -15,6 +21,7 @@ export interface ExportSettings {
     coupletLeft: string;
     coupletRight: string;
     coupletFontSize: number;
+    coupletFont: CoupletFontType;
     headerScale: number;
     showBirthDeath: boolean;
     showSpouse: boolean;
@@ -28,6 +35,7 @@ const DEFAULT_SETTINGS: ExportSettings = {
     coupletLeft: 'Tổ Tiên Công Đức Thiên Niên Thịnh',
     coupletRight: 'Tử Hiếu Tôn Hiền Vạn Đại Vinh',
     coupletFontSize: 24,
+    coupletFont: 'thuphap',
     headerScale: 100,
     showBirthDeath: true,
     showSpouse: true,
@@ -236,12 +244,57 @@ export function ExportToolbar({ settings, onSettingsChange, onExport, onBack, ex
                             <label className="text-sm font-medium mb-1 block">Câu đối phải</label>
                             <Input value={settings.coupletRight} onChange={e => update({ coupletRight: e.target.value })} />
                         </div>
+
+                        {/* Font picker */}
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">Kiểu chữ</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {(Object.entries(COUPLET_FONTS) as [CoupletFontType, { label: string; family: string }][]).map(([key, font]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => update({ coupletFont: key })}
+                                        className={`text-left rounded-lg border-2 p-3 transition-all ${
+                                            settings.coupletFont === key
+                                                ? 'border-red-500 bg-red-50/50'
+                                                : 'border-border hover:border-red-300'
+                                        }`}
+                                    >
+                                        <span className="text-xs font-medium block mb-1">{font.label}</span>
+                                        <span
+                                            className="text-red-800 block leading-tight"
+                                            style={{ fontFamily: font.family, fontSize: '16px' }}
+                                        >
+                                            Tổ Tiên Công Đức
+                                        </span>
+                                        {settings.coupletFont === key && (
+                                            <span className="text-xs text-red-600 font-medium mt-1 block">✓ Đang dùng</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <div>
                             <label className="text-sm font-medium mb-1 block">Kích thước chữ: {settings.coupletFontSize}px</label>
                             <input type="range" min={14} max={48} step={2} value={settings.coupletFontSize}
                                 onChange={e => update({ coupletFontSize: Number(e.target.value) })}
                                 className="w-full accent-red-600" />
                         </div>
+
+                        {/* Preview */}
+                        <div className="border rounded-lg p-3 bg-amber-50/50">
+                            <span className="text-[10px] text-muted-foreground block mb-1">Xem trước</span>
+                            <p
+                                className="text-red-800 text-center"
+                                style={{
+                                    fontFamily: COUPLET_FONTS[settings.coupletFont].family,
+                                    fontSize: `${settings.coupletFontSize}px`,
+                                }}
+                            >
+                                {settings.coupletLeft}
+                            </p>
+                        </div>
+
                         <Button className="w-full" onClick={() => setShowCouplet(false)}>Lưu thay đổi</Button>
                     </div>
                 </DialogContent>
