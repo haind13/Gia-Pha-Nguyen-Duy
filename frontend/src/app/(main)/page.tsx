@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, useInView, animate } from 'framer-motion';
 import {
     TreePine, Users, ArrowRight, GitBranch,
-    MapPin, ScrollText, Sparkles, Image, CalendarDays, BookOpen,
+    MapPin, ScrollText, Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -216,8 +216,9 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
 
                     <motion.div variants={fadeUp} className="flex items-start gap-2 text-muted-foreground mb-4 sm:mb-5 lg:mb-6">
                         <MapPin className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                        <p className="text-xs sm:text-base lg:text-lg leading-relaxed">
-                            Nhánh cụ Khoan Giản — Làng Nghìn, An Bài, Quỳnh Phụ, <span className="whitespace-nowrap">Thái Bình</span>
+                        <p className="text-sm sm:text-base lg:text-lg leading-relaxed">
+                            <span className="whitespace-nowrap">Nhánh cụ Khoan Giản</span> — <span className="whitespace-nowrap">Làng Nghìn, An Bài,</span>{' '}
+                            <span className="whitespace-nowrap">Quỳnh Phụ, Thái Bình</span>
                         </p>
                     </motion.div>
 
@@ -262,48 +263,6 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                 <OrnateBorder />
             </div>
         </div>
-    );
-}
-
-// ─── Quick Access Cards (mobile-friendly navigation) ─────────
-const quickLinks = [
-    { href: '/pha-do', label: 'Phả đồ', desc: 'Xem cây phả hệ', icon: TreePine, color: 'text-green-700 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30' },
-    { href: '/media', label: 'Thư viện', desc: 'Ảnh gia đình', icon: Image, color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },
-    { href: '/su-kien', label: 'Sự kiện', desc: 'Giỗ, lễ, họp', icon: CalendarDays, color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/30' },
-    { href: '/gia-pha', label: 'Sách gia phả', desc: 'Đọc gia phả', icon: BookOpen, color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30' },
-];
-
-function QuickAccessSection() {
-    const ref = useRef<HTMLDivElement>(null);
-    const inView = useInView(ref, { once: true, margin: '-40px' });
-
-    return (
-        <motion.div
-            ref={ref}
-            initial="hidden"
-            animate={inView ? 'visible' : 'hidden'}
-            variants={staggerContainer}
-        >
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-                {quickLinks.map((item) => (
-                    <motion.div key={item.href} variants={fadeUp}>
-                        <Link href={item.href}>
-                            <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-muted/50 cursor-pointer h-full">
-                                <CardContent className="p-3 sm:p-4 flex flex-col items-center text-center gap-2">
-                                    <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl ${item.bg} flex items-center justify-center`}>
-                                        <item.icon className={`h-5 w-5 sm:h-5.5 sm:w-5.5 ${item.color}`} />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-semibold leading-tight">{item.label}</p>
-                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 hidden sm:block">{item.desc}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    </motion.div>
-                ))}
-            </div>
-        </motion.div>
     );
 }
 
@@ -394,7 +353,6 @@ export default function HomePage() {
         <div className="-m-3 sm:-m-4 lg:-m-6">
             <div className="p-3 sm:p-4 lg:p-6 space-y-5 sm:space-y-8 lg:space-y-10">
                 <HeroSection stats={stats} loading={loading} />
-                <QuickAccessSection />
                 <AboutSection />
             </div>
             <CopyrightFooter />
