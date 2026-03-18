@@ -1,11 +1,17 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Noto_Serif } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 
 const inter = Inter({
   variable: '--font-inter',
   subsets: ['latin', 'vietnamese'],
+});
+
+const notoSerif = Noto_Serif({
+  variable: '--font-serif',
+  subsets: ['latin', 'vietnamese'],
+  weight: ['400', '700'],
 });
 
 export const metadata: Metadata = {
@@ -20,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${notoSerif.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>
