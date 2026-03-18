@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, Noto_Serif } from 'next/font/google';
+import { Inter, Noto_Serif, Crimson_Pro } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 
@@ -14,6 +14,12 @@ const notoSerif = Noto_Serif({
   weight: ['400', '700'],
 });
 
+const crimsonPro = Crimson_Pro({
+  variable: '--font-crimson',
+  subsets: ['latin', 'vietnamese'],
+  weight: ['400', '600', '700'],
+});
+
 export const metadata: Metadata = {
   title: 'Họ Nguyễn Duy (nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình',
   description: 'Gia phả dòng họ Nguyễn Duy (nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình — Quản lý gia phả & kết nối cộng đồng dòng họ',
@@ -26,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${inter.variable} ${notoSerif.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${notoSerif.variable} ${crimsonPro.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -175,15 +175,10 @@
 }
 
 /* Chim hạc trống đồng Đông Sơn — Dong Son bronze drum crane border
-   Uses /images/dong-son-crane.png (transparent) as repeating tile. */
-.meander-border {
-  position: relative;
-}
-
-.meander-border::before,
-.meander-border::after {
-  content: '';
-  display: block;
+   Uses /images/dong-son-crane.png (transparent) as repeating tile.
+   Rendered as fixed DOM elements OUTSIDE scrollable <main>. */
+.crane-border-top,
+.crane-border-bottom {
   flex-shrink: 0;
   height: 36px;
   background:
@@ -191,9 +186,10 @@
     url("/images/dong-son-crane.png") center / auto 32px repeat-x,
     linear-gradient(to right, transparent, #b8860b55, transparent) bottom / 100% 1px no-repeat;
   opacity: 0.4;
+  pointer-events: none;
 }
 
-.dark .meander-border::before,
-.dark .meander-border::after {
+.dark .crane-border-top,
+.dark .crane-border-bottom {
   opacity: 0.25;
 }

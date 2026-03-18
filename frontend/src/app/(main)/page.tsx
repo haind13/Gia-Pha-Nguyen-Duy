@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, useInView, animate } from 'framer-motion';
 import {
-    TreePine, Users, BookOpen, ArrowRight, GitBranch,
+    TreePine, Users, ArrowRight, GitBranch,
     MapPin, ScrollText, Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -114,7 +114,7 @@ function AnimatedFamilyTree() {
     return (
         <motion.svg
             viewBox="0 0 400 400"
-            className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-56 h-56 sm:w-72 sm:h-72 lg:w-[380px] lg:h-[380px] text-amber-900/[0.06] dark:text-amber-200/[0.03] hidden sm:block pointer-events-none"
+            className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-48 h-48 sm:w-60 sm:h-60 lg:w-[300px] lg:h-[300px] text-amber-900/[0.06] dark:text-amber-200/[0.03] hidden sm:block pointer-events-none"
             aria-hidden="true"
         >
             {branches.map((b, i) => (
@@ -192,7 +192,7 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                 <AnimatedFamilyTree />
 
                 <motion.div
-                    className="relative z-10 px-6 py-10 sm:px-10 sm:py-14 lg:px-16 lg:py-16 max-w-2xl"
+                    className="relative z-10 px-6 py-6 sm:px-10 sm:py-8 lg:px-16 lg:py-10 max-w-2xl"
                     variants={staggerContainer}
                     initial="hidden"
                     animate="visible"
@@ -206,7 +206,8 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
 
                     <motion.h1
                         variants={fadeUp}
-                        className="text-3xl sm:text-4xl lg:text-[3.5rem] font-bold tracking-tight mb-3 lg:mb-4 leading-tight"
+                        className="text-4xl sm:text-5xl lg:text-[4rem] font-semibold tracking-tight mb-3 lg:mb-4 leading-tight"
+                        style={{ fontFamily: 'var(--font-crimson), serif' }}
                     >
                         <span className="bg-gradient-to-r from-amber-950 via-amber-800 to-amber-700 dark:from-amber-100 dark:via-amber-200 dark:to-amber-300 bg-clip-text text-transparent drop-shadow-sm">
                             Dòng họ Nguyễn Duy
@@ -253,12 +254,6 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                                 <TreePine className="h-4 w-4 sm:h-5 sm:w-5" />
                                 Xem Phả đồ
                                 <ArrowRight className="h-4 w-4" />
-                            </Button>
-                        </Link>
-                        <Link href="/gia-pha">
-                            <Button size="lg" variant="outline" className="gap-2 border-amber-300/80 text-amber-800 hover:bg-amber-100/50 dark:border-amber-600/40 dark:text-amber-300 dark:hover:bg-amber-900/20 backdrop-blur-sm transition-all duration-300">
-                                <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
-                                Sách gia phả
                             </Button>
                         </Link>
                     </motion.div>
@@ -357,7 +352,7 @@ export default function HomePage() {
     }, []);
 
     return (
-        <div className="h-full overflow-y-auto -m-3 sm:-m-4 lg:-m-6">
+        <div className="-m-3 sm:-m-4 lg:-m-6">
             <div className="min-h-full flex flex-col p-3 sm:p-4 lg:p-6">
                 <div className="flex-1 space-y-8 sm:space-y-10">
                     <HeroSection stats={stats} loading={loading} />

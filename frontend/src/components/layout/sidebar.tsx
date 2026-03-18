@@ -33,9 +33,10 @@ import {
 } from '@/components/ui/sheet';
 
 /* Public navigation — always visible */
-const publicNavItems = [
+export const publicNavItems = [
     { href: '/', label: 'Trang chủ', icon: Home },
     { href: '/pha-do', label: 'Phả đồ', icon: TreePine },
+    { href: '/su-kien', label: 'Sự kiện', icon: CalendarDays },
     { href: '/media', label: 'Thư viện', icon: Image },
 ];
 
@@ -43,7 +44,6 @@ const publicNavItems = [
 const authNavItems = [
     { href: '/feed', label: 'Bảng tin', icon: Newspaper },
     { href: '/danh-ba', label: 'Danh bạ', icon: Contact },
-    { href: '/su-kien', label: 'Sự kiện', icon: CalendarDays },
     { href: '/gia-pha', label: 'Sách gia phả', icon: BookOpen },
     { href: '/people', label: 'Thành viên', icon: Users },
 ];
