@@ -214,6 +214,11 @@ export default function TreeViewPage() {
     const [exporting, setExporting] = useState(false);
     const treeContentRef = useRef<HTMLDivElement>(null);
 
+    // Crop export state
+    const [cropMode, setCropMode] = useState(false);
+    const [cropRect, setCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+    const cropStartRef = useRef<{ x: number; y: number } | null>(null);
+
     // Quick add person from context menu
     const [quickAdd, setQuickAdd] = useState<{ person: TreeNode; x: number; y: number } | null>(null);
 
@@ -1004,6 +1009,59 @@ export default function TreeViewPage() {
         }
     }, [layout]);
 
+    // Crop export: export only the selected region
+    const handleCropExport = useCallback(async () => {
+        if (!cropRect || !layout || !treeContentRef.current) return;
+        setExporting(true);
+        await new Promise(r => setTimeout(r, 800));
+        try {
+            // Convert viewport coords to tree-space coords
+            const treeX = (cropRect.x - transform.x) / transform.scale;
+            const treeY = (cropRect.y - transform.y) / transform.scale;
+            const treeW = cropRect.w / transform.scale;
+            const treeH = cropRect.h / transform.scale;
+
+            const el = treeContentRef.current;
+            const fullDataUrl = await toPng(el, {
+                backgroundColor: '#faf9f6',
+                style: { transform: 'none', transformOrigin: '0 0' },
+                pixelRatio: 1,
+            });
+
+            // Crop via canvas
+            const img = new Image();
+            img.src = fullDataUrl;
+            await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject; });
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(treeW);
+            canvas.height = Math.round(treeH);
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, Math.round(treeX), Math.round(treeY), Math.round(treeW), Math.round(treeH), 0, 0, Math.round(treeW), Math.round(treeH));
+
+            const link = document.createElement('a');
+            link.download = `pha-do-crop-${new Date().toISOString().slice(0, 10)}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (err) {
+            console.error('Crop export failed:', err);
+            alert('Xuất ảnh thất bại. Vui lòng thử lại.');
+        } finally {
+            setExporting(false);
+            setCropMode(false);
+            setCropRect(null);
+        }
+    }, [cropRect, layout, transform]);
+
+    // ESC key to exit crop mode
+    useEffect(() => {
+        if (!cropMode) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') { setCropMode(false); setCropRect(null); cropStartRef.current = null; }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [cropMode]);
+
     // Center on root ancestor at readable zoom on first load
     const initialFitDone = useRef(false);
     useEffect(() => {
@@ -1076,11 +1134,37 @@ export default function TreeViewPage() {
     // === Mouse handlers ===
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
+        // Crop mode: start rubber-band selection
+        if (cropMode && !exporting) {
+            const rect = viewportRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            cropStartRef.current = { x, y };
+            setCropRect({ x, y, w: 0, h: 0 });
+            return;
+        }
         if (dragState) return; // Don't pan while dragging a card
         setIsDragging(true);
         dragRef.current = { startX: e.clientX, startY: e.clientY, startTx: transform.x, startTy: transform.y };
     };
     const handleMouseMove = (e: React.MouseEvent) => {
+        // Crop mode: update rubber-band
+        if (cropMode && cropStartRef.current) {
+            const rect = viewportRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const curX = e.clientX - rect.left;
+            const curY = e.clientY - rect.top;
+            const sx = cropStartRef.current.x;
+            const sy = cropStartRef.current.y;
+            setCropRect({
+                x: Math.min(sx, curX),
+                y: Math.min(sy, curY),
+                w: Math.abs(curX - sx),
+                h: Math.abs(curY - sy),
+            });
+            return;
+        }
         if (dragState) {
             handleCardDragMove(e.clientX, e.clientY);
             return;
@@ -1091,6 +1175,11 @@ export default function TreeViewPage() {
         setTransform(t => ({ ...t, x: dragRef.current.startTx + dx, y: dragRef.current.startTy + dy }));
     };
     const handleMouseUp = () => {
+        // Crop mode: finish rubber-band
+        if (cropMode && cropStartRef.current) {
+            cropStartRef.current = null;
+            return;
+        }
         if (dragState) {
             handleCardDrop();
             return;
@@ -1424,6 +1513,10 @@ export default function TreeViewPage() {
                                     <FileImage className="h-4 w-4 mr-2" />
                                     Xuất ảnh có mẫu
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setCropMode(true); setCropRect(null); }} disabled={exporting}>
+                                    <Crosshair className="h-4 w-4 mr-2" />
+                                    Khoanh vùng xuất ảnh
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                         {canEdit && (
@@ -1444,10 +1537,10 @@ export default function TreeViewPage() {
             {/* Tree viewport + Editor panel row */}
             <div className="flex-1 flex gap-0 min-h-0">
                 <div ref={viewportRef}
-                    className={`flex-1 relative overflow-hidden rounded-xl border-2 bg-gradient-to-br from-background to-muted/30 select-none touch-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                    className={`flex-1 relative overflow-hidden rounded-xl border-2 bg-gradient-to-br from-background to-muted/30 select-none touch-none ${cropMode ? 'cursor-crosshair' : isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                     onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
-                    onClick={() => { setShowSearch(false); setContextMenu(null); setQuickAdd(null); if (editorMode) setSelectedCard(null); }}
+                    onClick={() => { if (cropMode) return; setShowSearch(false); setContextMenu(null); setQuickAdd(null); if (editorMode) setSelectedCard(null); }}
                 >
                     {/* Exporting overlay */}
                     {exporting && (
@@ -1601,6 +1694,53 @@ export default function TreeViewPage() {
                     {/* F3: Stats Overlay Panel */}
                     {treeStats && zoomLevel === 'mini' && !statsHidden && (
                         <StatsOverlay stats={treeStats} onClose={() => setStatsHidden(true)} />
+                    )}
+
+                    {/* Crop mode overlay */}
+                    {cropMode && !exporting && (
+                        <>
+                            {/* Instruction bar */}
+                            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white rounded-lg shadow-lg px-4 py-2 flex items-center gap-3 text-sm">
+                                <Crosshair className="h-4 w-4" />
+                                <span>{cropRect && cropRect.w > 10 ? 'Vùng đã chọn — chọn hành động bên dưới' : 'Kéo chuột để chọn vùng xuất ảnh'}</span>
+                                <button onClick={() => { setCropMode(false); setCropRect(null); }} className="ml-2 bg-white/20 hover:bg-white/30 rounded px-2 py-0.5 text-xs">
+                                    ESC
+                                </button>
+                            </div>
+                            {/* Dark overlay with crop hole */}
+                            {cropRect && cropRect.w > 2 && cropRect.h > 2 && (
+                                <div className="absolute inset-0 z-40 pointer-events-none">
+                                    {/* Semi-transparent overlay using clip-path to cut out the crop area */}
+                                    <div className="absolute inset-0 bg-black/40" style={{
+                                        clipPath: `polygon(0% 0%, 0% 100%, ${cropRect.x}px 100%, ${cropRect.x}px ${cropRect.y}px, ${cropRect.x + cropRect.w}px ${cropRect.y}px, ${cropRect.x + cropRect.w}px ${cropRect.y + cropRect.h}px, ${cropRect.x}px ${cropRect.y + cropRect.h}px, ${cropRect.x}px 100%, 100% 100%, 100% 0%)`,
+                                    }} />
+                                    {/* Crop border */}
+                                    <div className="absolute border-2 border-dashed border-blue-400 rounded" style={{
+                                        left: cropRect.x, top: cropRect.y, width: cropRect.w, height: cropRect.h,
+                                    }}>
+                                        {/* Size label */}
+                                        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] rounded px-1.5 py-0.5 whitespace-nowrap">
+                                            {Math.round(cropRect.w / transform.scale)} × {Math.round(cropRect.h / transform.scale)} px
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Action buttons when selection is made */}
+                            {cropRect && cropRect.w > 10 && cropRect.h > 10 && !cropStartRef.current && (
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-2">
+                                    <button onClick={handleCropExport} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg px-4 py-2 text-sm font-medium flex items-center gap-2">
+                                        <Camera className="h-4 w-4" />
+                                        Xuất ảnh (PNG)
+                                    </button>
+                                    <button onClick={() => setCropRect(null)} className="bg-white hover:bg-gray-100 text-gray-700 border rounded-lg shadow-lg px-4 py-2 text-sm font-medium">
+                                        Chọn lại
+                                    </button>
+                                    <button onClick={() => { setCropMode(false); setCropRect(null); }} className="bg-white hover:bg-gray-100 text-gray-700 border rounded-lg shadow-lg px-4 py-2 text-sm font-medium">
+                                        Huỷ
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
 
                     {/* Zoom + culling indicator */}

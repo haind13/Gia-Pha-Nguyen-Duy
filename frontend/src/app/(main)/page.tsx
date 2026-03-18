@@ -217,8 +217,8 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                     <motion.div variants={fadeUp} className="flex items-start gap-2 text-muted-foreground mb-3 sm:mb-4 lg:mb-5">
                         <MapPin className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                         <p className="text-sm sm:text-base lg:text-lg leading-relaxed">
-                            <span className="whitespace-nowrap">Nhánh cụ Khoan Giản</span> — <span className="whitespace-nowrap">Làng Nghìn (Đông Linh),</span>{' '}
-                            <span className="whitespace-nowrap">TT. An Bài, Quỳnh Phụ,</span>{' '}
+                            <span className="whitespace-nowrap">Nhánh cụ Khoan Giản</span> — <span className="whitespace-nowrap">Làng Nghìn, làng Đông Linh,</span>{' '}
+                            <span className="whitespace-nowrap">thị trấn An Bài, Quỳnh Phụ,</span>{' '}
                             <span className="whitespace-nowrap">Thái Bình</span>
                         </p>
                     </motion.div>
@@ -296,8 +296,8 @@ function AboutSection() {
                             </p>
                             <p className="text-[11px] sm:text-xs md:text-sm leading-snug sm:leading-relaxed">
                                 <span className="text-foreground font-medium">Dòng họ Nguyễn Duy</span> —
-                                nhánh cụ Khoan Giản, có gốc gác tại làng Nghìn (làng Đông Linh), thị trấn An Bài,
-                                huyện Quỳnh Phụ, tỉnh Thái Bình, nay là xã Phụ Dực, tỉnh Hưng Yên.
+                                nhánh cụ Khoan Giản, có gốc gác tại làng Nghìn, làng Đông Linh, thị trấn An Bài,
+                                huyện Quỳnh Phụ, tỉnh Thái Bình.
                                 Trải qua <span className="text-foreground font-medium">16 thế hệ</span> với
                                 hơn 100 thành viên, dòng họ đã lưu giữ và phát triển những giá trị truyền thống quý báu.
                                 Gia phả điện tử này được xây dựng nhằm <span className="text-foreground font-medium">số hóa và bảo tồn</span> thông tin phả hệ,
@@ -314,7 +314,7 @@ function AboutSection() {
 // ─── Copyright Footer ───────────────────────────────────────────
 function CopyrightFooter() {
     return (
-        <footer className="mt-0">
+        <footer className="mt-auto -mx-3 sm:-mx-4 lg:-mx-6 -mb-3 sm:-mb-4 lg:-mb-6">
             <div className="border-t border-amber-200/40 dark:border-amber-800/20 bg-gradient-to-b from-amber-50/30 to-amber-50/60 dark:from-transparent dark:to-amber-950/10 px-4 py-2 sm:px-10 sm:py-3">
                 <p className="text-[11px] sm:text-[13px] text-muted-foreground leading-relaxed text-center">
                     Được xây dựng bởi{' '}
@@ -346,8 +346,8 @@ export default function HomePage() {
     }, []);
 
     return (
-        <div className="-m-3 sm:-m-4 lg:-m-6 flex flex-col min-h-full">
-            <div className="p-3 sm:p-4 lg:p-6 space-y-2 sm:space-y-4 lg:space-y-6 flex-1">
+        <div className="flex flex-col min-h-full">
+            <div className="space-y-2 sm:space-y-4 lg:space-y-6 flex-1">
                 <HeroSection stats={stats} loading={loading} />
                 <AboutSection />
             </div>
