@@ -217,7 +217,7 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                     <motion.div variants={fadeUp} className="flex items-center gap-2 text-muted-foreground mb-5 lg:mb-6">
                         <MapPin className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                         <p className="text-sm sm:text-base lg:text-lg">
-                            Nhánh cụ Khoan Giản — Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình
+                            Nhánh cụ Khoan Giản — Làng Nghìn, An Bài, Quỳnh Phụ, <span className="whitespace-nowrap">Thái Bình</span>
                         </p>
                     </motion.div>
 
@@ -317,7 +317,7 @@ function AboutSection() {
 // ─── Copyright Footer ───────────────────────────────────────────
 function CopyrightFooter() {
     return (
-        <footer className="-mx-3 sm:-mx-4 lg:-mx-6 -mb-3 sm:-mb-4 lg:-mb-6 mt-8 sm:mt-12">
+        <footer className="mt-0">
             <div className="border-t border-amber-200/40 dark:border-amber-800/20 bg-gradient-to-b from-amber-50/30 to-amber-50/60 dark:from-transparent dark:to-amber-950/10 px-6 py-5 sm:px-10 sm:py-6">
                 <p className="text-xs sm:text-[13px] text-muted-foreground leading-relaxed text-center">
                     Được xây dựng bởi{' '}
@@ -350,13 +350,11 @@ export default function HomePage() {
 
     return (
         <div className="-m-3 sm:-m-4 lg:-m-6">
-            <div className="min-h-full flex flex-col p-3 sm:p-4 lg:p-6">
-                <div className="flex-1 space-y-8 sm:space-y-10">
-                    <HeroSection stats={stats} loading={loading} />
-                    <AboutSection />
-                </div>
-                <CopyrightFooter />
+            <div className="p-3 sm:p-4 lg:p-6 space-y-8 sm:space-y-10">
+                <HeroSection stats={stats} loading={loading} />
+                <AboutSection />
             </div>
+            <CopyrightFooter />
         </div>
     );
 }

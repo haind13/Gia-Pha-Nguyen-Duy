@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { TreePine, Moon, Sun, LogIn, Menu } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -12,7 +12,6 @@ import { publicNavItems } from '@/components/layout/sidebar';
 
 export function PublicHeader() {
     const pathname = usePathname();
-    const router = useRouter();
     const { theme, setTheme } = useTheme();
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -63,15 +62,16 @@ export function PublicHeader() {
                             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                         </Button>
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs sm:text-sm hidden sm:flex"
-                            onClick={() => router.push('/login')}
-                        >
-                            <LogIn className="h-4 w-4 mr-1.5" />
-                            Đăng nhập
-                        </Button>
+                        <Link href="/login">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs sm:text-sm hidden sm:flex"
+                            >
+                                <LogIn className="h-4 w-4 mr-1.5" />
+                                Đăng nhập
+                            </Button>
+                        </Link>
 
                         {/* Mobile hamburger */}
                         <Button

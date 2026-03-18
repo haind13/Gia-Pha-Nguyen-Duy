@@ -1,7 +1,7 @@
 'use client';
 
 import { Image as ImageIcon } from 'lucide-react';
-import type { Photo } from '@/lib/media-data';
+import { getPhotoThumbUrl, type Photo } from '@/lib/media-data';
 
 interface PhotoCardProps {
     photo: Photo;
@@ -9,12 +9,16 @@ interface PhotoCardProps {
 }
 
 export function PhotoCard({ photo, onClick }: PhotoCardProps) {
-    const thumbnailSrc = photo.thumbnail_url || photo.onedrive_url || '';
+    const thumbnailSrc = getPhotoThumbUrl(photo, 400);
+    const aspectRatio = (photo.width && photo.height)
+        ? photo.width / photo.height
+        : 1; // fallback to square
 
     return (
         <button
             onClick={onClick}
-            className="group relative aspect-square overflow-hidden rounded-lg bg-muted cursor-pointer border border-transparent hover:border-primary/30 transition-all focus:outline-none focus:ring-2 focus:ring-primary"
+            className="group relative w-full overflow-hidden rounded-lg bg-muted cursor-pointer border border-transparent hover:border-primary/30 transition-all focus:outline-none focus:ring-2 focus:ring-primary"
+            style={{ aspectRatio }}
         >
             {thumbnailSrc ? (
                 <img

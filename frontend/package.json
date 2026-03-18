@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1011.0",
     "@azure/msal-node": "^5.1.0",
     "@hookform/resolvers": "^5.2.2",
     "@microsoft/microsoft-graph-client": "^3.0.7",
@@ -23,6 +24,7 @@
     "@tiptap/react": "^3.20.1",
     "@tiptap/starter-kit": "^3.20.1",
     "axios": "^1.13.5",
+    "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.34.2",

@@ -109,12 +109,7 @@ export default function MediaLibraryPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {isAdmin && (
-                        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
-                            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-                            {syncing ? 'Đang đồng bộ...' : 'Đồng bộ OneDrive'}
-                        </Button>
-                    )}
+                    {/* OneDrive sync - legacy, hidden by default */}
                     {canEdit && (
                         <AlbumCreateDialog onCreated={loadData} />
                     )}
@@ -190,7 +185,7 @@ export default function MediaLibraryPage() {
                                 <ImageIcon className="h-16 w-16 text-muted-foreground/30 mb-4" />
                                 <p className="text-muted-foreground font-medium">Chưa có ảnh nào</p>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                    Tải ảnh lên hoặc đồng bộ từ OneDrive
+                                    Tải ảnh lên để bắt đầu
                                 </p>
                             </CardContent></Card>
                         ) : (
@@ -216,7 +211,7 @@ export default function MediaLibraryPage() {
                                 <FolderOpen className="h-16 w-16 text-muted-foreground/30 mb-4" />
                                 <p className="text-muted-foreground font-medium">Chưa có album nào</p>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                    Tạo album mới hoặc đồng bộ từ OneDrive
+                                    Tạo album mới để sắp xếp ảnh
                                 </p>
                             </CardContent></Card>
                         ) : (

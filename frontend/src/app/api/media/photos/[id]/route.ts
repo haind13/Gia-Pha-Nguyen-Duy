@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
-import { getDownloadUrl, deleteItem, isConfigured } from '@/lib/onedrive';
+import { getDownloadUrl, deleteItem, isConfigured as isOnedriveConfigured } from '@/lib/onedrive';
+import { deleteFromR2 } from '@/lib/r2';
 
 /**
  * GET /api/media/photos/[id] — Get photo detail with comments, likes, tags
@@ -29,12 +30,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         if (photoRes.error) throw photoRes.error;
 
-        // Refresh download URL from OneDrive if available
-        let downloadUrl = photoRes.data.onedrive_url;
-        if (photoRes.data.onedrive_item_id && isConfigured()) {
+        // Resolve download URL based on storage provider
+        let downloadUrl: string | null = null;
+        const photo = photoRes.data;
+
+        if (photo.storage_provider === 'r2' && photo.r2_url) {
+            // R2: URL is permanent, no refresh needed
+            downloadUrl = photo.r2_url;
+        } else if (photo.onedrive_item_id && isOnedriveConfigured()) {
+            // OneDrive: refresh download URL
             try {
-                downloadUrl = await getDownloadUrl(photoRes.data.onedrive_item_id);
-            } catch { /* Use stored URL as fallback */ }
+                downloadUrl = await getDownloadUrl(photo.onedrive_item_id);
+            } catch {
+                downloadUrl = photo.onedrive_url;
+            }
+        } else {
+            downloadUrl = photo.onedrive_url || photo.r2_url;
         }
 
         // Aggregate reactions
@@ -45,7 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         return NextResponse.json({
             photo: {
-                ...photoRes.data,
+                ...photo,
                 downloadUrl,
             },
             comments: commentsRes.data || [],
@@ -91,18 +102,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 /**
- * DELETE /api/media/photos/[id] — Delete photo
+ * DELETE /api/media/photos/[id] — Delete photo from storage + database
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
         const supabase = createServiceClient();
 
-        // Get OneDrive item ID
-        const { data: photo } = await supabase.from('media').select('onedrive_item_id').eq('id', id).single();
+        // Get storage info
+        const { data: photo } = await supabase
+            .from('media')
+            .select('onedrive_item_id, r2_key, storage_provider')
+            .eq('id', id)
+            .single();
 
-        // Delete from OneDrive
-        if (photo?.onedrive_item_id && isConfigured()) {
+        // Delete from storage
+        if (photo?.storage_provider === 'r2' && photo.r2_key) {
+            try { await deleteFromR2(photo.r2_key); } catch { }
+        } else if (photo?.onedrive_item_id && isOnedriveConfigured()) {
             try { await deleteItem(photo.onedrive_item_id); } catch { }
         }
 

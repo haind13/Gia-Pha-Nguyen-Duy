@@ -1,7 +1,9 @@
 /**
  * Client-side data layer for Photo Gallery
- * Calls API routes which proxy to OneDrive + Supabase
+ * Calls API routes which proxy to Cloudflare R2 / OneDrive + Supabase
  */
+
+const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_URL || '';
 
 export interface Album {
     id: string;
@@ -19,12 +21,31 @@ export interface Photo {
     description: string | null;
     thumbnail_url: string | null;
     onedrive_url: string | null;
+    r2_key: string | null;
+    r2_url: string | null;
+    storage_provider: 'onedrive' | 'r2' | null;
     width: number | null;
     height: number | null;
     state: string;
     album_id: string | null;
     created_at: string;
     uploader?: { display_name: string | null };
+}
+
+// ═══ URL Helpers ═══
+
+/** Get the best thumbnail URL for grid display (R2 transform → OneDrive thumbnail) */
+export function getPhotoThumbUrl(photo: Photo, width = 400): string {
+    if (photo.r2_key && R2_PUBLIC_URL) {
+        return `${R2_PUBLIC_URL}/cdn-cgi/image/width=${width},quality=80,fit=cover,format=auto/${photo.r2_key}`;
+    }
+    return photo.thumbnail_url || photo.onedrive_url || '';
+}
+
+/** Get the full-resolution URL for lightbox display */
+export function getPhotoFullUrl(photo: Photo): string {
+    if (photo.r2_url) return photo.r2_url;
+    return photo.onedrive_url || photo.thumbnail_url || '';
 }
 
 export interface PhotoDetail {
@@ -129,11 +150,13 @@ export async function deletePhoto(photoId: string): Promise<void> {
 export async function uploadPhotos(
     files: File[],
     albumId?: string,
+    dimensions?: { width: number; height: number }[],
     onProgress?: (uploaded: number, total: number) => void,
 ): Promise<{ uploaded: any[]; count: number }> {
     const formData = new FormData();
     files.forEach(f => formData.append('files', f));
     if (albumId) formData.append('albumId', albumId);
+    if (dimensions) formData.append('dimensions', JSON.stringify(dimensions));
 
     const res = await fetch('/api/media/photos', {
         method: 'POST',

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { uploadPhotos, type Album } from '@/lib/media-data';
@@ -12,12 +13,41 @@ interface UploadDialogProps {
     trigger?: React.ReactNode;
 }
 
+/** Read image dimensions from a File */
+function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            URL.revokeObjectURL(img.src);
+        };
+        img.onerror = () => resolve({ width: 0, height: 0 });
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+/** Format file size for display */
+function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const COMPRESSION_OPTIONS = {
+    maxWidthOrHeight: 2048,
+    maxSizeMB: 4,
+    useWebWorker: true,
+    fileType: 'image/jpeg' as const,
+    initialQuality: 0.82,
+};
+
 export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogProps) {
     const [open, setOpen] = useState(false);
     const [files, setFiles] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
     const [albumId, setAlbumId] = useState<string>('');
-    const [uploading, setUploading] = useState(false);
+    const [status, setStatus] = useState<'idle' | 'compressing' | 'uploading'>('idle');
+    const [compressionInfo, setCompressionInfo] = useState<string>('');
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -43,9 +73,29 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
 
     const handleUpload = async () => {
         if (!files.length) return;
-        setUploading(true);
         try {
-            await uploadPhotos(files, albumId || undefined);
+            // ── Step 1: Compress images ──
+            setStatus('compressing');
+            const originalSize = files.reduce((sum, f) => sum + f.size, 0);
+            const compressedFiles: File[] = [];
+            const dimensions: { width: number; height: number }[] = [];
+
+            for (let i = 0; i < files.length; i++) {
+                setCompressionInfo(`Đang nén ${i + 1}/${files.length}...`);
+                const compressed = await imageCompression(files[i], COMPRESSION_OPTIONS);
+                compressedFiles.push(compressed);
+                const dim = await getImageDimensions(compressed);
+                dimensions.push(dim);
+            }
+
+            const compressedSize = compressedFiles.reduce((sum, f) => sum + f.size, 0);
+            const saved = Math.round((1 - compressedSize / originalSize) * 100);
+            setCompressionInfo(`Nén xong: ${formatSize(originalSize)} → ${formatSize(compressedSize)} (giảm ${saved}%)`);
+
+            // ── Step 2: Upload ──
+            setStatus('uploading');
+            await uploadPhotos(compressedFiles, albumId || undefined, dimensions);
+
             // Cleanup
             previews.forEach(p => URL.revokeObjectURL(p));
             setFiles([]);
@@ -55,7 +105,8 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
         } catch (err) {
             alert('Upload thất bại. Vui lòng thử lại.');
         } finally {
-            setUploading(false);
+            setStatus('idle');
+            setCompressionInfo('');
         }
     };
 
@@ -64,7 +115,11 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
         setFiles([]);
         setPreviews([]);
         setAlbumId('');
+        setStatus('idle');
+        setCompressionInfo('');
     };
+
+    const isWorking = status !== 'idle';
 
     return (
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
@@ -111,7 +166,7 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
                     <p className="text-sm text-muted-foreground">
                         Kéo thả ảnh vào đây hoặc <span className="text-primary font-medium">bấm để chọn</span>
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">JPG, PNG, GIF, WebP</p>
+                    <p className="text-xs text-muted-foreground mt-1">JPG, PNG, GIF, WebP — tự động nén JPEG trước khi tải lên</p>
                     <input
                         ref={inputRef}
                         type="file"
@@ -129,7 +184,12 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
                 {/* Preview grid */}
                 {files.length > 0 && (
                     <div>
-                        <p className="text-sm font-medium mb-2">{files.length} ảnh đã chọn</p>
+                        <p className="text-sm font-medium mb-2">
+                            {files.length} ảnh đã chọn
+                            <span className="text-muted-foreground font-normal ml-2">
+                                ({formatSize(files.reduce((s, f) => s + f.size, 0))})
+                            </span>
+                        </p>
                         <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
                             {previews.map((preview, i) => (
                                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
@@ -149,13 +209,20 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
                     </div>
                 )}
 
+                {/* Compression info */}
+                {compressionInfo && (
+                    <p className="text-xs text-muted-foreground text-center">{compressionInfo}</p>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-2 justify-end">
-                    <Button variant="outline" onClick={() => setOpen(false)} disabled={uploading}>
+                    <Button variant="outline" onClick={() => setOpen(false)} disabled={isWorking}>
                         Hủy
                     </Button>
-                    <Button onClick={handleUpload} disabled={!files.length || uploading}>
-                        {uploading ? (
+                    <Button onClick={handleUpload} disabled={!files.length || isWorking}>
+                        {status === 'compressing' ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang nén...</>
+                        ) : status === 'uploading' ? (
                             <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang tải...</>
                         ) : (
                             <><Upload className="mr-2 h-4 w-4" />Tải lên {files.length > 0 ? `(${files.length})` : ''}</>

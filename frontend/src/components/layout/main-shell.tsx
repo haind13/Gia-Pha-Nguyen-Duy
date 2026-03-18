@@ -15,9 +15,9 @@ export function MainShell({ children }: { children: React.ReactNode }) {
                 <Sidebar />
                 <div className="flex flex-1 min-w-0 flex-col h-full">
                     <Header />
-                    <div className="flex-1 min-w-0 relative flex flex-col">
+                    <div className="flex-1 min-h-0 min-w-0 relative flex flex-col">
                         <div className="crane-border-top" />
-                        <main className="flex-1 min-w-0 overflow-y-auto vintage-paper p-3 sm:p-4 lg:p-6">
+                        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto vintage-paper p-3 sm:p-4 lg:p-6">
                             {children}
                         </main>
                         <div className="crane-border-bottom" />
@@ -31,9 +31,9 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex flex-col h-screen overflow-hidden">
             <PublicHeader />
-            <div className="flex-1 min-w-0 relative flex flex-col">
+            <div className="flex-1 min-h-0 min-w-0 relative flex flex-col">
                 <div className="crane-border-top" />
-                <main className="flex-1 min-w-0 overflow-y-auto vintage-paper p-3 sm:p-4 lg:p-6">
+                <main className="flex-1 min-h-0 min-w-0 overflow-y-auto vintage-paper p-3 sm:p-4 lg:p-6">
                     {children}
                 </main>
                 <div className="crane-border-bottom" />

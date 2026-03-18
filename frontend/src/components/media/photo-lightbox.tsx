@@ -98,7 +98,7 @@ export function PhotoLightbox({ photos, initialIndex, onClose }: LightboxProps) 
         await loadDetail();
     };
 
-    const imgSrc = detail?.photo?.downloadUrl || photo?.onedrive_url || photo?.thumbnail_url || '';
+    const imgSrc = detail?.photo?.downloadUrl || photo?.r2_url || photo?.onedrive_url || photo?.thumbnail_url || '';
     const userLike = detail?.likes?.items?.find(l => l.user_id === user?.id);
 
     return (
