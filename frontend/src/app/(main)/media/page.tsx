@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Image as ImageIcon, Upload, RefreshCw, Loader2, Check, X, ArrowLeft, FolderOpen } from 'lucide-react';
+import { Image as ImageIcon, Upload, RefreshCw, Loader2, Check, X, ArrowLeft, FolderOpen, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,8 @@ import { AlbumGrid } from '@/components/media/album-grid';
 import { AlbumCreateDialog } from '@/components/media/album-create-dialog';
 import { PhotoUploadDialog } from '@/components/media/photo-upload-dialog';
 import {
-    fetchAlbums, fetchPhotos, fetchAlbumDetail, updatePhoto, syncFromOneDrive,
+    fetchAlbums, fetchPhotos, fetchAlbumDetail, updatePhoto, deletePhoto, deleteAlbum, syncFromOneDrive,
+    getPhotoThumbUrl,
     type Album, type Photo,
 } from '@/lib/media-data';
 
@@ -78,6 +79,30 @@ export default function MediaLibraryPage() {
         await loadData();
     };
 
+    const handleDeletePhoto = async (photoId: string) => {
+        if (!confirm('Bạn có chắc muốn xoá ảnh này?')) return;
+        try {
+            await deletePhoto(photoId);
+            await loadData();
+        } catch {
+            alert('Xoá ảnh thất bại');
+        }
+    };
+
+    const handleDeleteAlbum = async (albumId: string) => {
+        if (!confirm('Bạn có chắc muốn xoá album này? Ảnh trong album sẽ không bị xoá.')) return;
+        try {
+            await deleteAlbum(albumId);
+            if (selectedAlbum?.id === albumId) {
+                setSelectedAlbum(null);
+                setAlbumPhotos([]);
+            }
+            await loadData();
+        } catch {
+            alert('Xoá album thất bại');
+        }
+    };
+
     const handleAlbumClick = async (album: Album) => {
         setSelectedAlbum(album);
         setAlbumLoading(true);
@@ -126,7 +151,7 @@ export default function MediaLibraryPage() {
                         <Button variant="ghost" size="sm" onClick={handleBackFromAlbum}>
                             <ArrowLeft className="mr-1 h-4 w-4" />Quay lại
                         </Button>
-                        <div>
+                        <div className="flex-1">
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <FolderOpen className="h-5 w-5" />{selectedAlbum.title}
                             </h2>
@@ -134,6 +159,11 @@ export default function MediaLibraryPage() {
                                 <p className="text-sm text-muted-foreground">{selectedAlbum.description}</p>
                             )}
                         </div>
+                        {isAdmin && (
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteAlbum(selectedAlbum.id)}>
+                                <Trash2 className="h-4 w-4 mr-1" />Xoá album
+                            </Button>
+                        )}
                     </div>
 
                     {albumLoading ? (
@@ -151,6 +181,7 @@ export default function MediaLibraryPage() {
                                     photos={albumPhotos}
                                     initialIndex={lightboxIndex}
                                     onClose={() => setLightboxIndex(null)}
+                                    onPhotoDeleted={loadData}
                                 />
                             )}
                         </>
@@ -196,6 +227,7 @@ export default function MediaLibraryPage() {
                                         photos={photos}
                                         initialIndex={lightboxIndex}
                                         onClose={() => setLightboxIndex(null)}
+                                        onPhotoDeleted={loadData}
                                     />
                                 )}
                             </>
@@ -229,33 +261,39 @@ export default function MediaLibraryPage() {
                                 </CardContent></Card>
                             ) : (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                    {pendingPhotos.map(photo => (
-                                        <Card key={photo.id} className="overflow-hidden">
-                                            <div className="aspect-square bg-muted">
-                                                {photo.thumbnail_url ? (
-                                                    <img src={photo.thumbnail_url} alt={photo.file_name} className="h-full w-full object-cover" />
-                                                ) : (
-                                                    <div className="flex h-full items-center justify-center">
-                                                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <CardContent className="p-2 space-y-1">
-                                                <p className="text-xs font-medium truncate">{photo.title || photo.file_name}</p>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    {new Date(photo.created_at).toLocaleDateString('vi-VN')}
-                                                </p>
-                                                <div className="flex gap-1">
-                                                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => handleApprove(photo.id)}>
-                                                        <Check className="h-3 w-3 mr-1" />Duyệt
-                                                    </Button>
-                                                    <Button size="sm" variant="destructive" className="flex-1 h-7 text-xs" onClick={() => handleReject(photo.id)}>
-                                                        <X className="h-3 w-3 mr-1" />Từ chối
-                                                    </Button>
+                                    {pendingPhotos.map(photo => {
+                                        const thumbSrc = getPhotoThumbUrl(photo, 400);
+                                        return (
+                                            <Card key={photo.id} className="overflow-hidden">
+                                                <div className="aspect-square bg-muted">
+                                                    {thumbSrc ? (
+                                                        <img src={thumbSrc} alt={photo.file_name} className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        <div className="flex h-full items-center justify-center">
+                                                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
+                                                <CardContent className="p-2 space-y-1">
+                                                    <p className="text-xs font-medium truncate">{photo.title || photo.file_name}</p>
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        {new Date(photo.created_at).toLocaleDateString('vi-VN')}
+                                                    </p>
+                                                    <div className="flex gap-1">
+                                                        <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => handleApprove(photo.id)}>
+                                                            <Check className="h-3 w-3 mr-1" />Duyệt
+                                                        </Button>
+                                                        <Button size="sm" variant="destructive" className="flex-1 h-7 text-xs" onClick={() => handleReject(photo.id)}>
+                                                            <X className="h-3 w-3 mr-1" />Từ chối
+                                                        </Button>
+                                                    </div>
+                                                    <Button size="sm" variant="ghost" className="w-full h-7 text-xs text-destructive hover:text-destructive" onClick={() => handleDeletePhoto(photo.id)}>
+                                                        <Trash2 className="h-3 w-3 mr-1" />Xoá
+                                                    </Button>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </TabsContent>

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/components/auth-provider';
 import {
-    fetchPhotoDetail, addComment, deleteComment, toggleLike,
+    fetchPhotoDetail, addComment, deleteComment, toggleLike, deletePhoto,
     type Photo, type PhotoDetail, type PhotoComment,
 } from '@/lib/media-data';
 
@@ -18,6 +18,7 @@ interface LightboxProps {
     photos: Photo[];
     initialIndex: number;
     onClose: () => void;
+    onPhotoDeleted?: () => void;
 }
 
 const REACTIONS = [
@@ -28,8 +29,8 @@ const REACTIONS = [
     { key: 'angry', emoji: '😡', label: 'Giận' },
 ];
 
-export function PhotoLightbox({ photos, initialIndex, onClose }: LightboxProps) {
-    const { user, isLoggedIn } = useAuth();
+export function PhotoLightbox({ photos, initialIndex, onClose, onPhotoDeleted }: LightboxProps) {
+    const { user, isLoggedIn, isAdmin } = useAuth();
     const [index, setIndex] = useState(initialIndex);
     const [detail, setDetail] = useState<PhotoDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -98,6 +99,17 @@ export function PhotoLightbox({ photos, initialIndex, onClose }: LightboxProps) 
         await loadDetail();
     };
 
+    const handleDeletePhoto = async () => {
+        if (!confirm('Bạn có chắc muốn xoá ảnh này?')) return;
+        try {
+            await deletePhoto(photo.id);
+            onPhotoDeleted?.();
+            onClose();
+        } catch {
+            alert('Xoá ảnh thất bại');
+        }
+    };
+
     const imgSrc = detail?.photo?.downloadUrl || photo?.r2_url || photo?.onedrive_url || photo?.thumbnail_url || '';
     const userLike = detail?.likes?.items?.find(l => l.user_id === user?.id);
 
@@ -146,14 +158,25 @@ export function PhotoLightbox({ photos, initialIndex, onClose }: LightboxProps) 
                 <div className="w-full md:w-[360px] bg-card flex flex-col max-h-[40vh] md:max-h-full border-l">
                     {/* Header */}
                     <div className="p-4 border-b shrink-0">
-                        <h3 className="font-semibold text-sm truncate">
-                            {photo.title || photo.file_name}
-                        </h3>
-                        {photo.uploader?.display_name && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                                {photo.uploader.display_name} · {new Date(photo.created_at).toLocaleDateString('vi-VN')}
-                            </p>
-                        )}
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                                <h3 className="font-semibold text-sm truncate">
+                                    {photo.title || photo.file_name}
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {new Date(photo.created_at).toLocaleDateString('vi-VN')}
+                                </p>
+                            </div>
+                            {isAdmin && (
+                                <button
+                                    onClick={handleDeletePhoto}
+                                    className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition shrink-0"
+                                    title="Xoá ảnh"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
                         {detail?.photo?.album && (
                             <Badge variant="secondary" className="mt-1 text-xs">
                                 📁 {detail.photo.album.title}

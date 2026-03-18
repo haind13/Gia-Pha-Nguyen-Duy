@@ -169,7 +169,7 @@ function OrnateBorder() {
 // ─── Hero Section ───────────────────────────────────────────────
 function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
     return (
-        <div className="-mx-3 sm:-mx-4 lg:-mx-6 -mt-3 sm:-mt-4 lg:-mt-6 mb-4 sm:mb-6 lg:mb-8 overflow-hidden">
+        <div className="-mx-3 sm:-mx-4 lg:-mx-6 -mt-3 sm:-mt-4 lg:-mt-6 mb-1 sm:mb-2 lg:mb-3 overflow-hidden">
             <div className="relative overflow-hidden">
                 {/* Multi-layer background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50/80 to-yellow-100/60 dark:from-slate-950 dark:via-indigo-950/70 dark:to-slate-900" />
@@ -192,13 +192,13 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                 <AnimatedFamilyTree />
 
                 <motion.div
-                    className="relative z-10 px-4 py-5 sm:px-10 sm:py-8 lg:px-16 lg:py-10 max-w-2xl"
+                    className="relative z-10 px-4 py-3 sm:px-10 sm:py-6 lg:px-16 lg:py-8 max-w-2xl"
                     variants={staggerContainer}
                     initial="hidden"
                     animate="visible"
                 >
                     <motion.div variants={fadeUp}>
-                        <Badge className="mb-4 sm:mb-5 bg-amber-100/90 text-amber-800 border-amber-300/60 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40 hover:bg-amber-100 text-xs sm:text-sm px-3 sm:px-3.5 py-1 sm:py-1.5 shadow-sm">
+                        <Badge className="mb-2 sm:mb-4 bg-amber-100/90 text-amber-800 border-amber-300/60 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40 hover:bg-amber-100 text-xs sm:text-sm px-3 sm:px-3.5 py-0.5 sm:py-1.5 shadow-sm">
                             <Sparkles className="h-3 w-3 mr-1.5" />
                             Gia phả điện tử
                         </Badge>
@@ -206,7 +206,7 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
 
                     <motion.h1
                         variants={fadeUp}
-                        className="text-3xl sm:text-5xl lg:text-[4rem] font-semibold tracking-tight mb-2 sm:mb-3 lg:mb-4 leading-tight"
+                        className="text-2xl sm:text-5xl lg:text-[4rem] font-semibold tracking-tight mb-1.5 sm:mb-3 lg:mb-4 leading-tight"
                         style={{ fontFamily: 'var(--font-crimson), serif' }}
                     >
                         <span className="bg-gradient-to-r from-amber-950 via-amber-800 to-amber-700 dark:from-amber-100 dark:via-amber-200 dark:to-amber-300 bg-clip-text text-transparent drop-shadow-sm">
@@ -214,17 +214,18 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                         </span>
                     </motion.h1>
 
-                    <motion.div variants={fadeUp} className="flex items-start gap-2 text-muted-foreground mb-4 sm:mb-5 lg:mb-6">
+                    <motion.div variants={fadeUp} className="flex items-start gap-2 text-muted-foreground mb-3 sm:mb-4 lg:mb-5">
                         <MapPin className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                         <p className="text-sm sm:text-base lg:text-lg leading-relaxed">
-                            <span className="whitespace-nowrap">Nhánh cụ Khoan Giản</span> — <span className="whitespace-nowrap">Làng Nghìn, An Bài,</span>{' '}
-                            <span className="whitespace-nowrap">Quỳnh Phụ, Thái Bình</span>
+                            <span className="whitespace-nowrap">Nhánh cụ Khoan Giản</span> — <span className="whitespace-nowrap">Làng Nghìn (Đông Linh),</span>{' '}
+                            <span className="whitespace-nowrap">TT. An Bài, Quỳnh Phụ,</span>{' '}
+                            <span className="whitespace-nowrap">Thái Bình</span>
                         </p>
                     </motion.div>
 
                     <motion.div
                         variants={fadeUp}
-                        className="flex items-center gap-3 sm:gap-6 mb-6 sm:mb-8 lg:mb-10"
+                        className="flex items-center gap-3 sm:gap-6 mb-4 sm:mb-5 lg:mb-6"
                     >
                         <div className="flex items-center gap-2">
                             <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-amber-200/60 dark:bg-amber-800/30 flex items-center justify-center ring-1 ring-amber-300/40 dark:ring-amber-700/30">
@@ -278,34 +279,29 @@ function AboutSection() {
             animate={inView ? 'visible' : 'hidden'}
             variants={staggerContainer}
         >
-            <motion.div variants={fadeUp} className="flex items-center gap-3 mb-3 sm:mb-4">
-                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                    <ScrollText className="h-4 w-4 sm:h-5 sm:w-5 text-amber-700 dark:text-amber-400" />
+            <motion.div variants={fadeUp} className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <ScrollText className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-700 dark:text-amber-400" />
                 </div>
-                <h2 className="text-base sm:text-xl font-bold">Lời giới thiệu</h2>
+                <h2 className="text-sm sm:text-xl font-bold">Lời giới thiệu</h2>
             </motion.div>
 
             <motion.div variants={fadeUp}>
                 <Card className="border-amber-200/50 dark:border-amber-800/20 bg-gradient-to-br from-amber-50/50 via-transparent to-transparent dark:from-amber-950/10">
-                    <CardContent className="p-4 sm:p-6 lg:p-8">
-                        <div className="space-y-2.5 sm:space-y-3 text-xs sm:text-sm md:text-base text-muted-foreground leading-relaxed">
-                            <p className="text-center text-foreground font-bold italic text-sm sm:text-base md:text-lg leading-relaxed">
+                    <CardContent className="p-3 sm:p-4 lg:p-5">
+                        <div className="space-y-1.5 sm:space-y-2.5 text-muted-foreground">
+                            <p className="text-center text-foreground font-bold italic text-xs sm:text-sm md:text-base leading-snug">
                                 &ldquo;Cây có gốc mới nở muôn cành vạn lá.<br />
                                 Nước nhờ nguồn mà sinh trăm suối, ngàn sông.&rdquo;
                             </p>
-                            <p>
+                            <p className="text-[11px] sm:text-xs md:text-sm leading-snug sm:leading-relaxed">
                                 <span className="text-foreground font-medium">Dòng họ Nguyễn Duy</span> —
-                                nhánh cụ Khoan Giản, có gốc gác tại làng Nghìn, xã An Bài,
-                                huyện Quỳnh Phụ, tỉnh Thái Bình (nay là xã Phụ Dực, tỉnh Hưng Yên).
+                                nhánh cụ Khoan Giản, có gốc gác tại làng Nghìn (làng Đông Linh), thị trấn An Bài,
+                                huyện Quỳnh Phụ, tỉnh Thái Bình.
                                 Trải qua <span className="text-foreground font-medium">16 thế hệ</span> với
-                                hơn 100 thành viên, dòng họ đã lưu giữ và phát triển những giá trị
-                                truyền thống quý báu.
-                            </p>
-                            <p>
-                                Gia phả điện tử này được xây dựng nhằm <span className="text-foreground font-medium">số hóa
-                                và bảo tồn</span> thông tin phả hệ, giúp các thế hệ con cháu
-                                dễ dàng tìm hiểu nguồn gốc, kết nối thân tộc và gìn giữ nét đẹp
-                                văn hóa của gia đình.
+                                hơn 100 thành viên, dòng họ đã lưu giữ và phát triển những giá trị truyền thống quý báu.
+                                Gia phả điện tử này được xây dựng nhằm <span className="text-foreground font-medium">số hóa và bảo tồn</span> thông tin phả hệ,
+                                giúp các thế hệ con cháu dễ dàng tìm hiểu nguồn gốc, kết nối thân tộc và gìn giữ nét đẹp văn hóa của gia đình.
                             </p>
                         </div>
                     </CardContent>
@@ -319,7 +315,7 @@ function AboutSection() {
 function CopyrightFooter() {
     return (
         <footer className="mt-0">
-            <div className="border-t border-amber-200/40 dark:border-amber-800/20 bg-gradient-to-b from-amber-50/30 to-amber-50/60 dark:from-transparent dark:to-amber-950/10 px-4 py-4 sm:px-10 sm:py-6">
+            <div className="border-t border-amber-200/40 dark:border-amber-800/20 bg-gradient-to-b from-amber-50/30 to-amber-50/60 dark:from-transparent dark:to-amber-950/10 px-4 py-2 sm:px-10 sm:py-3">
                 <p className="text-[11px] sm:text-[13px] text-muted-foreground leading-relaxed text-center">
                     Được xây dựng bởi{' '}
                     <span className="font-semibold text-foreground">Nguyễn Duy Hải</span>
@@ -350,8 +346,8 @@ export default function HomePage() {
     }, []);
 
     return (
-        <div className="-m-3 sm:-m-4 lg:-m-6">
-            <div className="p-3 sm:p-4 lg:p-6 space-y-5 sm:space-y-8 lg:space-y-10">
+        <div className="-m-3 sm:-m-4 lg:-m-6 flex flex-col h-full overflow-hidden">
+            <div className="p-3 sm:p-4 lg:p-6 space-y-2 sm:space-y-4 lg:space-y-6 flex-1 min-h-0">
                 <HeroSection stats={stats} loading={loading} />
                 <AboutSection />
             </div>
