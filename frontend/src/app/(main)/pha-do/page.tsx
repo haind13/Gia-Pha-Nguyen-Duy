@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-    TreePine, Plus, Users, GitBranch, ArrowRight,
+    Scroll, Plus, Users, GitBranch, ArrowRight,
     Loader2, Crown, Pencil, Trash2, MoreVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -136,7 +136,7 @@ function TreeCard({ tree, canManage, onEdit, onDelete }: {
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 flex-1 min-w-0">
                                 <div className={`h-11 w-11 rounded-xl ${c.icon} flex items-center justify-center shrink-0`}>
-                                    <TreePine className={`h-5 w-5 ${c.text}`} />
+                                    <Scroll className={`h-5 w-5 ${c.text}`} />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 mb-1">
@@ -446,7 +446,7 @@ export default function PhaDoListPage() {
             <div className="flex items-center justify-between mb-6 sm:mb-8">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-                        <TreePine className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                        <Scroll className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                         Chọn phả đồ
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">

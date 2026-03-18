@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { TreePine, ArrowLeft } from 'lucide-react';
+import { Scroll, ArrowLeft } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
             <CardHeader className="text-center space-y-2">
                 <div className="flex justify-center">
                     <div className="rounded-full bg-primary/10 p-3">
-                        <TreePine className="h-8 w-8 text-primary" />
+                        <Scroll className="h-8 w-8 text-primary" />
                     </div>
                 </div>
                 <CardTitle className="text-2xl font-bold">Quên mật khẩu</CardTitle>

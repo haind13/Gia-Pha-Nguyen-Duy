@@ -1,7 +1,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
-import { TreePine } from 'lucide-react';
+import { Scroll } from 'lucide-react';
 
 export interface ModernTemplateProps {
     title: string;
@@ -26,7 +26,7 @@ export function ModernTemplate({ title, subtitle, treeWidth, treeHeight, childre
             <div className="pt-10 pb-8 px-8 text-center">
                 {/* Tree icon */}
                 <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-200 shadow-sm mb-4">
-                    <TreePine className="w-7 h-7 text-amber-700" />
+                    <Scroll className="w-7 h-7 text-amber-700" />
                 </div>
 
                 {/* Title */}

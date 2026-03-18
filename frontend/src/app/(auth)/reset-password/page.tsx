@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { TreePine, Eye, EyeOff, KeyRound, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Scroll, Eye, EyeOff, KeyRound, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,7 +89,7 @@ export default function ResetPasswordPage() {
             <Card className="border-0 shadow-2xl">
                 <CardContent className="py-12 text-center">
                     <div className="animate-pulse text-muted-foreground flex flex-col items-center gap-3">
-                        <TreePine className="w-8 h-8 text-primary" />
+                        <Scroll className="w-8 h-8 text-primary" />
                         <span className="text-sm">Đang xác thực...</span>
                     </div>
                 </CardContent>

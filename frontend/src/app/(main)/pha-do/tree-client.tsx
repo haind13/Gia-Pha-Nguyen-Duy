@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { ContributeDialog } from '@/components/contribute-dialog';
-import { Search, ZoomIn, ZoomOut, Maximize2, TreePine, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight, Camera, FileImage } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, Maximize2, Scroll, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight, Camera, FileImage } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toPng } from 'html-to-image';
 import { determineKinship, type KinshipResult } from '@/lib/kinship';
@@ -1328,7 +1328,7 @@ export default function TreeViewPage() {
             <div className="flex items-center justify-between flex-wrap gap-2 px-1 pb-2">
                 <div className="min-w-0">
                     <h1 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-2">
-                        <TreePine className="h-5 w-5 shrink-0" /> Phả đồ
+                        <Scroll className="h-5 w-5 shrink-0" /> Phả đồ
                     </h1>
                     <p className="text-muted-foreground text-xs truncate">
                         {layout ? `${layout.nodes.length} thành viên` : 'Đang tải...'}

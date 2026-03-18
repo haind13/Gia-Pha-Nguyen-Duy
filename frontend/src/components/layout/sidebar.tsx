@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     Home,
-    TreePine,
+    Scroll,
     Users,
     Image,
     Shield,
@@ -35,7 +35,7 @@ import {
 /* Public navigation — always visible */
 export const publicNavItems = [
     { href: '/', label: 'Trang chủ', icon: Home },
-    { href: '/pha-do', label: 'Phả đồ', icon: TreePine },
+    { href: '/pha-do', label: 'Phả đồ', icon: Scroll },
     { href: '/su-kien', label: 'Sự kiện', icon: CalendarDays },
     { href: '/media', label: 'Thư viện', icon: Image },
 ];
@@ -167,7 +167,7 @@ export function Sidebar() {
         >
             {/* Logo */}
             <div className="flex items-center gap-2 px-4 py-4 border-b shrink-0">
-                <TreePine className="h-6 w-6 text-primary shrink-0" />
+                <Scroll className="h-6 w-6 text-primary shrink-0" />
                 {!collapsed && <span className="font-bold text-sm leading-tight">Họ Nguyễn Duy<br /><span className="text-xs font-normal text-muted-foreground">(nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình</span></span>}
             </div>
 
@@ -208,7 +208,7 @@ export function MobileSidebar() {
                     <SheetTitle className="sr-only">Menu điều hướng</SheetTitle>
                     {/* Logo */}
                     <div className="flex items-center gap-2 px-4 py-4 border-b">
-                        <TreePine className="h-6 w-6 text-primary shrink-0" />
+                        <Scroll className="h-6 w-6 text-primary shrink-0" />
                         <span className="font-bold text-sm leading-tight">
                             Họ Nguyễn Duy<br />
                             <span className="text-xs font-normal text-muted-foreground">

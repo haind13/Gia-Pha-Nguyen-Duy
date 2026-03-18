@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { TreePine, Moon, Sun, LogIn, Menu } from 'lucide-react';
+import { Scroll, Moon, Sun, LogIn, Menu } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ export function PublicHeader() {
                 <div className="flex h-14 items-center justify-between px-4 lg:px-8">
                     {/* Left: Logo */}
                     <Link href="/" className="flex items-center gap-2 shrink-0">
-                        <TreePine className="h-6 w-6 text-primary" />
+                        <Scroll className="h-6 w-6 text-primary" />
                         <span className="font-bold text-sm sm:text-base leading-tight hidden sm:block">
                             Họ Nguyễn Duy
                         </span>
@@ -92,7 +92,7 @@ export function PublicHeader() {
                 <SheetContent side="left" className="w-72 p-0" showCloseButton={false}>
                     <SheetTitle className="sr-only">Menu điều hướng</SheetTitle>
                     <div className="flex items-center gap-2 px-4 py-4 border-b">
-                        <TreePine className="h-6 w-6 text-primary shrink-0" />
+                        <Scroll className="h-6 w-6 text-primary shrink-0" />
                         <span className="font-bold text-sm leading-tight">
                             Họ Nguyễn Duy<br />
                             <span className="text-xs font-normal text-muted-foreground">
