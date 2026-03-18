@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
                     thumbnail_url: thumbnailUrl,
                     width,
                     height,
-                    state: 'PENDING',
+                    state: 'PUBLISHED',
                 })
                 .select('id, file_name, thumbnail_url, r2_url, state')
                 .single();
