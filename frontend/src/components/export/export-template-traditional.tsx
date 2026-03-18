@@ -14,7 +14,7 @@ export interface TraditionalTemplateProps {
     children: ReactNode; // tree content
 }
 
-/** Chim hạc trống đồng Đông Sơn — uses /images/dong-son-crane.jpg as tile */
+/** Chim hạc trống đồng Đông Sơn — uses /images/dong-son-crane.png (transparent) as tile */
 function CraneBorder() {
     return (
         <div className="w-full flex flex-col items-stretch">
@@ -23,7 +23,7 @@ function CraneBorder() {
             {/* Crane pattern row */}
             <div className="w-full" style={{
                 height: 40,
-                backgroundImage: `url("/images/dong-son-crane.jpg")`,
+                backgroundImage: `url("/images/dong-son-crane.png")`,
                 backgroundRepeat: 'repeat-x',
                 backgroundSize: 'auto 36px',
                 backgroundPosition: 'center',
