@@ -297,7 +297,7 @@ function AboutSection() {
                             <p className="text-[11px] sm:text-xs md:text-sm leading-snug sm:leading-relaxed">
                                 <span className="text-foreground font-medium">Dòng họ Nguyễn Duy</span> —
                                 nhánh cụ Khoan Giản, có gốc gác tại làng Nghìn (làng Đông Linh), thị trấn An Bài,
-                                huyện Quỳnh Phụ, tỉnh Thái Bình (nay là xã Phụ Dực, tỉnh Hưng Yên).
+                                huyện Quỳnh Phụ, tỉnh Thái Bình, nay là xã Phụ Dực, tỉnh Hưng Yên.
                                 Trải qua <span className="text-foreground font-medium">16 thế hệ</span> với
                                 hơn 100 thành viên, dòng họ đã lưu giữ và phát triển những giá trị truyền thống quý báu.
                                 Gia phả điện tử này được xây dựng nhằm <span className="text-foreground font-medium">số hóa và bảo tồn</span> thông tin phả hệ,
