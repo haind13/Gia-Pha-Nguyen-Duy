@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, useInView, animate } from 'framer-motion';
 import {
-    TreePine, Users, ArrowRight, GitBranch,
+    Scroll, Users, ArrowRight, GitBranch,
     MapPin, ScrollText, Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -253,7 +253,7 @@ function HeroSection({ stats, loading }: { stats: Stats; loading: boolean }) {
                     <motion.div variants={fadeUp} className="flex flex-wrap gap-3">
                         <Link href="/pha-do">
                             <Button size="lg" className="gap-2 bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-800 hover:to-amber-900 dark:from-amber-600 dark:to-amber-700 dark:hover:from-amber-500 dark:hover:to-amber-600 text-white shadow-lg shadow-amber-800/25 dark:shadow-amber-600/20 transition-all duration-300 h-10 sm:h-11 text-sm sm:text-base px-4 sm:px-6">
-                                <TreePine className="h-4 w-4 sm:h-5 sm:w-5" />
+                                <Scroll className="h-4 w-4 sm:h-5 sm:w-5" />
                                 Xem Phả đồ
                                 <ArrowRight className="h-4 w-4" />
                             </Button>
