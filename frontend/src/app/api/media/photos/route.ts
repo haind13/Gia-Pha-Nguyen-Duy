@@ -64,6 +64,47 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'No files provided' }, { status: 400 });
         }
 
+        // ── Security: validate file types ──
+        const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+        const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB per file
+        const MAGIC_BYTES: Record<string, number[][]> = {
+            'image/jpeg': [[0xFF, 0xD8, 0xFF]],
+            'image/png': [[0x89, 0x50, 0x4E, 0x47]],
+            'image/gif': [[0x47, 0x49, 0x46, 0x38]],
+            'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF header
+        };
+
+        for (const file of files) {
+            // Check MIME type whitelist
+            if (!ALLOWED_MIME.has(file.type)) {
+                return NextResponse.json(
+                    { error: `Loại file không được phép: ${file.type}. Chỉ chấp nhận JPG, PNG, GIF, WebP.` },
+                    { status: 400 },
+                );
+            }
+            // Check file size
+            if (file.size > MAX_FILE_SIZE) {
+                return NextResponse.json(
+                    { error: `File quá lớn (${(file.size / 1024 / 1024).toFixed(1)}MB). Tối đa 20MB.` },
+                    { status: 400 },
+                );
+            }
+            // Validate magic bytes to prevent disguised files
+            const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+            const signatures = MAGIC_BYTES[file.type];
+            if (signatures) {
+                const valid = signatures.some(sig =>
+                    sig.every((byte, i) => header[i] === byte),
+                );
+                if (!valid) {
+                    return NextResponse.json(
+                        { error: `File "${file.name}" không phải ảnh hợp lệ (magic bytes không khớp).` },
+                        { status: 400 },
+                    );
+                }
+            }
+        }
+
         const supabase = createServiceClient();
 
         // Determine user role for auto-publish vs pending

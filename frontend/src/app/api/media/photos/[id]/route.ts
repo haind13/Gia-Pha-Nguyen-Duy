@@ -34,9 +34,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         let downloadUrl: string | null = null;
         const photo = photoRes.data;
 
-        if (photo.storage_provider === 'r2' && photo.r2_url) {
-            // R2: URL is permanent, no refresh needed
-            downloadUrl = photo.r2_url;
+        if (photo.storage_provider === 'r2' && photo.r2_key) {
+            // R2: serve via proxy route (public bucket may return 401)
+            downloadUrl = `/api/media/image?key=${encodeURIComponent(photo.r2_key)}`;
         } else if (photo.onedrive_item_id && isOnedriveConfigured()) {
             // OneDrive: refresh download URL
             try {

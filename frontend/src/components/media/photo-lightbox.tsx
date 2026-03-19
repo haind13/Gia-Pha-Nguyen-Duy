@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/components/auth-provider';
 import {
     fetchPhotoDetail, addComment, deleteComment, toggleLike, deletePhoto,
+    getPhotoFullUrl,
     type Photo, type PhotoDetail, type PhotoComment,
 } from '@/lib/media-data';
 
@@ -110,7 +111,7 @@ export function PhotoLightbox({ photos, initialIndex, onClose, onPhotoDeleted }:
         }
     };
 
-    const imgSrc = detail?.photo?.downloadUrl || photo?.r2_url || photo?.onedrive_url || photo?.thumbnail_url || '';
+    const imgSrc = detail?.photo?.downloadUrl || getPhotoFullUrl(photo);
     const userLike = detail?.likes?.items?.find(l => l.user_id === user?.id);
 
     return (
