@@ -4,24 +4,37 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { supabase } from '@/lib/supabase';
 import type { Tenant, SiteConfig } from '@/lib/tenant';
 
+const TENANT_COOKIE = 'tenant_slug';
+
 interface TenantContextValue {
     tenant: Tenant | null;
     siteConfig: SiteConfig | null;
     treeId: string | null;
+    tenantSlug: string | null;
     loading: boolean;
     error: string | null;
     refetchConfig: () => Promise<void>;
+    /** Build a path with tenant prefix: /g/{slug}/path */
+    tenantPath: (path: string) => string;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
 
+/** Read tenant_slug cookie from document.cookie */
+function getTenantSlugFromCookie(): string | null {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(new RegExp(`(?:^|; )${TENANT_COOKIE}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 /**
  * TenantProvider resolves the current tenant from:
- * 1. x-tenant-slug header (set by middleware for subdomain routing)
- * 2. x-tenant-domain header (set by middleware for custom domain routing)
- * 3. Fallback: first active tenant (development mode)
+ * 1. Explicit tenantSlug prop (from parent or server)
+ * 2. Cookie `tenant_slug` (set by middleware for /g/{slug} path routing)
+ * 3. URL path: detect /g/{slug} in current URL
+ * 4. Fallback: first active tenant (development / single-tenant mode)
  */
-export function TenantProvider({ children, tenantSlug, tenantDomain }: {
+export function TenantProvider({ children, tenantSlug: propSlug, tenantDomain }: {
     children: ReactNode;
     tenantSlug?: string | null;
     tenantDomain?: string | null;
@@ -30,23 +43,46 @@ export function TenantProvider({ children, tenantSlug, tenantDomain }: {
     const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [resolvedSlug, setResolvedSlug] = useState<string | null>(propSlug ?? null);
+
+    // Resolve slug from multiple sources
+    useEffect(() => {
+        if (propSlug) {
+            setResolvedSlug(propSlug);
+            return;
+        }
+        // Try URL path first
+        if (typeof window !== 'undefined') {
+            const pathMatch = window.location.pathname.match(/^\/g\/([a-z0-9-]+)/);
+            if (pathMatch) {
+                setResolvedSlug(pathMatch[1]);
+                return;
+            }
+        }
+        // Try cookie
+        const cookieSlug = getTenantSlugFromCookie();
+        if (cookieSlug) {
+            setResolvedSlug(cookieSlug);
+            return;
+        }
+        // null = use fallback (first active tenant)
+        setResolvedSlug(null);
+    }, [propSlug]);
 
     const fetchTenant = useCallback(async () => {
         try {
             let tenantData: Tenant | null = null;
 
-            if (tenantSlug) {
-                // Resolve by slug
+            if (resolvedSlug) {
                 const { data, error: err } = await supabase
                     .from('tenants')
                     .select('*')
-                    .eq('slug', tenantSlug)
+                    .eq('slug', resolvedSlug)
                     .eq('is_active', true)
                     .maybeSingle();
                 if (err) throw err;
                 tenantData = data;
             } else if (tenantDomain) {
-                // Resolve by custom domain
                 const { data, error: err } = await supabase
                     .from('tenants')
                     .select('*')
@@ -56,7 +92,7 @@ export function TenantProvider({ children, tenantSlug, tenantDomain }: {
                 if (err) throw err;
                 tenantData = data;
             } else {
-                // Fallback: first active tenant (dev mode)
+                // Fallback: first active tenant
                 const { data, error: err } = await supabase
                     .from('tenants')
                     .select('*')
@@ -69,14 +105,14 @@ export function TenantProvider({ children, tenantSlug, tenantDomain }: {
             }
 
             if (!tenantData) {
-                setError('Không tìm thấy gia phả');
+                // No tenant found — not an error in single-tenant mode, just no multi-tenant data yet
+                setError(null);
                 setLoading(false);
                 return;
             }
 
             setTenant(tenantData);
 
-            // Fetch site config
             const { data: configData } = await supabase
                 .from('site_config')
                 .select('*')
@@ -87,10 +123,11 @@ export function TenantProvider({ children, tenantSlug, tenantDomain }: {
             setError(null);
         } catch (e) {
             console.error('Failed to load tenant:', e);
-            setError('Lỗi tải thông tin gia phả');
+            // Don't block the app if tenants table doesn't exist yet
+            setError(null);
         }
         setLoading(false);
-    }, [tenantSlug, tenantDomain]);
+    }, [resolvedSlug, tenantDomain]);
 
     const refetchConfig = useCallback(async () => {
         if (!tenant) return;
@@ -107,9 +144,27 @@ export function TenantProvider({ children, tenantSlug, tenantDomain }: {
     }, [fetchTenant]);
 
     const treeId = tenant?.tree_id ?? null;
+    const tenantSlug = tenant?.slug ?? resolvedSlug;
+
+    /** Build a URL path with tenant prefix for path-based routing */
+    const tenantPath = useCallback((path: string) => {
+        if (!tenantSlug) return path;
+        // If we're on a subdomain, don't add prefix
+        if (typeof window !== 'undefined') {
+            const host = window.location.hostname;
+            if (host !== 'localhost' && host !== '127.0.0.1' && !host.includes('vercel.app') && !host.includes('giaphadaiviet.vn')) {
+                // Custom domain — no prefix needed
+                return path;
+            }
+        }
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `/g/${tenantSlug}${cleanPath}`;
+    }, [tenantSlug]);
 
     return (
-        <TenantContext.Provider value={{ tenant, siteConfig, treeId, loading, error, refetchConfig }}>
+        <TenantContext.Provider value={{
+            tenant, siteConfig, treeId, tenantSlug, loading, error, refetchConfig, tenantPath,
+        }}>
             {children}
         </TenantContext.Provider>
     );
@@ -121,10 +176,6 @@ export function useTenant() {
     return ctx;
 }
 
-/**
- * Hook to get tree_id for data queries.
- * Returns null if tenant not loaded yet.
- */
 export function useTenantTreeId(): string | null {
     const { treeId } = useTenant();
     return treeId;

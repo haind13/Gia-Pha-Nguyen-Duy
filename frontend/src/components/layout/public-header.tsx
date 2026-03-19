@@ -9,11 +9,14 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { publicNavItems } from '@/components/layout/sidebar';
+import { useTenant } from '@/components/tenant-provider';
 
 export function PublicHeader() {
     const pathname = usePathname();
     const { theme, setTheme } = useTheme();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const { siteConfig, tenant } = useTenant();
+    const siteName = siteConfig?.site_name || tenant?.name || 'Gia Phả';
 
     return (
         <>
@@ -21,9 +24,13 @@ export function PublicHeader() {
                 <div className="flex h-14 items-center justify-between px-4 lg:px-8">
                     {/* Left: Logo */}
                     <Link href="/" className="flex items-center gap-2 shrink-0">
-                        <Scroll className="h-6 w-6 text-primary" />
+                        {siteConfig?.logo_url ? (
+                            <img src={siteConfig.logo_url} alt="Logo" className="h-6 w-6 rounded" />
+                        ) : (
+                            <Scroll className="h-6 w-6 text-primary" />
+                        )}
                         <span className="font-bold text-sm sm:text-base leading-tight hidden sm:block">
-                            Họ Nguyễn Duy
+                            {siteName}
                         </span>
                     </Link>
 

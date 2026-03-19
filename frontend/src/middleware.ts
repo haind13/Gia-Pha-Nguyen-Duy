@@ -4,14 +4,22 @@ import { detectTenantFromHostname } from '@/lib/tenant';
 /**
  * Multi-Tenant Middleware
  *
- * Routing:
- *   admin.giaphadaiviet.vn            → /superadmin/*   (x-tenant-type: superadmin)
- *   cp.{slug}.giaphadaiviet.vn        → /admin/*        (x-tenant-slug: {slug})
- *   {slug}.giaphadaiviet.vn           → public          (x-tenant-slug: {slug})
- *   cp.{custom-domain}               → /admin/*        (x-tenant-domain: {domain})
- *   {custom-domain}                   → public          (x-tenant-domain: {domain})
- *   localhost / cp.localhost           → dev fallback
+ * PATH-BASED routing (Vercel Free compatible):
+ *   /g/{slug}/...           → set tenant cookie + rewrite to /...
+ *   /g/{slug}/admin/...     → set tenant cookie + rewrite to /admin/...
+ *   /superadmin/...         → superadmin (no tenant)
+ *   /...                    → use tenant from cookie (or default)
+ *
+ * SUBDOMAIN routing (future VPS hosting):
+ *   admin.giaphadaiviet.vn            → /superadmin/*
+ *   cp.{slug}.giaphadaiviet.vn        → /admin/* + tenant slug
+ *   {slug}.giaphadaiviet.vn           → public + tenant slug
+ *   cp.{custom-domain}               → /admin/* + tenant domain
+ *   {custom-domain}                   → public + tenant domain
  */
+
+const TENANT_COOKIE = 'tenant_slug';
+
 export function middleware(request: NextRequest) {
     const hostname = request.headers.get('host') ?? '';
     const { pathname } = request.nextUrl;
@@ -26,72 +34,78 @@ export function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
+    // ── PATH-BASED ROUTING: /g/{slug}/... ──
+    const pathMatch = pathname.match(/^\/g\/([a-z0-9-]+)(\/.*)?$/);
+    if (pathMatch) {
+        const slug = pathMatch[1];
+        const remainingPath = pathMatch[2] || '/';
+
+        const url = request.nextUrl.clone();
+        url.pathname = remainingPath;
+
+        const response = NextResponse.rewrite(url);
+        // Set cookie so TenantProvider can read it client-side
+        response.cookies.set(TENANT_COOKIE, slug, {
+            path: '/',
+            maxAge: 60 * 60 * 24 * 365, // 1 year
+            sameSite: 'lax',
+        });
+        return response;
+    }
+
+    // ── SUBDOMAIN ROUTING (for future VPS hosting) ──
     const detection = detectTenantFromHostname(hostname);
-    const response = NextResponse.next();
 
     switch (detection.type) {
         case 'superadmin': {
-            // admin.giaphadaiviet.vn → rewrite to /superadmin/*
-            response.headers.set('x-tenant-type', 'superadmin');
             if (!pathname.startsWith('/superadmin') && !pathname.startsWith('/login')) {
                 const url = request.nextUrl.clone();
                 url.pathname = pathname === '/' ? '/superadmin' : `/superadmin${pathname}`;
-                return NextResponse.rewrite(url, { headers: response.headers });
+                return NextResponse.rewrite(url);
             }
-            return response;
+            return NextResponse.next();
         }
 
         case 'tenant_admin': {
-            // cp.{slug}.giaphadaiviet.vn → rewrite to /admin/*
-            response.headers.set('x-tenant-slug', detection.slug);
-            response.headers.set('x-tenant-type', 'admin');
+            const response = NextResponse.next();
+            response.cookies.set(TENANT_COOKIE, detection.slug, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
             if (!pathname.startsWith('/admin') && !pathname.startsWith('/login')) {
                 const url = request.nextUrl.clone();
                 url.pathname = pathname === '/' ? '/admin' : `/admin${pathname}`;
-                return NextResponse.rewrite(url, { headers: response.headers });
-            }
-            return response;
-        }
-
-        case 'tenant_admin_custom': {
-            // cp.{custom-domain} → rewrite to /admin/*
-            response.headers.set('x-tenant-domain', detection.domain);
-            response.headers.set('x-tenant-type', 'admin');
-            if (!pathname.startsWith('/admin') && !pathname.startsWith('/login')) {
-                const url = request.nextUrl.clone();
-                url.pathname = pathname === '/' ? '/admin' : `/admin${pathname}`;
-                return NextResponse.rewrite(url, { headers: response.headers });
+                return NextResponse.rewrite(url);
             }
             return response;
         }
 
         case 'tenant_public': {
-            // {slug}.giaphadaiviet.vn → public site
-            response.headers.set('x-tenant-slug', detection.slug);
-            response.headers.set('x-tenant-type', 'public');
+            const response = NextResponse.next();
+            response.cookies.set(TENANT_COOKIE, detection.slug, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
             return response;
         }
 
-        case 'tenant_public_custom': {
-            // {custom-domain} → public site
-            response.headers.set('x-tenant-domain', detection.domain);
-            response.headers.set('x-tenant-type', 'public');
-            return response;
+        case 'tenant_admin_custom': {
+            if (!pathname.startsWith('/admin') && !pathname.startsWith('/login')) {
+                const url = request.nextUrl.clone();
+                url.pathname = pathname === '/' ? '/admin' : `/admin${pathname}`;
+                return NextResponse.rewrite(url);
+            }
+            return NextResponse.next();
         }
+
+        case 'tenant_public_custom':
+            return NextResponse.next();
 
         case 'localhost': {
-            // Development mode
-            response.headers.set('x-tenant-type', detection.isAdmin ? 'admin' : 'public');
             if (detection.isAdmin && !pathname.startsWith('/admin') && !pathname.startsWith('/login')) {
                 const url = request.nextUrl.clone();
                 url.pathname = pathname === '/' ? '/admin' : `/admin${pathname}`;
-                return NextResponse.rewrite(url, { headers: response.headers });
+                return NextResponse.rewrite(url);
             }
-            return response;
+            return NextResponse.next();
         }
 
         default:
-            return response;
+            return NextResponse.next();
     }
 }
 
