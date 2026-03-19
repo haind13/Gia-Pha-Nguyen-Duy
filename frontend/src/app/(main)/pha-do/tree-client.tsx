@@ -30,8 +30,8 @@ import type { PersonDetail } from '@/lib/genealogy-types';
 import { zodiacYear } from '@/lib/genealogy-types';
 import {
     computeLayout, filterAncestors, filterDescendants,
-    CARD_W, CARD_H,
-    type TreeNode, type TreeFamily, type LayoutResult, type PositionedNode, type PositionedCouple, type Connection,
+    CARD_W, CARD_H, CARD_V_W, CARD_V_H, getCardSize,
+    type CardOrientation, type TreeNode, type TreeFamily, type LayoutResult, type PositionedNode, type PositionedCouple, type Connection,
 } from '@/lib/tree-layout';
 import { getMockTreeData } from '@/lib/mock-data';
 import { buildParentToFamiliesMap } from '@/lib/tree-utils';
@@ -213,6 +213,9 @@ export default function TreeViewPage() {
     // Export image state
     const [exporting, setExporting] = useState(false);
     const treeContentRef = useRef<HTMLDivElement>(null);
+
+    // Card orientation toggle
+    const [cardOrientation, setCardOrientation] = useState<CardOrientation>('horizontal');
 
     // Crop export state
     const [cropMode, setCropMode] = useState(false);
@@ -562,8 +565,8 @@ export default function TreeViewPage() {
             const motherHidden = f.motherId ? hiddenIds.has(f.motherId) : true;
             return !(fatherHidden && motherHidden);
         });
-        return computeLayout(visiblePeople, visibleFamilies);
-    }, [displayData, hiddenIds]);
+        return computeLayout(visiblePeople, visibleFamilies, cardOrientation);
+    }, [displayData, hiddenIds, cardOrientation]);
 
     // F4: Check if a person has children (for showing toggle button)
     const hasChildren = useCallback((handle: string): boolean => {
@@ -611,9 +614,11 @@ export default function TreeViewPage() {
         const top = (-ty / scale) - CULL_PAD;
         const right = ((vw - tx) / scale) + CULL_PAD;
         const bottom = ((vh - ty) / scale) + CULL_PAD;
+        const cW = layout.cardW;
+        const cH = layout.cardH;
         return layout.nodes.filter(n =>
-            n.x + CARD_W >= left && n.x <= right &&
-            n.y + CARD_H >= top && n.y <= bottom
+            n.x + cW >= left && n.x <= right &&
+            n.y + cH >= top && n.y <= bottom
         );
     }, [layout, transform, exporting]);
 
@@ -905,7 +910,8 @@ export default function TreeViewPage() {
         let found: string | null = null;
         for (const n of layout.nodes) {
             if (n.node.id === dragState.id) continue;
-            if (mx >= n.x && mx <= n.x + CARD_W && my >= n.y && my <= n.y + CARD_H) {
+            const cW = layout.cardW; const cH = layout.cardH;
+            if (mx >= n.x && mx <= n.x + cW && my >= n.y && my <= n.y + cH) {
                 found = n.node.id;
                 break;
             }
@@ -1098,15 +1104,15 @@ export default function TreeViewPage() {
                     } else {
                         // Tree too large — center on focus person at readable zoom
                         setTransform({
-                            x: vw / 2 - (focusNode.x + CARD_W / 2) * scale,
-                            y: vh * 0.3 - (focusNode.y + CARD_H / 2) * scale,
+                            x: vw / 2 - (focusNode.x + (layout?.cardW ?? CARD_W) / 2) * scale,
+                            y: vh * 0.3 - (focusNode.y + (layout?.cardH ?? CARD_H) / 2) * scale,
                             scale,
                         });
                     }
                 } else {
                     const targetScale = 0.8;
                     setTransform({
-                        x: vw / 2 - (focusNode.x + CARD_W / 2) * targetScale,
+                        x: vw / 2 - (focusNode.x + (layout?.cardW ?? CARD_W) / 2) * targetScale,
                         y: vh * 0.3 - focusNode.y * targetScale,
                         scale: targetScale,
                     });
@@ -1121,7 +1127,7 @@ export default function TreeViewPage() {
             if (rootNode) {
                 const targetScale = 0.6;
                 setTransform({
-                    x: vw / 2 - (rootNode.x + CARD_W / 2) * targetScale,
+                    x: vw / 2 - (rootNode.x + (layout?.cardW ?? CARD_W) / 2) * targetScale,
                     y: vh * 0.15 - rootNode.y * targetScale,
                     scale: targetScale,
                 });
@@ -1291,8 +1297,8 @@ export default function TreeViewPage() {
         const vh = viewportRef.current.clientHeight;
         setTransform(t => ({
             ...t,
-            x: vw / 2 - (node.x + CARD_W / 2) * t.scale,
-            y: vh / 2 - (node.y + CARD_H / 2) * t.scale,
+            x: vw / 2 - (node.x + (layout?.cardW ?? CARD_W) / 2) * t.scale,
+            y: vh / 2 - (node.y + (layout?.cardH ?? CARD_H) / 2) * t.scale,
         }));
         setFocusPerson(handle);
     }, [layout]);
@@ -1385,8 +1391,8 @@ export default function TreeViewPage() {
             } else {
                 // Tree too large — center on focus person at readable zoom
                 setTransform({
-                    x: vw / 2 - (node.x + CARD_W / 2) * scale,
-                    y: vh * 0.3 - (node.y + CARD_H / 2) * scale,
+                    x: vw / 2 - (node.x + (layout?.cardW ?? CARD_W) / 2) * scale,
+                    y: vh * 0.3 - (node.y + (layout?.cardH ?? CARD_H) / 2) * scale,
                     scale,
                 });
             }
@@ -1490,6 +1496,15 @@ export default function TreeViewPage() {
                             return { scale: ns, x: cx - (cx - t.x) * r, y: cy - (cy - t.y) * r };
                         })}><ZoomOut className="h-3.5 w-3.5" /></Button>
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={fitAll}><Maximize2 className="h-3.5 w-3.5" /></Button>
+                        <Button
+                            variant={cardOrientation === 'vertical' ? 'default' : 'outline'}
+                            size="icon"
+                            className={`h-8 w-8 ${cardOrientation === 'vertical' ? 'bg-violet-600 hover:bg-violet-700 text-white' : ''}`}
+                            title={cardOrientation === 'vertical' ? 'Chuyển sang thẻ ngang' : 'Chuyển sang thẻ dọc'}
+                            onClick={() => setCardOrientation(o => o === 'horizontal' ? 'vertical' : 'horizontal')}
+                        >
+                            {cardOrientation === 'vertical' ? <GripVertical className="h-3.5 w-3.5" /> : <GripHorizontal className="h-3.5 w-3.5" />}
+                        </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -1569,7 +1584,7 @@ export default function TreeViewPage() {
                                 {/* Couple hearts — only visible */}
                                 {visibleCouples.map(c => (
                                     <text key={c.familyId}
-                                        x={c.midX} y={c.y + CARD_H / 2 + 4}
+                                        x={c.midX} y={c.y + layout!.cardH / 2 + 4}
                                         textAnchor="middle" fontSize="10" fill="#e11d48">❤</text>
                                 ))}
                             </svg>
@@ -1590,6 +1605,9 @@ export default function TreeViewPage() {
                                     isDropTarget={dropTarget === item.node.id}
                                     editorMode={editorMode}
                                     kinshipMode={kinshipMode}
+                                    cardOrientation={cardOrientation}
+                                    cardW={layout!.cardW}
+                                    cardH={layout!.cardH}
                                     onHover={handleCardHover}
                                     onClick={handleCardClick}
                                     onSetFocus={handleCardFocus}
@@ -1609,6 +1627,8 @@ export default function TreeViewPage() {
                                         parentNode={parentNode}
                                         zoomLevel={zoomLevel}
                                         onExpand={() => toggleCollapse(handle)}
+                                        cardW={layout!.cardW}
+                                        cardH={layout!.cardH}
                                     />
                                 );
                             })}
@@ -1623,7 +1643,7 @@ export default function TreeViewPage() {
                                 return (
                                     <div
                                         className="absolute rounded-lg border-2 border-blue-400 bg-blue-50/80 shadow-lg pointer-events-none z-40"
-                                        style={{ left: ghostX - CARD_W / 2, top: ghostY - CARD_H / 2, width: CARD_W, height: CARD_H, opacity: 0.8 }}
+                                        style={{ left: ghostX - (layout?.cardW ?? CARD_W) / 2, top: ghostY - (layout?.cardH ?? CARD_H) / 2, width: layout?.cardW ?? CARD_W, height: layout?.cardH ?? CARD_H, opacity: 0.8 }}
                                     >
                                         <div className="px-2 py-1.5 h-full flex items-center gap-2">
                                             <GripHorizontal className="w-4 h-4 text-blue-400" />
@@ -1687,7 +1707,7 @@ export default function TreeViewPage() {
                         <GenerationHeaders
                             generationStats={generationStats}
                             transform={transform}
-                            cardH={CARD_H}
+                            cardH={layout.cardH}
                         />
                     )}
 
@@ -2531,10 +2551,13 @@ const MemoPersonCard = memo(PersonCard, (prev, next) =>
     prev.isCollapsed === next.isCollapsed &&
     prev.isDragging === next.isDragging &&
     prev.isDropTarget === next.isDropTarget &&
-    prev.editorMode === next.editorMode
+    prev.editorMode === next.editorMode &&
+    prev.cardOrientation === next.cardOrientation &&
+    prev.cardW === next.cardW &&
+    prev.cardH === next.cardH
 );
 
-function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isKinshipA, isKinshipPath, kinshipMode, zoomLevel, showCollapseToggle, isCollapsed, isDragging, isDropTarget, editorMode, onHover, onClick, onSetFocus, onToggleCollapse, onDragStart }: {
+function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isKinshipA, isKinshipPath, kinshipMode, zoomLevel, showCollapseToggle, isCollapsed, isDragging, isDropTarget, editorMode, cardOrientation, cardW, cardH, onHover, onClick, onSetFocus, onToggleCollapse, onDragStart }: {
     item: PositionedNode;
     isHighlighted: boolean;
     isFocused: boolean;
@@ -2549,6 +2572,9 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
     isDragging: boolean;
     isDropTarget: boolean;
     editorMode: boolean;
+    cardOrientation: CardOrientation;
+    cardW: number;
+    cardH: number;
     onHover: (h: string | null) => void;
     onClick: (handle: string, x: number, y: number) => void;
     onSetFocus: (handle: string) => void;
@@ -2569,10 +2595,10 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
         return (
             <div
                 className="absolute group"
-                style={{ left: x + CARD_W / 2 - 6, top: y + CARD_H / 2 - 6, width: 12, height: 12 }}
+                style={{ left: x + cardW / 2 - 6, top: y + cardH / 2 - 6, width: 12, height: 12 }}
                 onMouseEnter={() => onHover(node.id)}
                 onMouseLeave={() => onHover(null)}
-                onClick={(e) => { e.stopPropagation(); onClick(node.id, x + CARD_W, y + CARD_H / 2); }}
+                onClick={(e) => { e.stopPropagation(); onClick(node.id, x + cardW, y + cardH / 2); }}
             >
                 <div className={`w-3 h-3 rounded-full shadow-sm ${isKinshipA ? 'ring-2 ring-emerald-400 ring-offset-1' : ''}`} style={{ backgroundColor: dotColor }} />
                 {isKinshipA && <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-md"><span className="text-white text-[8px] font-bold">✓</span></div>}
@@ -2621,17 +2647,54 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 : kinshipMode && isHovered ? 'ring-2 ring-emerald-300 ring-offset-1 cursor-crosshair'
                 : isHovered ? 'ring-1 ring-indigo-200' : '';
 
-    // F1: COMPACT zoom → smaller card with just name + gen
+    // F1: COMPACT zoom — vertical orientation
+    if (zoomLevel === 'compact' && cardOrientation === 'vertical') {
+        return (
+            <div
+                className={`absolute rounded-lg border bg-gradient-to-br shadow-sm transition-all duration-200
+                    ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} hover:shadow-md ${bgClass} ${glowClass}
+                    ${isDead && !isDragging ? 'opacity-70' : ''} ${!isPatri && !isDragging ? 'opacity-80' : ''}`}
+                style={{ left: x, top: y, width: cardW, height: cardH }}
+                onMouseEnter={() => onHover(node.id)}
+                onMouseLeave={() => onHover(null)}
+                onClick={(e) => { e.stopPropagation(); onClick(node.id, x + cardW, y + cardH / 2); }}
+                onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
+            >
+                <div className="px-1 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
+                    {isPatri && <span className="text-[7px] font-bold text-teal-600 bg-teal-50 px-1 rounded">ND</span>}
+                    <p className="font-semibold text-[9px] leading-tight text-slate-800 line-clamp-3 w-full">{node.displayName}</p>
+                    <span className="text-[7px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-700">Đời {node.generation}</span>
+                </div>
+                {isKinshipA && (
+                    <div className="absolute -top-2 -right-2 z-10 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-md border-2 border-white">
+                        <span className="text-white text-[8px] font-bold">✓</span>
+                    </div>
+                )}
+                {showCollapseToggle && (
+                    <button
+                        className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-10 w-5 h-5 rounded-full
+                            bg-white border border-slate-300 shadow-sm flex items-center justify-center
+                            hover:bg-slate-100 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.id); }}
+                    >
+                        {isCollapsed ? <ChevronRight className="w-3 h-3 text-slate-500" /> : <ChevronDown className="w-3 h-3 text-slate-500" />}
+                    </button>
+                )}
+            </div>
+        );
+    }
+
+    // F1: COMPACT zoom → smaller card with just name + gen (horizontal)
     if (zoomLevel === 'compact') {
         return (
             <div
                 className={`absolute rounded-lg border bg-gradient-to-br shadow-sm transition-all duration-200
                     ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} hover:shadow-md ${bgClass} ${glowClass}
                     ${isDead && !isDragging ? 'opacity-70' : ''} ${!isPatri && !isDragging ? 'opacity-80' : ''}`}
-                style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
+                style={{ left: x, top: y, width: cardW, height: cardH }}
                 onMouseEnter={() => onHover(node.id)}
                 onMouseLeave={() => onHover(null)}
-                onClick={(e) => { e.stopPropagation(); onClick(node.id, x + CARD_W, y + CARD_H / 2); }}
+                onClick={(e) => { e.stopPropagation(); onClick(node.id, x + cardW, y + cardH / 2); }}
                 onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
             >
                 <div className="px-2 py-1.5 h-full flex items-center gap-2">
@@ -2665,16 +2728,71 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
         );
     }
 
-    // F1: FULL zoom → original detailed card
+    // F1: FULL zoom — vertical orientation (no avatar)
+    if (cardOrientation === 'vertical') {
+        return (
+            <div
+                className={`absolute rounded-xl border-[1.5px] bg-gradient-to-br shadow-sm transition-all duration-200
+                    ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} hover:shadow-md hover:-translate-y-0.5 ${bgClass} ${glowClass}
+                    ${isDead && !isDragging ? 'opacity-70' : ''} ${!isPatri && !isDragging ? 'opacity-80' : ''}`}
+                style={{ left: x, top: y, width: cardW, height: cardH }}
+                onMouseEnter={() => onHover(node.id)}
+                onMouseLeave={() => onHover(null)}
+                onClick={(e) => { e.stopPropagation(); onClick(node.id, x + cardW, y + cardH / 2); }}
+                onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
+                onContextMenu={(e) => { e.preventDefault(); onSetFocus(node.id); }}
+            >
+                <div className="px-1.5 py-2 h-full flex flex-col items-center justify-center text-center gap-0.5">
+                    {isPatri && (
+                        <span className="text-[7px] font-bold text-teal-600 bg-teal-50 px-1.5 py-px rounded shrink-0">ND</span>
+                    )}
+                    <p className="font-semibold text-[11px] leading-tight text-slate-800 line-clamp-3 w-full">
+                        {node.displayName}
+                    </p>
+                    <p className="text-[9px] text-slate-500">
+                        {node.birthYear
+                            ? `${node.birthYear}${node.deathYear ? `–${node.deathYear}` : node.isLiving ? '–nay' : ''}`
+                            : ''}
+                    </p>
+                    <span className="text-[8px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200/60">Đời {node.generation}</span>
+                    {isDead ? (
+                        <span className="text-[8px] text-slate-400">✝ Đã mất</span>
+                    ) : (
+                        <span className="text-[8px] text-emerald-600 font-medium">● Sống</span>
+                    )}
+                </div>
+
+                {isKinshipA && (
+                    <div className="absolute -top-2.5 -right-2.5 z-10 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg border-2 border-white">
+                        <span className="text-white text-xs font-bold">✓</span>
+                    </div>
+                )}
+
+                {showCollapseToggle && (
+                    <button
+                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 w-6 h-6 rounded-full
+                            bg-white border border-slate-300 shadow-sm flex items-center justify-center
+                            hover:bg-amber-50 hover:border-amber-400 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.id); }}
+                        title={isCollapsed ? 'Mở rộng nhánh' : 'Thu gọn nhánh'}
+                    >
+                        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-amber-600" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
+                    </button>
+                )}
+            </div>
+        );
+    }
+
+    // F1: FULL zoom → original detailed card (horizontal)
     return (
         <div
             className={`absolute rounded-xl border-[1.5px] bg-gradient-to-br shadow-sm transition-all duration-200
                 ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} hover:shadow-md hover:-translate-y-0.5 ${bgClass} ${glowClass}
                 ${isDead && !isDragging ? 'opacity-70' : ''} ${!isPatri && !isDragging ? 'opacity-80' : ''}`}
-            style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
+            style={{ left: x, top: y, width: cardW, height: cardH }}
             onMouseEnter={() => onHover(node.id)}
             onMouseLeave={() => onHover(null)}
-            onClick={(e) => { e.stopPropagation(); onClick(node.id, x + CARD_W, y + CARD_H / 2); }}
+            onClick={(e) => { e.stopPropagation(); onClick(node.id, x + cardW, y + cardH / 2); }}
             onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
             onContextMenu={(e) => { e.preventDefault(); onSetFocus(node.id); }}
         >
@@ -2736,20 +2854,22 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
 }
 
 // === F4: Branch Summary Card ===
-function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand }: {
+function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand, cardW, cardH }: {
     summary: BranchSummary;
     parentNode: PositionedNode;
     zoomLevel: ZoomLevel;
     onExpand: () => void;
+    cardW: number;
+    cardH: number;
 }) {
     const x = parentNode.x;
-    const y = parentNode.y + CARD_H + 40; // Position below parent with spacing
+    const y = parentNode.y + cardH + 40; // Position below parent with spacing
 
     if (zoomLevel === 'mini') {
         return (
             <div
                 className="absolute group cursor-pointer"
-                style={{ left: x + CARD_W / 2 - 8, top: y + CARD_H / 2 - 8, width: 16, height: 16 }}
+                style={{ left: x + cardW / 2 - 8, top: y + cardH / 2 - 8, width: 16, height: 16 }}
                 onClick={(e) => { e.stopPropagation(); onExpand(); }}
             >
                 <div className="w-4 h-4 rounded bg-amber-400 shadow-sm flex items-center justify-center">
@@ -2767,7 +2887,7 @@ function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand }: {
         <div
             className="absolute rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50
                 shadow-md cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-            style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
+            style={{ left: x, top: y, width: cardW, height: cardH }}
             onClick={(e) => { e.stopPropagation(); onExpand(); }}
         >
             <div className="px-2.5 py-2 h-full flex items-center gap-2.5">

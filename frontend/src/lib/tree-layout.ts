@@ -64,14 +64,28 @@ export interface LayoutResult {
     width: number;
     height: number;
     generations: number;
+    cardW: number;
+    cardH: number;
 }
 
-// Sizing
+// Sizing — Horizontal (default)
 export const CARD_W = 220;
 export const CARD_H = 80;
 export const H_SPACE = 24;
 export const V_SPACE = 80;
 export const COUPLE_GAP = 8;
+
+// Sizing — Vertical
+export const CARD_V_W = 90;
+export const CARD_V_H = 140;
+
+export type CardOrientation = 'horizontal' | 'vertical';
+
+export function getCardSize(orientation: CardOrientation) {
+    return orientation === 'vertical'
+        ? { cardW: CARD_V_W, cardH: CARD_V_H }
+        : { cardW: CARD_W, cardH: CARD_H };
+}
 
 // ═══ Internal subtree structure ═══
 
@@ -144,6 +158,8 @@ function buildSubtree(
     personMap: Map<string, TreeNode>,
     familyMap: Map<string, TreeFamily>,
     visited: Set<string>,
+    cardW: number = CARD_W,
+    cardH: number = CARD_H,
 ): Subtree | null {
     if (visited.has(family.id)) return null;
     visited.add(family.id);
@@ -166,7 +182,7 @@ function buildSubtree(
         );
 
         if (childFamily) {
-            const sub = buildSubtree(childFamily, personMap, familyMap, visited);
+            const sub = buildSubtree(childFamily, personMap, familyMap, visited, cardW, cardH);
             if (sub) {
                 children.push({
                     subtree: sub, width: sub.width, anchorX: sub.anchorX,
@@ -174,28 +190,28 @@ function buildSubtree(
                 });
             } else {
                 const leafContour: Contour = {
-                    left: [-CARD_W / 2],
-                    right: [CARD_W / 2],
+                    left: [-cardW / 2],
+                    right: [cardW / 2],
                 };
-                children.push({ leaf: child, width: CARD_W, anchorX: CARD_W / 2, contour: leafContour });
+                children.push({ leaf: child, width: cardW, anchorX: cardW / 2, contour: leafContour });
             }
         } else {
             const leafContour: Contour = {
-                left: [-CARD_W / 2],
-                right: [CARD_W / 2],
+                left: [-cardW / 2],
+                right: [cardW / 2],
             };
-            children.push({ leaf: child, width: CARD_W, anchorX: CARD_W / 2, contour: leafContour });
+            children.push({ leaf: child, width: cardW, anchorX: cardW / 2, contour: leafContour });
         }
     }
 
     // ── Compute width and anchorX ──
     const hasCouple = patrilineal && spouse;
-    const coupleWidth = hasCouple ? 2 * CARD_W + COUPLE_GAP : CARD_W;
-    const halfCard = CARD_W / 2;
+    const coupleWidth = hasCouple ? 2 * cardW + COUPLE_GAP : cardW;
+    const halfCard = cardW / 2;
 
     if (children.length === 0) {
         // Leaf family: width = couple width, anchor = patri center
-        const coupleRight = hasCouple ? halfCard + COUPLE_GAP + CARD_W : halfCard;
+        const coupleRight = hasCouple ? halfCard + COUPLE_GAP + cardW : halfCard;
         const parentContour: Contour = {
             left: [-halfCard],
             right: [coupleRight],
@@ -213,7 +229,7 @@ function buildSubtree(
         const child = children[0];
         const childAnchor = child.anchorX;
 
-        const coupleRight = hasCouple ? halfCard + COUPLE_GAP + CARD_W : halfCard;
+        const coupleRight = hasCouple ? halfCard + COUPLE_GAP + cardW : halfCard;
         const leftExtent = Math.max(halfCard, childAnchor);
         const childRightExtent = child.width - childAnchor;
         const rightExtent = Math.max(coupleRight, childRightExtent);
@@ -283,7 +299,7 @@ function buildSubtree(
     // We need to update the total block structure
     const adjustedAnchorX = midpointOfAnchors - blockLeft;
     const leftExtent = Math.max(halfCard, adjustedAnchorX);
-    const coupleRight = hasCouple ? halfCard + COUPLE_GAP + CARD_W : halfCard;
+    const coupleRight = hasCouple ? halfCard + COUPLE_GAP + cardW : halfCard;
     const childrenRight = childrenTotalWidth - adjustedAnchorX;
     const rightExtent = Math.max(coupleRight, childrenRight);
 
@@ -321,20 +337,22 @@ function assignPositions(
     generation: number,
     allNodes: PositionedNode[],
     placed: Set<string>,
+    cardW: number = CARD_W,
+    cardH: number = CARD_H,
 ) {
     const { patrilineal, spouse, children, anchorX } = subtree;
-    const y = generation * (CARD_H + V_SPACE);
+    const y = generation * (cardH + V_SPACE);
     const patriCenterX = startX + anchorX;
 
     // Place patrilineal person
     if (patrilineal && !placed.has(patrilineal.id)) {
-        allNodes.push({ node: patrilineal, x: patriCenterX - CARD_W / 2, y, generation });
+        allNodes.push({ node: patrilineal, x: patriCenterX - cardW / 2, y, generation });
         placed.add(patrilineal.id);
     }
 
     // Place spouse (right of patrilineal)
     if (spouse && !placed.has(spouse.id)) {
-        allNodes.push({ node: spouse, x: patriCenterX + CARD_W / 2 + COUPLE_GAP, y, generation });
+        allNodes.push({ node: spouse, x: patriCenterX + cardW / 2 + COUPLE_GAP, y, generation });
         placed.add(spouse.id);
     }
 
@@ -346,9 +364,9 @@ function assignPositions(
         const item = children[0];
         const cx = patriCenterX - item.anchorX;
         if (item.subtree) {
-            assignPositions(item.subtree, cx, generation + 1, allNodes, placed);
+            assignPositions(item.subtree, cx, generation + 1, allNodes, placed, cardW, cardH);
         } else if (item.leaf && !placed.has(item.leaf.id)) {
-            const childY = (generation + 1) * (CARD_H + V_SPACE);
+            const childY = (generation + 1) * (cardH + V_SPACE);
             allNodes.push({ node: item.leaf, x: cx, y: childY, generation: generation + 1 });
             placed.add(item.leaf.id);
         }
@@ -372,9 +390,9 @@ function assignPositions(
             const childStartX = childAnchorX - item.anchorX;
 
             if (item.subtree) {
-                assignPositions(item.subtree, childStartX, generation + 1, allNodes, placed);
+                assignPositions(item.subtree, childStartX, generation + 1, allNodes, placed, cardW, cardH);
             } else if (item.leaf && !placed.has(item.leaf.id)) {
-                const childY = (generation + 1) * (CARD_H + V_SPACE);
+                const childY = (generation + 1) * (cardH + V_SPACE);
                 allNodes.push({ node: item.leaf, x: childStartX, y: childY, generation: generation + 1 });
                 placed.add(item.leaf.id);
             }
@@ -396,9 +414,9 @@ function assignPositions(
         let cx = blockStartX;
         for (const item of children) {
             if (item.subtree) {
-                assignPositions(item.subtree, cx, generation + 1, allNodes, placed);
+                assignPositions(item.subtree, cx, generation + 1, allNodes, placed, cardW, cardH);
             } else if (item.leaf && !placed.has(item.leaf.id)) {
-                const childY = (generation + 1) * (CARD_H + V_SPACE);
+                const childY = (generation + 1) * (cardH + V_SPACE);
                 allNodes.push({ node: item.leaf, x: cx, y: childY, generation: generation + 1 });
                 placed.add(item.leaf.id);
             }
@@ -409,7 +427,8 @@ function assignPositions(
 
 // ═══ Main layout ═══
 
-export function computeLayout(people: TreeNode[], families: TreeFamily[]): LayoutResult {
+export function computeLayout(people: TreeNode[], families: TreeFamily[], orientation: CardOrientation = 'horizontal'): LayoutResult {
+    const { cardW, cardH } = getCardSize(orientation);
     const personMap = new Map(people.map(p => [p.id, p]));
     const familyMap = new Map(families.map(f => [f.id, f]));
 
@@ -438,9 +457,9 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
     let cursorX = 0;
 
     for (const fam of rootFamilies) {
-        const subtree = buildSubtree(fam, personMap, familyMap, visited);
+        const subtree = buildSubtree(fam, personMap, familyMap, visited, cardW, cardH);
         if (!subtree) continue;
-        assignPositions(subtree, cursorX, 0, allNodes, placed);
+        assignPositions(subtree, cursorX, 0, allNodes, placed, cardW, cardH);
         cursorX += subtree.width + H_SPACE;
     }
 
@@ -451,11 +470,11 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
             allNodes.push({
                 node: p,
                 x: cursorX,
-                y: gen * (CARD_H + V_SPACE),
+                y: gen * (cardH + V_SPACE),
                 generation: gen,
             });
             placed.add(p.id);
-            cursorX += CARD_W + H_SPACE;
+            cursorX += cardW + H_SPACE;
         }
     }
 
@@ -487,22 +506,22 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
             const left = fatherNode.x < motherNode.x ? fatherNode : motherNode;
             const right = fatherNode.x < motherNode.x ? motherNode : fatherNode;
             connections.push({
-                fromX: left.x + CARD_W, fromY: left.y + CARD_H / 2,
-                toX: right.x, toY: right.y + CARD_H / 2,
+                fromX: left.x + cardW, fromY: left.y + cardH / 2,
+                toX: right.x, toY: right.y + cardH / 2,
                 type: 'couple',
             });
             couples.push({
                 familyId: fam.id,
                 fatherPos: fatherNode, motherPos: motherNode,
-                midX: (left.x + CARD_W + right.x) / 2,
+                midX: (left.x + cardW + right.x) / 2,
                 y: left.y,
             });
         }
 
         // Parent-child connections: strictly orthogonal bus-line
         if (patriNode && fam.childIds.length > 0) {
-            const parentCX = patriNode.x + CARD_W / 2;
-            const parentBottomY = patriNode.y + CARD_H;
+            const parentCX = patriNode.x + cardW / 2;
+            const parentBottomY = patriNode.y + cardH;
 
             const placedChildren = fam.childIds
                 .map(ch => nodeMap.get(ch))
@@ -514,7 +533,7 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
             const busY = parentBottomY + (childTopY - parentBottomY) * 0.5;
 
             if (placedChildren.length === 1) {
-                const childCX = placedChildren[0].x + CARD_W / 2;
+                const childCX = placedChildren[0].x + cardW / 2;
 
                 if (Math.abs(childCX - parentCX) < 1) {
                     // RULE 1: straight vertical line (father and child same column)
@@ -554,7 +573,7 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
 
                 // 2. Horizontal bus spanning all children
                 const childCenters = placedChildren
-                    .map(c => c.x + CARD_W / 2)
+                    .map(c => c.x + cardW / 2)
                     .sort((a, b) => a - b);
                 const busLeft = Math.min(parentCX, childCenters[0]);
                 const busRight = Math.max(parentCX, childCenters[childCenters.length - 1]);
@@ -567,7 +586,7 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
 
                 // 3. Vertical drops from bus to each child
                 for (const child of placedChildren) {
-                    const cx = child.x + CARD_W / 2;
+                    const cx = child.x + cardW / 2;
                     connections.push({
                         fromX: cx, fromY: busY,
                         toX: cx, toY: childTopY,
@@ -581,8 +600,8 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
     // Bounds
     let maxX = 0, maxY = 0;
     for (const n of allNodes) {
-        maxX = Math.max(maxX, n.x + CARD_W);
-        maxY = Math.max(maxY, n.y + CARD_H);
+        maxX = Math.max(maxX, n.x + cardW);
+        maxY = Math.max(maxY, n.y + cardH);
     }
 
     return {
@@ -592,6 +611,8 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[]): Layou
         width: maxX + H_SPACE,
         height: maxY + V_SPACE / 2,
         generations: Math.max(...Array.from(gens.values())) + 1,
+        cardW,
+        cardH,
     };
 }
 
