@@ -1465,7 +1465,7 @@ export default function TreeViewPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
-                    {/* View modes + Xưng hô */}
+                    {/* View modes + Xưng hô + Xuất ảnh */}
                     <div className="flex rounded-lg border overflow-hidden text-xs">
                         {([['full', 'Toàn cảnh', Eye], ['ancestor', 'Tổ tiên', Users], ['descendant', 'Hậu duệ', GitBranch]] as const).map(([mode, label, Icon]) => (
                             <button key={mode} onClick={() => { if (kinshipMode) { setKinshipMode(false); setKinshipSelected([]); setKinshipResult(null); } changeViewMode(mode); }}
@@ -1479,6 +1479,13 @@ export default function TreeViewPage() {
                         }}
                             className={`px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors border-l ${kinshipMode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
                             <ArrowLeftRight className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Xưng hô</span>
+                        </button>
+                        <button onClick={() => {
+                            const s = window.location.pathname.split('/pha-do/')[1] || 'pha-do-chung';
+                            router.push(`/pha-do/xuat-anh?slug=${s}`);
+                        }}
+                            className="px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors border-l hover:bg-muted">
+                            <Camera className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Xuất ảnh</span>
                         </button>
                     </div>
                     {/* Search */}
