@@ -118,12 +118,15 @@ export default function AdminThongKePage() {
 
         const personMap = new Map(people.map(p => [p.id, p]));
 
-        let totalSons = 0, totalDaughters = 0;
+        // Deduplicate child IDs across families
+        const allChildIds = new Set<string>();
         for (const f of familiesWithChildren) {
-            for (const childId of f.child_ids) {
-                const child = personMap.get(childId);
-                if (child?.gender === 1) totalSons++; else if (child?.gender === 2) totalDaughters++;
-            }
+            for (const childId of f.child_ids) allChildIds.add(childId);
+        }
+        let totalSons = 0, totalDaughters = 0;
+        for (const childId of allChildIds) {
+            const child = personMap.get(childId);
+            if (child?.gender === 1) totalSons++; else if (child?.gender === 2) totalDaughters++;
         }
 
         let largestFamily: { father?: string; mother?: string; count: number; sons: number; daughters: number } | null = null;

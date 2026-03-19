@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Shield, ClipboardCheck, Bell, FileText, Database,
-    BarChart3, ChevronLeft, ChevronRight, Settings, ArrowLeft, Menu,
+    BarChart3, ChevronLeft, ChevronRight, Settings, ArrowLeft, Menu, Globe,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ const adminNavItems = [
     { href: '/admin/audit', label: 'Audit Log', icon: FileText },
     { href: '/admin/backup', label: 'Backup', icon: Database },
     { href: '/admin/thong-ke', label: 'Thống kê', icon: BarChart3 },
+    { href: '/admin/website', label: 'Cấu hình Website', icon: Globe },
 ];
 
 function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {

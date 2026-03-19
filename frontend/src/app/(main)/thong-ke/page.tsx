@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { BarChart3, Users, Heart, Baby, Calendar, MapPin, Briefcase, Loader2, Crown } from 'lucide-react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { BarChart3, Users, Heart, Baby, Calendar, MapPin, Briefcase, Loader2, Crown, Settings2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Person {
     id: string;
@@ -25,12 +27,48 @@ interface Family {
     child_ids: string[];
 }
 
+type SectionKey = 'overview' | 'gender' | 'generation' | 'age' | 'family' | 'genderLiving' | 'top5' | 'occupations' | 'addresses';
+
+const SECTION_LABELS: Record<SectionKey, string> = {
+    overview: 'Tổng quan (thành viên, thế hệ, sống/mất)',
+    gender: 'Giới tính (nam/nữ, con trai/gái)',
+    generation: 'Phân bố theo đời',
+    age: 'Tuổi thọ',
+    family: 'Gia đình',
+    genderLiving: 'Giới tính & Tình trạng',
+    top5: 'Top 5 gia đình đông con',
+    occupations: 'Nghề nghiệp phổ biến',
+    addresses: 'Nơi sinh sống',
+};
+
+const DEFAULT_VISIBLE: Record<SectionKey, boolean> = {
+    overview: true, gender: true, generation: true, age: true,
+    family: true, genderLiving: true, top5: true, occupations: true, addresses: true,
+};
+
+const STORAGE_KEY = 'public_dashboard_config';
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function ThongKePage() {
     const [people, setPeople] = useState<Person[]>([]);
     const [families, setFamilies] = useState<Family[]>([]);
     const [loading, setLoading] = useState(true);
+    const [configOpen, setConfigOpen] = useState(false);
+    const [visible, setVisible] = useState<Record<SectionKey, boolean>>(() => {
+        if (typeof window === 'undefined') return DEFAULT_VISIBLE;
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            return saved ? { ...DEFAULT_VISIBLE, ...JSON.parse(saved) } : DEFAULT_VISIBLE;
+        } catch { return DEFAULT_VISIBLE; }
+    });
+
+    const toggleSection = useCallback((key: SectionKey) => {
+        setVisible(prev => {
+            const next = { ...prev, [key]: !prev[key] };
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+            return next;
+        });
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -89,14 +127,16 @@ export default function ThongKePage() {
         // Person lookup map
         const personMap = new Map(people.map(p => [p.id, p]));
 
-        // Count sons / daughters from families
-        let totalSons = 0, totalDaughters = 0;
+        // Count sons / daughters from families (deduplicate child IDs)
+        const allChildIds = new Set<string>();
         for (const f of familiesWithChildren) {
-            for (const childId of f.child_ids) {
-                const child = personMap.get(childId);
-                if (child?.gender === 1) totalSons++;
-                else if (child?.gender === 2) totalDaughters++;
-            }
+            for (const childId of f.child_ids) allChildIds.add(childId);
+        }
+        let totalSons = 0, totalDaughters = 0;
+        for (const childId of allChildIds) {
+            const child = personMap.get(childId);
+            if (child?.gender === 1) totalSons++;
+            else if (child?.gender === 2) totalDaughters++;
         }
 
         // Largest family
@@ -202,32 +242,64 @@ export default function ThongKePage() {
     return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 p-3">
-                    <BarChart3 className="h-7 w-7 text-amber-700" />
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 p-3">
+                        <BarChart3 className="h-7 w-7 text-amber-700" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800">Thống kê Gia phả</h1>
+                        <p className="text-sm text-muted-foreground">{stats.total} thành viên · {stats.totalGenerations} thế hệ</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Thống kê Gia phả</h1>
-                    <p className="text-sm text-muted-foreground">{stats.total} thành viên · {stats.totalGenerations} thế hệ</p>
-                </div>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setConfigOpen(true)}>
+                    <Settings2 className="h-4 w-4" /> Cấu hình
+                </Button>
             </div>
+
+            {/* Config dialog */}
+            <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2"><Settings2 className="h-4 w-4" /> Cấu hình Dashboard</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2 py-2">
+                        <p className="text-xs text-muted-foreground mb-3">Chọn các thành phần muốn hiển thị trên dashboard:</p>
+                        {(Object.keys(SECTION_LABELS) as SectionKey[]).map(key => (
+                            <button key={key} onClick={() => toggleSection(key)}
+                                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-accent text-left transition-colors">
+                                {visible[key]
+                                    ? <Eye className="h-4 w-4 text-emerald-500 shrink-0" />
+                                    : <EyeOff className="h-4 w-4 text-slate-300 shrink-0" />}
+                                <span className={`text-sm ${visible[key] ? 'text-slate-800' : 'text-slate-400'}`}>
+                                    {SECTION_LABELS[key]}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Overview cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
-                <StatCard label="Tổng thành viên" value={stats.total} icon={<Users className="h-4 w-4" />} color="blue" />
-                <StatCard label="Thế hệ" value={stats.totalGenerations} icon={<Crown className="h-4 w-4" />} color="amber" />
-                <StatCard label="Còn sống" value={stats.livingCount} icon={<Heart className="h-4 w-4" />} color="emerald" />
-                <StatCard label="Đã mất" value={stats.deceasedCount} icon={<Calendar className="h-4 w-4" />} color="slate" />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
-                <StatCard label="Nam" value={stats.maleCount} icon={<span className="text-xs font-bold">♂</span>} color="indigo" />
-                <StatCard label="Nữ" value={stats.femaleCount} icon={<span className="text-xs font-bold">♀</span>} color="rose" />
-                <StatCard label="Con trai" value={stats.totalSons} icon={<span className="text-xs font-bold">👦</span>} color="indigo" />
-                <StatCard label="Con gái" value={stats.totalDaughters} icon={<span className="text-xs font-bold">👧</span>} color="rose" />
-            </div>
+            {visible.overview && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
+                    <StatCard label="Tổng thành viên" value={stats.total} icon={<Users className="h-4 w-4" />} color="blue" />
+                    <StatCard label="Thế hệ" value={stats.totalGenerations} icon={<Crown className="h-4 w-4" />} color="amber" />
+                    <StatCard label="Còn sống" value={stats.livingCount} icon={<Heart className="h-4 w-4" />} color="emerald" />
+                    <StatCard label="Đã mất" value={stats.deceasedCount} icon={<Calendar className="h-4 w-4" />} color="slate" />
+                </div>
+            )}
+            {visible.gender && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
+                    <StatCard label="Nam" value={stats.maleCount} icon={<span className="text-xs font-bold">♂</span>} color="indigo" />
+                    <StatCard label="Nữ" value={stats.femaleCount} icon={<span className="text-xs font-bold">♀</span>} color="rose" />
+                    <StatCard label="Con trai" value={stats.totalSons} icon={<span className="text-xs font-bold">👦</span>} color="indigo" />
+                    <StatCard label="Con gái" value={stats.totalDaughters} icon={<span className="text-xs font-bold">👧</span>} color="rose" />
+                </div>
+            )}
 
             {/* Generation distribution */}
-            <div className="bg-white border rounded-xl p-4 shadow-sm">
+            {visible.generation && <div className="bg-white border rounded-xl p-4 shadow-sm">
                 <h2 className="text-sm font-semibold text-slate-700 mb-3">Phân bố theo đời</h2>
                 <div className="space-y-1.5">
                     {stats.perGeneration.map(({ gen, count }) => (
@@ -247,12 +319,12 @@ export default function ThongKePage() {
                 <p className="text-[10px] text-muted-foreground mt-2">
                     Đời đông nhất: Đời {stats.busiestGen.gen} ({stats.busiestGen.count} người)
                 </p>
-            </div>
+            </div>}
 
             {/* Key metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {/* Age stats */}
-                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                {visible.age && <div className="bg-white border rounded-xl p-4 shadow-sm">
                     <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Tuổi thọ</h3>
                     <div className="space-y-3">
                         {stats.avgDeathAge !== null && (
@@ -276,10 +348,10 @@ export default function ThongKePage() {
                             </div>
                         )}
                     </div>
-                </div>
+                </div>}
 
                 {/* Family stats */}
-                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                {visible.family && <div className="bg-white border rounded-xl p-4 shadow-sm">
                     <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Gia đình</h3>
                     <div className="space-y-3">
                         <div>
@@ -312,10 +384,10 @@ export default function ThongKePage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>}
 
                 {/* Gender + Living */}
-                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                {visible.genderLiving && <div className="bg-white border rounded-xl p-4 shadow-sm">
                     <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Giới tính & Tình trạng</h3>
                     <div className="space-y-3">
                         {/* Gender bar */}
@@ -350,13 +422,13 @@ export default function ThongKePage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>}
             </div>
 
             {/* Bottom section: Top lists */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {/* Top 5 families */}
-                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                {visible.top5 && <div className="bg-white border rounded-xl p-4 shadow-sm">
                     <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                         <Baby className="h-3.5 w-3.5" /> Top 5 gia đình đông con
                     </h3>
@@ -374,10 +446,10 @@ export default function ThongKePage() {
                             <p className="text-xs text-muted-foreground">Chưa có dữ liệu</p>
                         )}
                     </div>
-                </div>
+                </div>}
 
                 {/* Top occupations */}
-                {stats.topOccupations.length > 0 && (
+                {visible.occupations && stats.topOccupations.length > 0 && (
                     <div className="bg-white border rounded-xl p-4 shadow-sm">
                         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                             <Briefcase className="h-3.5 w-3.5" /> Nghề nghiệp phổ biến
@@ -397,7 +469,7 @@ export default function ThongKePage() {
                 )}
 
                 {/* Top addresses */}
-                {stats.topAddresses.length > 0 && (
+                {visible.addresses && stats.topAddresses.length > 0 && (
                     <div className="bg-white border rounded-xl p-4 shadow-sm">
                         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                             <MapPin className="h-3.5 w-3.5" /> Nơi sinh sống
