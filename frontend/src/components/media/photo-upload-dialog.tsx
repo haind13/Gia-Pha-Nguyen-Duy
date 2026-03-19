@@ -85,9 +85,12 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger, personId }: Upl
 
             for (let i = 0; i < files.length; i++) {
                 setCompressionInfo(`Đang nén ${i + 1}/${files.length}...`);
-                const compressed = await imageCompression(files[i], COMPRESSION_OPTIONS);
-                compressedFiles.push(compressed);
-                const dim = await getImageDimensions(compressed);
+                const original = files[i];
+                const compressed = await imageCompression(original, COMPRESSION_OPTIONS);
+                // imageCompression returns blob with name="blob", restore original name
+                const namedFile = new File([compressed], original.name, { type: compressed.type });
+                compressedFiles.push(namedFile);
+                const dim = await getImageDimensions(namedFile);
                 dimensions.push(dim);
             }
 

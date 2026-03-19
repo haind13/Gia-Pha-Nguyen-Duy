@@ -145,6 +145,8 @@ export async function POST(req: NextRequest) {
         const useR2 = isR2Configured();
         const uploaded = [];
 
+        const extFromMime: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' };
+
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const buffer = new Uint8Array(await file.arrayBuffer());
@@ -161,9 +163,7 @@ export async function POST(req: NextRequest) {
 
             if (useR2) {
                 // ── Upload to Cloudflare R2 ──
-                // browser-image-compression may return name="blob"; use mime type to determine ext
-                const extFromMime: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' };
-                const safeName = file.name === 'blob' ? `photo.${extFromMime[file.type] || 'jpg'}` : file.name;
+                const safeName = (file.name && file.name !== 'blob') ? file.name : `photo.${extFromMime[file.type] || 'jpg'}`;
                 r2Key = generateR2Key(albumId, safeName);
                 await uploadToR2(r2Key, buffer, file.type);
                 r2Url = getR2PublicUrl(r2Key);
@@ -195,11 +195,16 @@ export async function POST(req: NextRequest) {
                 }
             }
 
+            // Ensure file_name is never "blob"
+            const displayName = (file.name && file.name !== 'blob')
+                ? file.name
+                : `photo_${Date.now()}_${i + 1}.${extFromMime[file.type] || 'jpg'}`;
+
             // Insert into Supabase
             const { data, error } = await supabase
                 .from('media')
                 .insert({
-                    file_name: file.name,
+                    file_name: displayName,
                     mime_type: file.type,
                     file_size: file.size,
                     description: photoDescription || null,
