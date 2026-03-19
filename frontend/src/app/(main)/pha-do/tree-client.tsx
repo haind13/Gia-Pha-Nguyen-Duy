@@ -489,21 +489,22 @@ export default function TreeViewPage() {
         });
     }, [treeData]);
 
-    // Expand All / Collapse All
+    // Expand All / Collapse All  (fitAll called via existing pendingFitAll ref — see effect near line 1400)
     const expandAll = useCallback(() => {
         setCollapsedBranches(new Set());
     }, []);
 
     const collapseAll = useCallback(() => {
         if (!treeData) return;
-        const allParents = new Set<string>();
+        // Only collapse patrilineal fathers who have children — NOT mothers
+        // This matches the demo behavior: root person stays visible, children collapsed
+        const fathersWithChildren = new Set<string>();
         for (const f of treeData.families) {
-            if (f.childIds.length > 0) {
-                if (f.fatherId) allParents.add(f.fatherId);
-                if (f.motherId) allParents.add(f.motherId);
+            if (f.childIds.length > 0 && f.fatherId) {
+                fathersWithChildren.add(f.fatherId);
             }
         }
-        setCollapsedBranches(allParents);
+        setCollapsedBranches(fathersWithChildren);
     }, [treeData]);
 
     // Auto-collapse for Toàn cảnh view
@@ -1480,13 +1481,33 @@ export default function TreeViewPage() {
                             className={`px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors border-l ${kinshipMode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
                             <ArrowLeftRight className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Xưng hô</span>
                         </button>
-                        <button onClick={() => {
-                            const s = window.location.pathname.split('/pha-do/')[1] || 'pha-do-chung';
-                            router.push(`/pha-do/xuat-anh?slug=${s}`);
-                        }}
-                            className="px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors border-l hover:bg-muted">
-                            <Camera className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Xuất ảnh</span>
-                        </button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    className={`px-1.5 sm:px-2.5 py-1.5 font-medium flex items-center gap-1 transition-colors border-l hover:bg-muted ${exporting ? 'animate-pulse bg-amber-100' : ''}`}
+                                    disabled={exporting || !layout}
+                                >
+                                    <Camera className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Xuất ảnh</span>
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={handleExportImage} disabled={exporting}>
+                                    <Camera className="h-4 w-4 mr-2" />
+                                    Xuất nhanh (PNG)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                    const slug = window.location.pathname.split('/pha-do/')[1] || 'pha-do-chung';
+                                    router.push(`/pha-do/xuat-anh?slug=${slug}`);
+                                }}>
+                                    <FileImage className="h-4 w-4 mr-2" />
+                                    Xuất ảnh có mẫu
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setCropMode(true); setCropRect(null); }} disabled={exporting}>
+                                    <Crosshair className="h-4 w-4 mr-2" />
+                                    Khoanh vùng xuất ảnh
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                     {/* Search */}
                     <div className="relative">
@@ -1541,35 +1562,7 @@ export default function TreeViewPage() {
                         >
                             {cardOrientation === 'vertical' ? <GripVertical className="h-3.5 w-3.5" /> : <GripHorizontal className="h-3.5 w-3.5" />}
                         </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="outline" size="icon"
-                                    className={`h-8 w-8 ${exporting ? 'animate-pulse bg-amber-100' : ''}`}
-                                    title="Xuất ảnh phả đồ"
-                                    disabled={exporting || !layout}
-                                >
-                                    <Camera className="h-3.5 w-3.5" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={handleExportImage} disabled={exporting}>
-                                    <Camera className="h-4 w-4 mr-2" />
-                                    Xuất nhanh (PNG)
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => {
-                                    const slug = window.location.pathname.split('/pha-do/')[1] || 'pha-do-chung';
-                                    router.push(`/pha-do/xuat-anh?slug=${slug}`);
-                                }}>
-                                    <FileImage className="h-4 w-4 mr-2" />
-                                    Xuất ảnh có mẫu
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { setCropMode(true); setCropRect(null); }} disabled={exporting}>
-                                    <Crosshair className="h-4 w-4 mr-2" />
-                                    Khoanh vùng xuất ảnh
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {/* Camera dropdown moved to "Xuất ảnh" in view mode bar */}
                         <Button
                             variant={hideSpouse ? 'default' : 'outline'}
                             size="icon"
