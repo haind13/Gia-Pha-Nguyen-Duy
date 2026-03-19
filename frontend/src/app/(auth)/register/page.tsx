@@ -11,10 +11,21 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/components/auth-provider';
 
+const passwordSchema = z.string()
+    .min(8, 'Mật khẩu tối thiểu 8 ký tự')
+    .regex(/[A-Z]/, 'Cần ít nhất 1 chữ viết hoa')
+    .regex(/[a-z]/, 'Cần ít nhất 1 chữ viết thường')
+    .regex(/[0-9]/, 'Cần ít nhất 1 chữ số')
+    .regex(/[^A-Za-z0-9]/, 'Cần ít nhất 1 ký tự đặc biệt (!@#$...)');
+
 const registerSchema = z.object({
     email: z.string().email('Email không hợp lệ'),
     displayName: z.string().min(2, 'Tên tối thiểu 2 ký tự').max(100),
-    password: z.string().min(8, 'Mật khẩu tối thiểu 8 ký tự'),
+    username: z.string()
+        .min(3, 'Username tối thiểu 3 ký tự')
+        .max(30, 'Username tối đa 30 ký tự')
+        .regex(/^[a-zA-Z0-9_.-]+$/, 'Chỉ chấp nhận chữ, số, dấu chấm, gạch ngang và gạch dưới'),
+    password: passwordSchema,
     confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
     message: 'Mật khẩu xác nhận không khớp',
@@ -61,6 +72,7 @@ export default function RegisterPage() {
                     email: data.email,
                     password: data.password,
                     displayName: data.displayName,
+                    username: data.username,
                 }),
             });
             const result = await res.json();
@@ -189,6 +201,16 @@ export default function RegisterPage() {
                     </div>
 
                     <div className="space-y-1.5">
+                        <label className="text-sm font-medium" htmlFor="username">Username</label>
+                        <Input id="username" placeholder="nguyenvana" {...register('username')} />
+                        {errors.username ? (
+                            <p className="text-xs text-destructive">{errors.username.message}</p>
+                        ) : (
+                            <p className="text-[10px] text-muted-foreground">Dùng để đăng nhập, chỉ gồm chữ, số, dấu chấm, gạch ngang</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-1.5">
                         <label className="text-sm font-medium" htmlFor="email">Email</label>
                         <Input id="email" type="email" placeholder="email@example.com" {...register('email')} />
                         {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
@@ -211,7 +233,11 @@ export default function RegisterPage() {
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                         </div>
-                        {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+                        {errors.password ? (
+                            <p className="text-xs text-destructive">{errors.password.message}</p>
+                        ) : (
+                            <p className="text-[10px] text-muted-foreground">Chữ hoa, chữ thường, số và ký tự đặc biệt (!@#$...)</p>
+                        )}
                     </div>
 
                     <div className="space-y-1.5">

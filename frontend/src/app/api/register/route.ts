@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
     try {
-        const { email, password, displayName } = await req.json();
+        const { email, password, displayName, username } = await req.json();
 
         if (!email || !password) {
             return NextResponse.json({ error: 'Email và mật khẩu là bắt buộc' }, { status: 400 });
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
             email,
             password,
             options: {
-                data: { display_name: displayName || email.split('@')[0] },
+                data: { display_name: displayName || email.split('@')[0], username: username || '' },
                 emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://gia-pha-nguyen-duy.vercel.app'}/login?confirmed=true`,
             },
         });
@@ -33,11 +33,23 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Không thể tạo tài khoản' }, { status: 500 });
         }
 
+        // Check username uniqueness if provided
+        if (username) {
+            const { data: existingUser } = await admin.from('profiles')
+                .select('id')
+                .eq('username', username)
+                .maybeSingle();
+            if (existingUser) {
+                return NextResponse.json({ error: 'Username đã tồn tại, vui lòng chọn tên khác' }, { status: 409 });
+            }
+        }
+
         // Step 2: Create profile (user must confirm email before they can log in)
         const { error: profileErr } = await admin.from('profiles').upsert({
             id: userId,
             email,
             display_name: displayName || email.split('@')[0],
+            username: username || null,
             role: 'viewer',
         });
 
