@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { ContributeDialog } from '@/components/contribute-dialog';
-import { Search, ZoomIn, ZoomOut, Maximize2, Scroll, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight, Camera, FileImage } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, Maximize2, Scroll, Eye, Users, GitBranch, User, ArrowDownToLine, ArrowUpFromLine, Crosshair, X, ChevronDown, ChevronRight, BarChart3, Package, Link, ChevronsDownUp, ChevronsUpDown, Copy, Pencil, Save, RotateCcw, Trash2, ArrowUp, ArrowDown, GripVertical, MessageSquarePlus, UserPlus, UserMinus, Phone, Mail, MapPin, Briefcase, GraduationCap, StickyNote, Heart, Baby, GripHorizontal, ArrowLeftRight, Camera, FileImage } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toPng } from 'html-to-image';
 import { determineKinship, type KinshipResult } from '@/lib/kinship';
@@ -216,6 +216,9 @@ export default function TreeViewPage() {
 
     // Card orientation toggle
     const [cardOrientation, setCardOrientation] = useState<CardOrientation>('horizontal');
+
+    // Hide spouse (non-patrilineal) toggle
+    const [hideSpouse, setHideSpouse] = useState(false);
 
     // Crop export state
     const [cropMode, setCropMode] = useState(false);
@@ -558,15 +561,31 @@ export default function TreeViewPage() {
             ? { people: (displayData as any).filteredPeople, families: (displayData as any).filteredFamilies }
             : displayData;
         // F4: Filter out hidden handles
-        const visiblePeople = d.people.filter((p: TreeNode) => !hiddenIds.has(p.id));
-        const visibleFamilies = d.families.filter((f: TreeFamily) => {
-            // Keep family only if NOT all parents are hidden
-            const fatherHidden = f.fatherId ? hiddenIds.has(f.fatherId) : true;
-            const motherHidden = f.motherId ? hiddenIds.has(f.motherId) : true;
-            return !(fatherHidden && motherHidden);
-        });
+        // Build set of spouse IDs to hide when hideSpouse is on
+        const spouseIds = new Set<string>();
+        if (hideSpouse) {
+            for (const p of d.people as TreeNode[]) {
+                if (!p.isPatrilineal) spouseIds.add(p.id);
+            }
+        }
+        const visiblePeople = (d.people as TreeNode[]).filter(p => !hiddenIds.has(p.id) && !spouseIds.has(p.id));
+        const visibleFamilies = d.families
+            .filter((f: TreeFamily) => {
+                // Keep family only if NOT all parents are hidden
+                const fatherHidden = f.fatherId ? (hiddenIds.has(f.fatherId) || spouseIds.has(f.fatherId)) : true;
+                const motherHidden = f.motherId ? (hiddenIds.has(f.motherId) || spouseIds.has(f.motherId)) : true;
+                return !(fatherHidden && motherHidden);
+            })
+            .map((f: TreeFamily) => ({
+                ...f,
+                // Strip hidden children so layout doesn't allocate phantom subtree space
+                childIds: f.childIds.filter((ch: string) => !hiddenIds.has(ch)),
+                // Strip hidden spouse from family
+                fatherId: f.fatherId && spouseIds.has(f.fatherId) ? undefined : f.fatherId,
+                motherId: f.motherId && spouseIds.has(f.motherId) ? undefined : f.motherId,
+            }));
         return computeLayout(visiblePeople, visibleFamilies, cardOrientation);
-    }, [displayData, hiddenIds, cardOrientation]);
+    }, [displayData, hiddenIds, cardOrientation, hideSpouse]);
 
     // F4: Check if a person has children (for showing toggle button)
     const hasChildren = useCallback((handle: string): boolean => {
@@ -893,11 +912,11 @@ export default function TreeViewPage() {
         }
     }, [treeData]);
 
-    // === Drag-and-drop handlers (editor mode) ===
+    // === Drag-and-drop handlers ===
     const handleCardDragStart = useCallback((handle: string, clientX: number, clientY: number) => {
-        if (!editorMode) return;
+        if (!canEdit) return;
         setDragState({ id: handle, startX: clientX, startY: clientY, currentX: clientX, currentY: clientY });
-    }, [editorMode]);
+    }, [canEdit]);
 
     const handleCardDragMove = useCallback((clientX: number, clientY: number) => {
         if (!dragState) return;
@@ -986,6 +1005,16 @@ export default function TreeViewPage() {
             scale,
         });
     }, [layout]);
+
+    // Scroll to a generation row by its Y position
+    const scrollToGeneration = useCallback((genY: number) => {
+        if (!viewportRef.current) return;
+        const vh = viewportRef.current.clientHeight;
+        const { scale } = transform;
+        // Center the generation row vertically in the viewport
+        const targetY = -(genY * scale) + vh * 0.15;
+        setTransform(prev => ({ ...prev, y: targetY }));
+    }, [transform]);
 
     // Export tree as PNG image
     const handleExportImage = useCallback(async () => {
@@ -1534,6 +1563,15 @@ export default function TreeViewPage() {
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
+                        <Button
+                            variant={hideSpouse ? 'default' : 'outline'}
+                            size="icon"
+                            className={`h-8 w-8 ${hideSpouse ? 'bg-rose-600 hover:bg-rose-700 text-white' : ''}`}
+                            title={hideSpouse ? 'Hiện phu thê' : 'Ẩn phu thê'}
+                            onClick={() => setHideSpouse(h => !h)}
+                        >
+                            <UserMinus className="h-3.5 w-3.5" />
+                        </Button>
                         {canEdit && (
                             <Button
                                 variant={editorMode ? 'default' : 'outline'}
@@ -1709,6 +1747,7 @@ export default function TreeViewPage() {
                             generationStats={generationStats}
                             transform={transform}
                             cardH={layout.cardH}
+                            onScrollToGeneration={scrollToGeneration}
                         />
                     )}
 
@@ -2021,7 +2060,7 @@ export default function TreeViewPage() {
                 <span className="flex items-center gap-1"><span className="text-red-500">❤</span> Vợ chồng</span>
                 <span className="flex items-center gap-1 opacity-60"><span className="w-2.5 h-2.5 rounded-sm bg-slate-200 border border-slate-400" /> Đã mất</span>
                 <span className="ml-auto opacity-50">
-                    {editorMode ? 'Kéo card để đổi cha/mẹ • Nhấn để chỉnh sửa' : 'Cuộn để zoom • Kéo để di chuyển • Nhấn để xem'}
+                    {editorMode ? 'Kéo card để đổi cha/mẹ • Nhấn để chỉnh sửa' : canEdit ? 'Cuộn để zoom • Kéo card để đổi cha/mẹ • Nhấn để xem' : 'Cuộn để zoom • Kéo để di chuyển • Nhấn để xem'}
                 </span>
             </div>
             {/* Contribute dialog */}
@@ -2936,10 +2975,11 @@ function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand, cardW, ca
 }
 
 // === F2: Generation Row Headers ===
-function GenerationHeaders({ generationStats, transform, cardH }: {
+function GenerationHeaders({ generationStats, transform, cardH, onScrollToGeneration }: {
     generationStats: Map<number, { count: number; y: number }>;
     transform: { x: number; y: number; scale: number };
     cardH: number;
+    onScrollToGeneration?: (genY: number) => void;
 }) {
     const entries = Array.from(generationStats.entries()).sort((a, b) => a[0] - b[0]);
     if (entries.length === 0) return null;
@@ -2953,16 +2993,20 @@ function GenerationHeaders({ generationStats, transform, cardH }: {
                 return (
                     <div
                         key={gen}
-                        className="absolute left-0 flex items-center text-[10px] transition-transform duration-100"
+                        className="absolute left-0 flex items-center text-[10px] transition-transform duration-100 pointer-events-auto"
                         style={{
                             top: screenY + (cardH * transform.scale) / 2 - 10,
                             height: 20,
                         }}
                     >
-                        <div className="bg-slate-800/70 backdrop-blur text-white px-2 py-0.5 rounded-r-md
-                            font-medium whitespace-nowrap shadow-sm">
+                        <button
+                            onClick={() => onScrollToGeneration?.(rowY)}
+                            className="bg-slate-800/70 backdrop-blur text-white px-2 py-0.5 rounded-r-md
+                            font-medium whitespace-nowrap shadow-sm hover:bg-slate-700 transition-colors cursor-pointer"
+                            title={`Chuyển đến Đời ${gen}`}
+                        >
                             Đ{gen} <span className="opacity-70">· {count}</span>
-                        </div>
+                        </button>
                     </div>
                 );
             })}

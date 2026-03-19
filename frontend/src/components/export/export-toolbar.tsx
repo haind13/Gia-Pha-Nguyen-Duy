@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, Download, Palette, Type, ScrollText, Eye, EyeOff, UserMinus, UserPlus, ImageOff, Image, RotateCcw, Loader2, GripVertical, GripHorizontal } from 'lucide-react';
+import { ArrowLeft, Download, Palette, Type, ScrollText, Eye, EyeOff, UserMinus, UserPlus, ImageOff, Image, RotateCcw, Loader2, GripVertical, GripHorizontal, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -56,9 +56,13 @@ interface ExportToolbarProps {
     onExport: () => void;
     onBack: () => void;
     exporting: boolean;
+    zoom: number;
+    onZoomChange: (z: number) => void;
 }
 
-export function ExportToolbar({ settings, onSettingsChange, onExport, onBack, exporting }: ExportToolbarProps) {
+const ZOOM_STEPS = [10, 25, 50, 75, 100, 125, 150, 200];
+
+export function ExportToolbar({ settings, onSettingsChange, onExport, onBack, exporting, zoom, onZoomChange }: ExportToolbarProps) {
     const [showTemplates, setShowTemplates] = useState(false);
     const [showTitle, setShowTitle] = useState(false);
     const [showCouplet, setShowCouplet] = useState(false);
@@ -158,8 +162,41 @@ export function ExportToolbar({ settings, onSettingsChange, onExport, onBack, ex
 
                     <div className="w-px h-6 bg-border mx-1 flex-shrink-0" />
 
+                    {/* Zoom controls */}
+                    <Button
+                        variant="outline" size="sm"
+                        onClick={() => {
+                            const idx = ZOOM_STEPS.findIndex(s => s >= zoom);
+                            const prev = idx > 0 ? ZOOM_STEPS[idx - 1] : ZOOM_STEPS[0];
+                            onZoomChange(prev);
+                        }}
+                        disabled={zoom <= ZOOM_STEPS[0]}
+                        className="flex-shrink-0 px-2"
+                        title="Thu nhỏ"
+                    >
+                        <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs font-medium text-muted-foreground tabular-nums min-w-[3.5rem] text-center flex-shrink-0">
+                        {zoom}%
+                    </span>
+                    <Button
+                        variant="outline" size="sm"
+                        onClick={() => {
+                            const idx = ZOOM_STEPS.findIndex(s => s > zoom);
+                            const next = idx >= 0 ? ZOOM_STEPS[idx] : ZOOM_STEPS[ZOOM_STEPS.length - 1];
+                            onZoomChange(next);
+                        }}
+                        disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+                        className="flex-shrink-0 px-2"
+                        title="Phóng to"
+                    >
+                        <ZoomIn className="h-4 w-4" />
+                    </Button>
+
+                    <div className="w-px h-6 bg-border mx-1 flex-shrink-0" />
+
                     {/* Reset */}
-                    <Button variant="ghost" size="sm" onClick={() => onSettingsChange(getDefaultSettings())}
+                    <Button variant="ghost" size="sm" onClick={() => { onSettingsChange(getDefaultSettings()); onZoomChange(100); }}
                         className="gap-1.5 flex-shrink-0" title="Reset về mặc định">
                         <RotateCcw className="h-4 w-4" />
                         <span className="hidden lg:inline">Reset</span>

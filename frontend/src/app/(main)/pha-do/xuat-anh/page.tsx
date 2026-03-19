@@ -37,8 +37,26 @@ function ExportPage() {
     const [exporting, setExporting] = useState(false);
     const [coupletOffsetLeft, setCoupletOffsetLeft] = useState({ x: 0, y: 0 });
     const [coupletOffsetRight, setCoupletOffsetRight] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(100);
 
     const exportRef = useRef<HTMLDivElement>(null);
+    const previewAreaRef = useRef<HTMLDivElement>(null);
+
+    // Ctrl+Scroll wheel zoom
+    useEffect(() => {
+        const el = previewAreaRef.current;
+        if (!el) return;
+        const handleWheel = (e: WheelEvent) => {
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            setZoom(prev => {
+                const delta = e.deltaY > 0 ? -10 : 10;
+                return Math.min(200, Math.max(10, prev + delta));
+            });
+        };
+        el.addEventListener('wheel', handleWheel, { passive: false });
+        return () => el.removeEventListener('wheel', handleWheel);
+    }, []);
 
     // Fetch tree data
     useEffect(() => {
@@ -126,10 +144,12 @@ function ExportPage() {
                 onExport={handleExport}
                 onBack={handleBack}
                 exporting={exporting}
+                zoom={zoom}
+                onZoomChange={setZoom}
             />
 
             {/* Preview Area */}
-            <div className="flex-1 overflow-auto p-4">
+            <div ref={previewAreaRef} className="flex-1 overflow-auto p-4">
                 {loading ? (
                     <div className="flex items-center justify-center h-96">
                         <div className="flex flex-col items-center gap-3">
@@ -139,6 +159,11 @@ function ExportPage() {
                     </div>
                 ) : layout ? (
                     <div className="overflow-auto mx-auto">
+                        {/* Zoom wrapper — transform applied only for preview, removed during export */}
+                        <div style={{
+                            transform: exporting ? 'none' : `scale(${zoom / 100})`,
+                            transformOrigin: 'top left',
+                        }}>
                         {/* Export overlay */}
                         {exporting && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
@@ -226,6 +251,7 @@ function ExportPage() {
                                 </motion.div>
                             )}
                         </div>
+                        </div>{/* end zoom wrapper */}
                     </div>
                 ) : (
                     <div className="flex items-center justify-center h-96">
