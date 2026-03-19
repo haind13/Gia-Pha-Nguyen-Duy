@@ -75,9 +75,9 @@ export const H_SPACE = 24;
 export const V_SPACE = 80;
 export const COUPLE_GAP = 8;
 
-// Sizing — Vertical
-export const CARD_V_W = 90;
-export const CARD_V_H = 140;
+// Sizing — Vertical (compact, no avatar)
+export const CARD_V_W = 80;
+export const CARD_V_H = 110;
 
 export type CardOrientation = 'horizontal' | 'vertical';
 

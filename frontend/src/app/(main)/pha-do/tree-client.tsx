@@ -2660,10 +2660,10 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 onClick={(e) => { e.stopPropagation(); onClick(node.id, x + cardW, y + cardH / 2); }}
                 onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
             >
-                <div className="px-1 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
-                    {isPatri && <span className="text-[7px] font-bold text-teal-600 bg-teal-50 px-1 rounded">ND</span>}
-                    <p className="font-semibold text-[9px] leading-tight text-slate-800 line-clamp-3 w-full">{node.displayName}</p>
-                    <span className="text-[7px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-700">Đời {node.generation}</span>
+                <div className="px-0.5 py-1 h-full flex flex-col items-center justify-center text-center gap-px">
+                    <p className="font-semibold text-[8px] leading-tight text-slate-800 line-clamp-3 w-full">{node.displayName}</p>
+                    <span className="text-[6px] font-semibold px-0.5 rounded bg-amber-100 text-amber-700 leading-none">Đ{node.generation}</span>
+                    {isDead && <span className="text-[6px] text-slate-400 leading-none">✝</span>}
                 </div>
                 {isKinshipA && (
                     <div className="absolute -top-2 -right-2 z-10 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-md border-2 border-white">
@@ -2742,24 +2742,20 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
                 onContextMenu={(e) => { e.preventDefault(); onSetFocus(node.id); }}
             >
-                <div className="px-1.5 py-2 h-full flex flex-col items-center justify-center text-center gap-0.5">
+                <div className="px-1 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
                     {isPatri && (
-                        <span className="text-[7px] font-bold text-teal-600 bg-teal-50 px-1.5 py-px rounded shrink-0">ND</span>
+                        <span className="text-[6px] font-bold text-teal-600 bg-teal-50 px-1 py-px rounded shrink-0 leading-none">ND</span>
                     )}
-                    <p className="font-semibold text-[11px] leading-tight text-slate-800 line-clamp-3 w-full">
+                    <p className="font-semibold text-[10px] leading-tight text-slate-800 line-clamp-3 w-full">
                         {node.displayName}
                     </p>
-                    <p className="text-[9px] text-slate-500">
-                        {node.birthYear
-                            ? `${node.birthYear}${node.deathYear ? `–${node.deathYear}` : node.isLiving ? '–nay' : ''}`
-                            : ''}
-                    </p>
-                    <span className="text-[8px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200/60">Đời {node.generation}</span>
-                    {isDead ? (
-                        <span className="text-[8px] text-slate-400">✝ Đã mất</span>
-                    ) : (
-                        <span className="text-[8px] text-emerald-600 font-medium">● Sống</span>
+                    {node.birthYear && (
+                        <p className="text-[8px] text-slate-500 leading-none">
+                            {node.birthYear}{node.deathYear ? `–${node.deathYear}` : node.isLiving ? '–nay' : ''}
+                        </p>
                     )}
+                    <span className="text-[7px] font-semibold px-1 py-px rounded bg-amber-100 text-amber-700 leading-none">Đời {node.generation}</span>
+                    {isDead && <span className="text-[7px] text-slate-400 leading-none">✝ Đã mất</span>}
                 </div>
 
                 {isKinshipA && (
@@ -2821,11 +2817,7 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                     </p>
                     <div className="mt-0.5 flex items-center gap-1">
                         <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200/60">Đời {node.generation}</span>
-                        {isDead ? (
-                            <span className="text-[9px] text-slate-400">✝ Đã mất</span>
-                        ) : (
-                            <span className="text-[9px] text-emerald-600 font-medium">● Còn sống</span>
-                        )}
+                        {isDead && <span className="text-[9px] text-slate-400">✝ Đã mất</span>}
                     </div>
                 </div>
             </div>
