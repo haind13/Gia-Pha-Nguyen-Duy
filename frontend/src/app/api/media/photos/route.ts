@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
         const files = formData.getAll('files') as File[];
         const albumId = formData.get('albumId') as string | null;
         const dimensionsStr = formData.get('dimensions') as string | null;
+        const photoDescription = formData.get('description') as string | null;
         const dimensions: { width: number; height: number }[] = dimensionsStr
             ? JSON.parse(dimensionsStr)
             : [];
@@ -186,6 +187,7 @@ export async function POST(req: NextRequest) {
                     file_name: file.name,
                     mime_type: file.type,
                     file_size: file.size,
+                    description: photoDescription || null,
                     album_id: albumId,
                     r2_key: r2Key,
                     r2_url: r2Url,

@@ -152,12 +152,13 @@ export async function uploadPhotos(
     files: File[],
     albumId?: string,
     dimensions?: { width: number; height: number }[],
-    onProgress?: (uploaded: number, total: number) => void,
+    description?: string,
 ): Promise<{ uploaded: any[]; count: number }> {
     const formData = new FormData();
     files.forEach(f => formData.append('files', f));
     if (albumId) formData.append('albumId', albumId);
     if (dimensions) formData.append('dimensions', JSON.stringify(dimensions));
+    if (description) formData.append('description', description);
 
     // Send auth token so API can determine role (admin → auto-publish)
     const headers: Record<string, string> = {};

@@ -46,6 +46,7 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
     const [files, setFiles] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
     const [albumId, setAlbumId] = useState<string>('');
+    const [description, setDescription] = useState<string>('');
     const [status, setStatus] = useState<'idle' | 'compressing' | 'uploading'>('idle');
     const [compressionInfo, setCompressionInfo] = useState<string>('');
     const [dragOver, setDragOver] = useState(false);
@@ -94,7 +95,7 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
 
             // ── Step 2: Upload ──
             setStatus('uploading');
-            await uploadPhotos(compressedFiles, albumId || undefined, dimensions);
+            await uploadPhotos(compressedFiles, albumId || undefined, dimensions, description || undefined);
 
             // Cleanup
             previews.forEach(p => URL.revokeObjectURL(p));
@@ -115,6 +116,7 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
         setFiles([]);
         setPreviews([]);
         setAlbumId('');
+        setDescription('');
         setStatus('idle');
         setCompressionInfo('');
     };
@@ -151,6 +153,18 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
                         </select>
                     </div>
                 )}
+
+                {/* Description */}
+                <div>
+                    <label className="text-sm font-medium">Mô tả</label>
+                    <textarea
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        placeholder="Mô tả cho ảnh (tuỳ chọn)"
+                        className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm resize-none"
+                        rows={2}
+                    />
+                </div>
 
                 {/* Drop zone */}
                 <div
