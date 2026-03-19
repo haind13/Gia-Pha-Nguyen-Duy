@@ -146,6 +146,18 @@ export async function deletePhoto(photoId: string): Promise<void> {
     if (!res.ok) throw new Error('Failed to delete photo');
 }
 
+/** Fetch photos tagged to a specific person */
+export async function fetchPhotosByPerson(personId: string): Promise<Photo[]> {
+    try {
+        const res = await fetch(`/api/media/photos?personId=${encodeURIComponent(personId)}&limit=50`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.photos || [];
+    } catch {
+        return [];
+    }
+}
+
 // ═══ Upload ═══
 
 export async function uploadPhotos(

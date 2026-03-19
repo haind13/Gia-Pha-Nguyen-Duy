@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
     ArrowLeft, User, Phone, MapPin, Briefcase,
     Pencil, Save, X, Copy, Check, Users, Calendar, Droplets,
-    StickyNote, ChevronRight, ScrollText,
+    StickyNote, ChevronRight, ScrollText, Camera, Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,9 @@ import {
     type PersonEditFields,
 } from '@/lib/supabase-data';
 import { lunarToSolar, solarToLunar, isValidDDMM } from '@/lib/lunar-utils';
+import { fetchPhotosByPerson, getPhotoThumbUrl, type Photo } from '@/lib/media-data';
+import { PhotoUploadDialog } from '@/components/media/photo-upload-dialog';
+import { PhotoLightbox } from '@/components/media/photo-lightbox';
 
 /* ─── Types for family relationship display ─── */
 interface FamilyMember {
@@ -97,6 +100,14 @@ export default function PersonProfilePage() {
     const [familyUnits, setFamilyUnits] = useState<FamilyUnit[]>([]);
     const [siblings, setSiblings] = useState<FamilyMember[]>([]);
 
+    // Photo gallery
+    const [personPhotos, setPersonPhotos] = useState<Photo[]>([]);
+    const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+
+    const loadPhotos = useCallback(() => {
+        fetchPhotosByPerson(handle).then(setPersonPhotos);
+    }, [handle]);
+
     useEffect(() => {
         const fetchAll = async () => {
             setLoading(true);
@@ -111,7 +122,8 @@ export default function PersonProfilePage() {
             setLoading(false);
         };
         fetchAll();
-    }, [handle]);
+        loadPhotos();
+    }, [handle, loadPhotos]);
 
     const fetchFamilyData = async (detail: PersonDetail) => {
         try {
@@ -313,10 +325,20 @@ export default function PersonProfilePage() {
 
                 <div className="px-5 pb-5 bg-white dark:bg-slate-900 relative">
                     {/* Avatar */}
-                    <div className={`absolute -top-10 left-5 w-20 h-20 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center text-2xl font-bold shadow-lg
-                        ${isMale ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300'}`}>
-                        {person.displayName.split(' ').pop()?.[0] || '?'}
-                    </div>
+                    {personPhotos.length > 0 ? (
+                        <div className="absolute -top-10 left-5 w-20 h-20 rounded-full border-4 border-white dark:border-slate-900 shadow-lg overflow-hidden">
+                            <img
+                                src={getPhotoThumbUrl(personPhotos[0], 160)}
+                                alt={person.displayName}
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                    ) : (
+                        <div className={`absolute -top-10 left-5 w-20 h-20 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center text-2xl font-bold shadow-lg
+                            ${isMale ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300'}`}>
+                            {person.displayName.split(' ').pop()?.[0] || '?'}
+                        </div>
+                    )}
 
                     {/* Info beside avatar */}
                     <div className="pt-12 sm:pt-3 sm:pl-24">
@@ -579,6 +601,59 @@ export default function PersonProfilePage() {
                         </SectionCard>
                     )}
 
+                    {/* ═══ Ảnh cá nhân ═══ */}
+                    <SectionCard icon={<Camera className="h-4 w-4" />} title={`Ảnh${personPhotos.length > 0 ? ` (${personPhotos.length})` : ''}`}>
+                        {personPhotos.length > 0 ? (
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                {personPhotos.map((photo, idx) => (
+                                    <button
+                                        key={photo.id}
+                                        className="aspect-square rounded-lg overflow-hidden bg-muted hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary"
+                                        onClick={() => setLightboxIdx(idx)}
+                                    >
+                                        <img
+                                            src={getPhotoThumbUrl(photo, 200)}
+                                            alt={photo.title || photo.file_name}
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                        />
+                                    </button>
+                                ))}
+                                {/* Upload button inline */}
+                                {canEdit && (
+                                    <PhotoUploadDialog
+                                        albums={[]}
+                                        personId={handle}
+                                        onUploaded={loadPhotos}
+                                        trigger={
+                                            <button className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+                                                <Plus className="h-5 w-5" />
+                                                <span className="text-[10px] font-medium">Thêm ảnh</span>
+                                            </button>
+                                        }
+                                    />
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6">
+                                <Camera className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                                <p className="text-sm text-muted-foreground mb-3">Chưa có ảnh nào</p>
+                                {canEdit && (
+                                    <PhotoUploadDialog
+                                        albums={[]}
+                                        personId={handle}
+                                        onUploaded={loadPhotos}
+                                        trigger={
+                                            <Button variant="outline" size="sm" className="gap-1.5">
+                                                <Plus className="h-3.5 w-3.5" /> Thêm ảnh
+                                            </Button>
+                                        }
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </SectionCard>
+
                     {/* ═══ Quan hệ gia đình ═══ */}
                     <SectionCard icon={<Users className="h-4 w-4" />} title="Quan hệ gia đình">
                         {parents.length > 0 && (
@@ -633,6 +708,16 @@ export default function PersonProfilePage() {
                         )}
                     </SectionCard>
                 </div>
+            )}
+
+            {/* Photo Lightbox */}
+            {lightboxIdx !== null && personPhotos.length > 0 && (
+                <PhotoLightbox
+                    photos={personPhotos}
+                    initialIndex={lightboxIdx}
+                    onClose={() => setLightboxIdx(null)}
+                    onPhotoDeleted={loadPhotos}
+                />
             )}
         </div>
     );

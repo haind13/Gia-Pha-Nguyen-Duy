@@ -16,7 +16,21 @@ export async function GET(req: NextRequest) {
         const limit = parseInt(searchParams.get('limit') || '30');
         const offset = (page - 1) * limit;
 
+        const personId = searchParams.get('personId');
         const supabase = createServiceClient();
+
+        // If filtering by person tag, first get media IDs from photo_tags
+        let personMediaIds: string[] | null = null;
+        if (personId) {
+            const { data: tags } = await supabase
+                .from('photo_tags')
+                .select('media_id')
+                .eq('person_id', personId);
+            personMediaIds = tags?.map(t => t.media_id) || [];
+            if (personMediaIds.length === 0) {
+                return NextResponse.json({ photos: [], total: 0, page, limit, hasMore: false });
+            }
+        }
 
         let query = supabase
             .from('media')
@@ -24,6 +38,7 @@ export async function GET(req: NextRequest) {
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
+        if (personMediaIds) query = query.in('id', personMediaIds);
         if (albumId) query = query.eq('album_id', albumId);
         if (state !== 'all') query = query.eq('state', state);
 

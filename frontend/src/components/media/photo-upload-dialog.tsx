@@ -5,12 +5,14 @@ import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { uploadPhotos, type Album } from '@/lib/media-data';
+import { uploadPhotos, tagPerson, type Album } from '@/lib/media-data';
 
 interface UploadDialogProps {
     albums: Album[];
     onUploaded: () => void;
     trigger?: React.ReactNode;
+    /** If provided, auto-tag uploaded photos to this person */
+    personId?: string;
 }
 
 /** Read image dimensions from a File */
@@ -41,7 +43,7 @@ const COMPRESSION_OPTIONS = {
     initialQuality: 0.82,
 };
 
-export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogProps) {
+export function PhotoUploadDialog({ albums, onUploaded, trigger, personId }: UploadDialogProps) {
     const [open, setOpen] = useState(false);
     const [files, setFiles] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
@@ -95,7 +97,16 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
 
             // ── Step 2: Upload ──
             setStatus('uploading');
-            await uploadPhotos(compressedFiles, albumId || undefined, dimensions, description || undefined);
+            const result = await uploadPhotos(compressedFiles, albumId || undefined, dimensions, description || undefined);
+
+            // ── Step 3: Auto-tag person if personId provided ──
+            if (personId && result.uploaded?.length) {
+                for (const photo of result.uploaded) {
+                    try {
+                        await tagPerson(photo.id, personId, 'system');
+                    } catch { /* ignore tag errors */ }
+                }
+            }
 
             // Cleanup
             previews.forEach(p => URL.revokeObjectURL(p));
@@ -133,12 +144,12 @@ export function PhotoUploadDialog({ albums, onUploaded, trigger }: UploadDialogP
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Upload className="h-5 w-5" />Tải ảnh lên
+                        <Upload className="h-5 w-5" />{personId ? 'Thêm ảnh cá nhân' : 'Tải ảnh lên'}
                     </DialogTitle>
                 </DialogHeader>
 
-                {/* Album selector */}
-                {albums.length > 0 && (
+                {/* Album selector — hidden when uploading for a person */}
+                {!personId && albums.length > 0 && (
                     <div>
                         <label className="text-sm font-medium">Album</label>
                         <select
