@@ -54,11 +54,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const fetchProfile = useCallback(async (userId: string) => {
         try {
-            const { data, error } = await supabase
+            // Try with is_superadmin first (after migration 016)
+            let { data, error } = await supabase
                 .from('profiles')
                 .select('id, email, display_name, role, person_id, avatar_url, is_superadmin')
                 .eq('id', userId)
                 .maybeSingle();
+
+            // Fallback: if is_superadmin column doesn't exist yet, query without it
+            if (error && (error.message.includes('is_superadmin') || error.code === '42703' || error.message.includes('column'))) {
+                const fallback = await supabase
+                    .from('profiles')
+                    .select('id, email, display_name, role, person_id, avatar_url')
+                    .eq('id', userId)
+                    .maybeSingle();
+                data = fallback.data ? { ...fallback.data, is_superadmin: false } : null;
+                error = fallback.error;
+            }
+
             if (!error && data) {
                 setProfile({
                     ...data,
@@ -73,14 +86,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     // Fetch tenant-specific role when tenant changes
+    // Gracefully handles missing tenant_members table (before migration 016)
     const fetchTenantRole = useCallback(async (userId: string, tenantId: string) => {
         try {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('tenant_members')
                 .select('role')
                 .eq('user_id', userId)
                 .eq('tenant_id', tenantId)
                 .maybeSingle();
+            // If table doesn't exist yet, silently fall back to null (uses global role)
+            if (error && (error.message.includes('tenant_members') || error.code === '42P01' || error.message.includes('relation'))) {
+                setTenantRole(null);
+                return;
+            }
             setTenantRole((data?.role as UserRole) ?? null);
         } catch {
             setTenantRole(null);
