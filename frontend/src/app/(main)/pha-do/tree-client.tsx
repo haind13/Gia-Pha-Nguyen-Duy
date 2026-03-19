@@ -2743,9 +2743,6 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 onContextMenu={(e) => { e.preventDefault(); onSetFocus(node.id); }}
             >
                 <div className="px-1 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
-                    {isPatri && (
-                        <span className="text-[6px] font-bold text-teal-600 bg-teal-50 px-1 py-px rounded shrink-0 leading-none">ND</span>
-                    )}
                     <p className="font-semibold text-[10px] leading-tight text-slate-800 line-clamp-3 w-full">
                         {node.displayName}
                     </p>
