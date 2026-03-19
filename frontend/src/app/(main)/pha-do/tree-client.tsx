@@ -2305,20 +2305,36 @@ function QuickAddPersonDialog({ person, x, y, viewportRef, transform, onSubmit, 
         if (!vp || !dialog) return;
         const vpW = vp.clientWidth;
         const vpH = vp.clientHeight;
-        let posX = x * transform.scale + transform.x + 8;
-        let posY = y * transform.scale + transform.y + 8;
-        const dW = dialog.offsetWidth || 480;
+        const dW = dialog.offsetWidth || 440;
+        const dH = dialog.offsetHeight || 400;
+        const PAD = 8;
+
+        let posX = x * transform.scale + transform.x + PAD;
+        let posY = y * transform.scale + transform.y + PAD;
 
         // Clamp X within viewport
-        if (posX + dW > vpW - 8) posX = vpW - dW - 8;
-        if (posX < 8) posX = 8;
+        if (posX + dW > vpW - PAD) posX = vpW - dW - PAD;
+        if (posX < PAD) posX = PAD;
 
-        // Clamp Y — ensure at least 300px visible
-        if (posY < 8) posY = 8;
-        if (posY > vpH - 300) posY = Math.max(8, vpH - 300);
+        // Smart Y positioning: if dialog would be cut off at bottom,
+        // try placing it above the click point; if still no room, center in viewport
+        const spaceBelow = vpH - posY;
+        const spaceAbove = posY - PAD;
+
+        if (spaceBelow < dH && spaceAbove > spaceBelow) {
+            // Place above the click point
+            posY = Math.max(PAD, posY - dH - PAD * 2);
+        }
+
+        // Final clamp: ensure dialog fits in viewport
+        if (posY + dH > vpH - PAD) {
+            // Center vertically if it still doesn't fit
+            posY = Math.max(PAD, Math.round((vpH - Math.min(dH, vpH - PAD * 2)) / 2));
+        }
+        if (posY < PAD) posY = PAD;
 
         // Calculate available height from posY to bottom of viewport
-        const availH = Math.max(vpH - posY - 8, 300);
+        const availH = Math.max(vpH - posY - PAD, 300);
 
         setPos({ left: posX, top: posY, availH });
     }, [x, y, transform, viewportRef]);
