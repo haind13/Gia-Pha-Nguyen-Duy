@@ -80,40 +80,58 @@ export default function ThongKePage() {
             ? Math.round(deceasedWithYears.reduce((sum, p) => sum + (p.death_year! - p.birth_year!), 0) / deceasedWithYears.length)
             : null;
 
-        // Average age of living people
-        const livingWithBirth = people.filter(p => p.is_living && p.birth_year);
-        const avgLivingAge = livingWithBirth.length > 0
-            ? Math.round(livingWithBirth.reduce((sum, p) => sum + (CURRENT_YEAR - p.birth_year!), 0) / livingWithBirth.length)
-            : null;
-
         // Family statistics
         const familiesWithChildren = families.filter(f => f.child_ids && f.child_ids.length > 0);
         const avgChildren = familiesWithChildren.length > 0
             ? (familiesWithChildren.reduce((sum, f) => sum + f.child_ids.length, 0) / familiesWithChildren.length).toFixed(1)
             : '0';
 
-        // Largest family
+        // Person lookup map
         const personMap = new Map(people.map(p => [p.id, p]));
-        let largestFamily: { father?: string; mother?: string; count: number } | null = null;
+
+        // Count sons / daughters from families
+        let totalSons = 0, totalDaughters = 0;
+        for (const f of familiesWithChildren) {
+            for (const childId of f.child_ids) {
+                const child = personMap.get(childId);
+                if (child?.gender === 1) totalSons++;
+                else if (child?.gender === 2) totalDaughters++;
+            }
+        }
+
+        // Largest family
+        let largestFamily: { father?: string; mother?: string; count: number; sons: number; daughters: number } | null = null;
         for (const f of familiesWithChildren) {
             if (!largestFamily || f.child_ids.length > largestFamily.count) {
+                let sons = 0, daughters = 0;
+                for (const cid of f.child_ids) {
+                    const c = personMap.get(cid);
+                    if (c?.gender === 1) sons++; else if (c?.gender === 2) daughters++;
+                }
                 largestFamily = {
                     father: f.father_id ? personMap.get(f.father_id)?.display_name : undefined,
                     mother: f.mother_id ? personMap.get(f.mother_id)?.display_name : undefined,
-                    count: f.child_ids.length,
+                    count: f.child_ids.length, sons, daughters,
                 };
             }
         }
 
-        // Top 5 largest families
+        // Top 5 largest families (with gender breakdown)
         const top5Families = [...familiesWithChildren]
             .sort((a, b) => b.child_ids.length - a.child_ids.length)
             .slice(0, 5)
-            .map(f => ({
-                father: f.father_id ? personMap.get(f.father_id)?.display_name : undefined,
-                mother: f.mother_id ? personMap.get(f.mother_id)?.display_name : undefined,
-                count: f.child_ids.length,
-            }));
+            .map(f => {
+                let sons = 0, daughters = 0;
+                for (const cid of f.child_ids) {
+                    const c = personMap.get(cid);
+                    if (c?.gender === 1) sons++; else if (c?.gender === 2) daughters++;
+                }
+                return {
+                    father: f.father_id ? personMap.get(f.father_id)?.display_name : undefined,
+                    mother: f.mother_id ? personMap.get(f.mother_id)?.display_name : undefined,
+                    count: f.child_ids.length, sons, daughters,
+                };
+            });
 
         // Top occupations
         const occMap = new Map<string, number>();
@@ -131,7 +149,6 @@ export default function ThongKePage() {
         const addrMap = new Map<string, number>();
         for (const p of people) {
             if (p.current_address) {
-                // Take last part (usually province/city)
                 const parts = p.current_address.split(',').map(s => s.trim());
                 const key = parts[parts.length - 1] || p.current_address.trim();
                 if (key) addrMap.set(key, (addrMap.get(key) || 0) + 1);
@@ -142,8 +159,14 @@ export default function ThongKePage() {
             .slice(0, 5);
 
         // Oldest living person
+        const livingWithBirth = people.filter(p => p.is_living && p.birth_year);
         const oldestLiving = livingWithBirth
             .sort((a, b) => (a.birth_year || 9999) - (b.birth_year || 9999))[0];
+
+        // Oldest deceased person (highest lifespan)
+        const oldestDeceased = deceasedWithYears.length > 0
+            ? deceasedWithYears.sort((a, b) => (b.death_year! - b.birth_year!) - (a.death_year! - a.birth_year!))[0]
+            : null;
 
         // Youngest generation
         const youngestGen = generations[generations.length - 1];
@@ -151,8 +174,9 @@ export default function ThongKePage() {
         return {
             total, totalGenerations, livingCount, deceasedCount, maleCount, femaleCount,
             patrilinealCount, perGeneration, maxGenCount, busiestGen,
-            avgDeathAge, avgLivingAge, avgChildren, largestFamily, top5Families,
-            topOccupations, topAddresses, oldestLiving, youngestGen,
+            avgDeathAge, avgChildren, largestFamily, top5Families,
+            topOccupations, topAddresses, oldestLiving, oldestDeceased, youngestGen,
+            totalSons, totalDaughters,
         };
     }, [people, families]);
 
@@ -189,13 +213,17 @@ export default function ThongKePage() {
             </div>
 
             {/* Overview cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
                 <StatCard label="Tổng thành viên" value={stats.total} icon={<Users className="h-4 w-4" />} color="blue" />
                 <StatCard label="Thế hệ" value={stats.totalGenerations} icon={<Crown className="h-4 w-4" />} color="amber" />
                 <StatCard label="Còn sống" value={stats.livingCount} icon={<Heart className="h-4 w-4" />} color="emerald" />
                 <StatCard label="Đã mất" value={stats.deceasedCount} icon={<Calendar className="h-4 w-4" />} color="slate" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
                 <StatCard label="Nam" value={stats.maleCount} icon={<span className="text-xs font-bold">♂</span>} color="indigo" />
                 <StatCard label="Nữ" value={stats.femaleCount} icon={<span className="text-xs font-bold">♀</span>} color="rose" />
+                <StatCard label="Con trai" value={stats.totalSons} icon={<span className="text-xs font-bold">👦</span>} color="indigo" />
+                <StatCard label="Con gái" value={stats.totalDaughters} icon={<span className="text-xs font-bold">👧</span>} color="rose" />
             </div>
 
             {/* Generation distribution */}
@@ -233,17 +261,18 @@ export default function ThongKePage() {
                                 <p className="text-[11px] text-slate-500">Tuổi TB khi mất ({people.filter(p => !p.is_living && p.birth_year && p.death_year).length} người có đủ dữ liệu)</p>
                             </div>
                         )}
-                        {stats.avgLivingAge !== null && (
-                            <div>
-                                <p className="text-2xl font-bold text-emerald-600">{stats.avgLivingAge} <span className="text-sm font-normal text-slate-500">tuổi</span></p>
-                                <p className="text-[11px] text-slate-500">Tuổi TB người sống ({people.filter(p => p.is_living && p.birth_year).length} người)</p>
+                        {stats.oldestDeceased && (
+                            <div className="pt-2 border-t">
+                                <p className="text-xs text-slate-500">Cao tuổi nhất (đã mất)</p>
+                                <p className="text-sm font-semibold text-slate-800">{stats.oldestDeceased.display_name}</p>
+                                <p className="text-[11px] text-amber-600 font-medium">Hưởng thọ {stats.oldestDeceased.death_year! - stats.oldestDeceased.birth_year!} tuổi · Đời {stats.oldestDeceased.generation}</p>
                             </div>
                         )}
                         {stats.oldestLiving && (
                             <div className="pt-2 border-t">
                                 <p className="text-xs text-slate-500">Cao tuổi nhất (còn sống)</p>
                                 <p className="text-sm font-semibold text-slate-800">{stats.oldestLiving.display_name}</p>
-                                <p className="text-[11px] text-slate-500">{CURRENT_YEAR - stats.oldestLiving.birth_year!} tuổi · Đời {stats.oldestLiving.generation}</p>
+                                <p className="text-[11px] text-emerald-600">{CURRENT_YEAR - stats.oldestLiving.birth_year!} tuổi · Đời {stats.oldestLiving.generation}</p>
                             </div>
                         )}
                     </div>
@@ -266,7 +295,7 @@ export default function ThongKePage() {
                                         <span className="text-slate-400 font-normal"> & {stats.largestFamily.mother}</span>
                                     )}
                                 </p>
-                                <p className="text-[11px] text-amber-600 font-medium">{stats.largestFamily.count} người con</p>
+                                <p className="text-[11px] text-amber-600 font-medium">{stats.largestFamily.count} con ({stats.largestFamily.sons}♂ {stats.largestFamily.daughters}♀)</p>
                             </div>
                         )}
                         <div className="pt-2 border-t">
@@ -338,7 +367,7 @@ export default function ThongKePage() {
                                     {i + 1}
                                 </span>
                                 <span className="flex-1 truncate text-slate-700">{f.father || f.mother}</span>
-                                <span className="font-semibold text-amber-600">{f.count} con</span>
+                                <span className="font-semibold text-amber-600">{f.count} <span className="text-[9px] font-normal text-slate-400">({f.sons}♂{f.daughters}♀)</span></span>
                             </div>
                         ))}
                         {stats.top5Families.length === 0 && (

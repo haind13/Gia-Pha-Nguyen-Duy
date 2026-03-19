@@ -10,9 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { MOCK_MEMORIALS, type MemorialEvent } from '@/lib/mock-data';
 import { RequireAuth } from '@/components/require-auth';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 
 /* ── Types ── */
 interface EventItem {
@@ -327,11 +329,11 @@ function BigCalendar({
 }
 
 /* ── Event card ── */
-function EventCard({ event }: { event: CalendarEvent }) {
+function EventCard({ event, onClick }: { event: CalendarEvent; onClick?: () => void }) {
     const isBirthday = event.type === 'birthday';
     return (
-        <div className={`flex items-center gap-3 p-3 rounded-xl bg-card border shadow-sm
-            hover:shadow-md transition-all duration-200 group
+        <button onClick={onClick} className={`w-full text-left flex items-center gap-3 p-3 rounded-xl bg-card border shadow-sm
+            hover:shadow-md transition-all duration-200 group cursor-pointer
             ${isBirthday ? 'border-emerald-200/80 hover:border-emerald-300/60 dark:border-emerald-800/40' : 'border-border hover:border-amber-300/60'}`}>
             <div className={`flex-shrink-0 w-12 h-12 rounded-full flex flex-col items-center justify-center border-2 transition-colors
                 ${isBirthday
@@ -363,7 +365,97 @@ function EventCard({ event }: { event: CalendarEvent }) {
             <div className="flex-shrink-0 text-xl opacity-60 group-hover:opacity-100 transition-opacity">
                 {isBirthday ? '🎂' : '🕯️'}
             </div>
-        </div>
+        </button>
+    );
+}
+
+/* ── Event detail popup ── */
+function EventDetailPopup({
+    event, person, onClose,
+}: {
+    event: CalendarEvent;
+    person: { birth_year?: number | null; death_year?: number | null; birth_date?: string | null; death_date?: string | null; is_living?: boolean } | null;
+    onClose: () => void;
+}) {
+    const isBirthday = event.type === 'birthday';
+    const birthYear = person?.birth_year ?? undefined;
+    const deathYear = person?.death_year ?? (event.type === 'memorial' ? event.year : undefined);
+    const tho = (birthYear && deathYear) ? deathYear - birthYear : null;
+
+    return (
+        <Dialog open onOpenChange={() => onClose()}>
+            <DialogContent className="max-w-sm p-0 overflow-hidden">
+                {/* Header */}
+                <div className={`px-5 pt-5 pb-3 ${isBirthday
+                    ? 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30'
+                    : 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30'}`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`w-14 h-14 rounded-full flex flex-col items-center justify-center border-2 ${isBirthday
+                            ? 'bg-white border-emerald-200' : 'bg-white border-amber-200'}`}>
+                            <span className="text-2xl">{isBirthday ? '🎂' : '🕯️'}</span>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-lg text-slate-800">{event.personName}</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <Badge variant="secondary" className="text-[10px]">Đời {event.generation}</Badge>
+                                <Badge variant={isBirthday ? 'default' : 'outline'} className={`text-[10px] ${isBirthday ? 'bg-emerald-500' : ''}`}>
+                                    {isBirthday ? 'Sinh nhật' : 'Ngày giỗ'}
+                                </Badge>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Details */}
+                <div className="px-5 py-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                                {isBirthday ? 'Ngày sinh' : 'Ngày giỗ'}
+                            </p>
+                            <p className="font-semibold text-slate-800">
+                                {event.day}/{event.month}{event.isLunar ? ' ÂL' : ' DL'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Dương lịch</p>
+                            <p className="font-semibold text-slate-800">{event.solarDay}/{event.solarMonth}/{event.solarYear}</p>
+                        </div>
+                    </div>
+
+                    {(birthYear || deathYear) && (
+                        <div className="grid grid-cols-2 gap-3 text-sm border-t pt-3">
+                            {birthYear && (
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Năm sinh</p>
+                                    <p className="font-semibold text-slate-800">{birthYear}</p>
+                                </div>
+                            )}
+                            {deathYear && !isBirthday && (
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Năm mất</p>
+                                    <p className="font-semibold text-slate-800">{deathYear}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {tho !== null && !isBirthday && (
+                        <div className="border-t pt-3">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Hưởng thọ</p>
+                            <p className="text-xl font-bold text-amber-700">{tho} <span className="text-sm font-normal text-slate-500">tuổi</span></p>
+                        </div>
+                    )}
+
+                    <div className="pt-2">
+                        <Link href={`/thanh-vien/${event.personId}`}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm">
+                            Xem chi tiết <ChevronRight className="h-4 w-4" />
+                        </Link>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -380,6 +472,8 @@ export default function EventsPage() {
     const [activeTab, setActiveTab] = useState<'all' | 'memorial' | 'birthday'>('all');
     const [allEvents, setAllEvents] = useState<EventItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [popupEvent, setPopupEvent] = useState<CalendarEvent | null>(null);
+    const [peopleMap, setPeopleMap] = useState<Map<string, { birth_year: number | null; death_year: number | null; birth_date: string | null; death_date: string | null; is_living: boolean }>>(new Map());
 
     // Fetch people from Supabase
     const fetchEvents = useCallback(async () => {
@@ -391,6 +485,9 @@ export default function EventsPage() {
                 .order('generation', { ascending: true });
             if (data) {
                 setAllEvents(buildEventsFromPeople(data));
+                const pMap = new Map<string, { birth_year: number | null; death_year: number | null; birth_date: string | null; death_date: string | null; is_living: boolean }>();
+                for (const p of data) pMap.set(p.id, { birth_year: p.birth_year, death_year: p.death_year, birth_date: p.birth_date, death_date: p.death_date, is_living: p.is_living });
+                setPeopleMap(pMap);
             } else {
                 // Fallback to mock data
                 setAllEvents(MOCK_MEMORIALS.map(m => ({
@@ -586,7 +683,7 @@ export default function EventsPage() {
                                 </CardContent>
                             </Card>
                         ) : (
-                            filtered.sort((a, b) => a.solarDay - b.solarDay).map((m, i) => <EventCard key={`${m.personId}-${m.type}-${i}`} event={m} />)
+                            filtered.sort((a, b) => a.solarDay - b.solarDay).map((m, i) => <EventCard key={`${m.personId}-${m.type}-${i}`} event={m} onClick={() => setPopupEvent(m)} />)
                         )}
                     </div>
 
@@ -604,6 +701,15 @@ export default function EventsPage() {
                 </div>
             </div>
         </div>
+
+            {/* Event detail popup */}
+            {popupEvent && (
+                <EventDetailPopup
+                    event={popupEvent}
+                    person={peopleMap.get(popupEvent.personId) || null}
+                    onClose={() => setPopupEvent(null)}
+                />
+            )}
         </RequireAuth>
     );
 }

@@ -8,19 +8,15 @@ import {
     Users,
     Image,
     Shield,
-    FileText,
-    Database,
     ChevronLeft,
     ChevronRight,
     BookOpen,
-    ClipboardCheck,
     Contact,
     Newspaper,
     CalendarDays,
     LogIn,
     UserPlus,
     Menu,
-    Bell,
     BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -50,13 +46,7 @@ const authNavItems = [
     { href: '/thanh-vien', label: 'Thành viên', icon: Users },
 ];
 
-const adminItems = [
-    { href: '/admin/users', label: 'Quản lý Users', icon: Shield },
-    { href: '/admin/edits', label: 'Kiểm duyệt', icon: ClipboardCheck },
-    { href: '/admin/notifications', label: 'Nhắc sự kiện', icon: Bell },
-    { href: '/admin/audit', label: 'Audit Log', icon: FileText },
-    { href: '/admin/backup', label: 'Backup', icon: Database },
-];
+/* Admin link — shown only for admin users, links to new admin CP */
 
 /* ── Shared navigation content (used in both desktop sidebar and mobile drawer) ── */
 function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
@@ -121,35 +111,27 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                 </>
             )}
 
-            {/* Admin section — only visible for admin users */}
+            {/* Admin link — quick access to admin CP */}
             {isAdmin && (
                 <>
-                    {!collapsed && (
+                    {collapsed ? <div className="border-t my-2" /> : (
                         <div className="pt-4 pb-2">
                             <span className="px-3 text-xs font-semibold uppercase text-muted-foreground tracking-wider">
                                 Quản trị
                             </span>
                         </div>
                     )}
-                    {collapsed && <div className="border-t my-2" />}
-                    {adminItems.map((item) => {
-                        const isActive = pathname.startsWith(item.href);
-                        return (
-                            <Link key={item.href} href={item.href} onClick={onNavigate}>
-                                <span
-                                    className={cn(
-                                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-                                        isActive
-                                            ? 'bg-primary text-primary-foreground'
-                                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                                    )}
-                                >
-                                    <item.icon className="h-4 w-4 shrink-0" />
-                                    {!collapsed && item.label}
-                                </span>
-                            </Link>
-                        );
-                    })}
+                    <Link href="/admin" onClick={onNavigate}>
+                        <span className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                            pathname.startsWith('/admin')
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                        )}>
+                            <Shield className="h-4 w-4 shrink-0" />
+                            {!collapsed && 'Quản trị hệ thống'}
+                        </span>
+                    </Link>
                 </>
             )}
         </>

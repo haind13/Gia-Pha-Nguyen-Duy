@@ -588,6 +588,11 @@ export default function PersonProfilePage() {
                                             <InfoField label="Ngày mất" value={formatDeathDateDisplay(person.deathDateSolar, person.deathDate, person.deathYear)} />
                                             {person.deathDate && <InfoField label="Ngày Giỗ (ÂL)" value={`${person.deathDate}${person.deathYear ? ` (${zodiacYear(person.deathYear)})` : ''}`} />}
                                             {person.deathPlace && <InfoField label="Nơi mất" value={person.deathPlace} />}
+                                            {(() => {
+                                                const tho = person.tho || (person.birthYear && person.deathYear
+                                                    ? `${person.deathYear - person.birthYear} tuổi` : null);
+                                                return tho ? <InfoField label="Hưởng thọ" value={tho} /> : null;
+                                            })()}
                                         </>
                                     )}
                                     {person.maritalStatus && <InfoField label="Hôn nhân" value={maritalStatusLabel(person.maritalStatus)} />}
@@ -596,7 +601,7 @@ export default function PersonProfilePage() {
                             </SectionCard>
 
                             {/* Thông tin gia phả */}
-                            {(person.tenHuy || person.hieu || person.tu || person.chiName || person.phanChi || person.nganh || person.phanNganh || person.nhanh || person.phanNhanh || person.chucVu || person.noiAnTang || person.tho) && (
+                            {(person.tenHuy || person.hieu || person.tu || person.chiName || person.phanChi || person.nganh || person.phanNganh || person.nhanh || person.phanNhanh || person.chucVu || person.noiAnTang) && (
                                 <SectionCard icon={<ScrollText className="h-4 w-4" />} title="Thông tin gia phả">
                                     <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                                         {person.tenHuy && <InfoField label="Tên húy" value={person.tenHuy} />}
@@ -610,7 +615,6 @@ export default function PersonProfilePage() {
                                         {person.phanNhanh && <InfoField label="Phân nhánh" value={person.phanNhanh} />}
                                         {person.chucVu && <InfoField label="Chức vụ" value={person.chucVu} />}
                                         {person.noiAnTang && <InfoField label="Nơi an táng" value={person.noiAnTang} />}
-                                        {person.tho && <InfoField label="Thọ" value={person.tho} />}
                                     </div>
                                 </SectionCard>
                             )}
