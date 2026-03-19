@@ -215,7 +215,7 @@ export default function TreeViewPage() {
     const treeContentRef = useRef<HTMLDivElement>(null);
 
     // Card orientation toggle
-    const [cardOrientation, setCardOrientation] = useState<CardOrientation>('horizontal');
+    const [cardOrientation, setCardOrientation] = useState<CardOrientation>('vertical');
 
     // Hide spouse (non-patrilineal) toggle
     const [hideSpouse, setHideSpouse] = useState(false);
@@ -496,15 +496,16 @@ export default function TreeViewPage() {
 
     const collapseAll = useCallback(() => {
         if (!treeData) return;
-        // Only collapse patrilineal fathers who have children — NOT mothers
-        // This matches the demo behavior: root person stays visible, children collapsed
-        const fathersWithChildren = new Set<string>();
+        // Collapse ALL parents (both father and mother) who have children
+        // Matches demo: every branch gets collapsed
+        const parents = new Set<string>();
         for (const f of treeData.families) {
-            if (f.childIds.length > 0 && f.fatherId) {
-                fathersWithChildren.add(f.fatherId);
+            if (f.childIds.length > 0) {
+                if (f.fatherId) parents.add(f.fatherId);
+                if (f.motherId) parents.add(f.motherId);
             }
         }
-        setCollapsedBranches(fathersWithChildren);
+        setCollapsedBranches(parents);
     }, [treeData]);
 
     // Auto-collapse for Toàn cảnh view
