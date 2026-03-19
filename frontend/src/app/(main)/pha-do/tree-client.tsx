@@ -220,6 +220,9 @@ export default function TreeViewPage() {
     // Hide spouse (non-patrilineal) toggle
     const [hideSpouse, setHideSpouse] = useState(false);
 
+    // Pending fitAll flag — triggers fitAll after layout recalculates
+    const pendingFitAll = useRef(false);
+
     // Crop export state
     const [cropMode, setCropMode] = useState(false);
     const [cropRect, setCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -489,15 +492,16 @@ export default function TreeViewPage() {
         });
     }, [treeData]);
 
-    // Expand All / Collapse All  (fitAll called via existing pendingFitAll ref — see effect near line 1400)
+    // Expand All / Collapse All — triggers fitAll via pendingFitAll ref
     const expandAll = useCallback(() => {
         setCollapsedBranches(new Set());
+        pendingFitAll.current = true;
     }, []);
 
     const collapseAll = useCallback(() => {
         if (!treeData) return;
         // Collapse ALL parents (both father and mother) who have children
-        // Matches demo: every branch gets collapsed
+        // Matches demo: every branch gets collapsed, auto-fit after
         const parents = new Set<string>();
         for (const f of treeData.families) {
             if (f.childIds.length > 0) {
@@ -506,6 +510,7 @@ export default function TreeViewPage() {
             }
         }
         setCollapsedBranches(parents);
+        pendingFitAll.current = true;
     }, [treeData]);
 
     // Auto-collapse for Toàn cảnh view
@@ -1334,8 +1339,6 @@ export default function TreeViewPage() {
         setFocusPerson(handle);
     }, [layout]);
 
-    // Pending fitAll flag — triggers fitAll after layout recalculates from view mode change
-    const pendingFitAll = useRef(false);
     // Pending center-on-person — used by descendant mode to center on focus person at readable zoom
     const pendingCenterPerson = useRef<string | null>(null);
 
@@ -2930,31 +2933,34 @@ function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand, cardW, ca
         );
     }
 
-    // Vertical orientation: compact stacked layout
+    // Vertical orientation: wider summary card for readability
     if (isVertical) {
+        const summaryW = Math.max(cardW, 120); // Wider than card for readability
+        const summaryH = cardH;
+        const offsetX = x - (summaryW - cardW) / 2; // Center below parent
         return (
             <div
                 className="absolute rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50
                     shadow-md cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-                style={{ left: x, top: y, width: cardW, height: cardH }}
+                style={{ left: offsetX, top: y, width: summaryW, height: summaryH }}
                 onClick={(e) => { e.stopPropagation(); onExpand(); }}
             >
-                <div className="px-1 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500
+                <div className="px-2 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500
                         flex items-center justify-center shadow-sm shrink-0">
-                        <Package className="w-3.5 h-3.5 text-white" />
+                        <Package className="w-4 h-4 text-white" />
                     </div>
-                    <p className="font-bold text-[9px] leading-tight text-amber-900">
+                    <p className="font-bold text-[10px] leading-tight text-amber-900">
                         {summary.totalDescendants} người
                     </p>
-                    <p className="text-[7px] text-amber-700 leading-none">
-                        Đời {summary.generationRange[0]}→{summary.generationRange[1]}
+                    <p className="text-[8px] text-amber-700 leading-none">
+                        Đời {summary.generationRange[0]} → {summary.generationRange[1]}
                     </p>
-                    <div className="flex items-center gap-1 text-[7px] leading-none">
-                        <span className="text-emerald-600 font-medium">{summary.livingCount}</span>
+                    <div className="flex items-center gap-1.5 text-[8px] leading-none">
+                        <span className="text-emerald-600 font-medium">●{summary.livingCount}</span>
                         <span className="text-slate-400">✝{summary.deceasedCount}</span>
                     </div>
-                    <span className="text-amber-600 text-[7px] font-semibold leading-none">▶ Mở</span>
+                    <span className="text-amber-600 text-[8px] font-semibold leading-none">▶ Mở</span>
                 </div>
             </div>
         );
