@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
+import { useTenant } from '@/components/tenant-provider';
 import {
     Sheet,
     SheetContent,
@@ -141,6 +142,9 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
 /* ── Desktop Sidebar (hidden on mobile) ── */
 export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false);
+    const { siteConfig, tenant } = useTenant();
+    const siteName = siteConfig?.site_name || tenant?.name || 'Gia phả';
+    const siteDesc = siteConfig?.description || tenant?.description || '';
 
     return (
         <aside
@@ -151,8 +155,12 @@ export function Sidebar() {
         >
             {/* Logo */}
             <div className="flex items-center gap-2 px-4 py-4 border-b shrink-0">
-                <Scroll className="h-6 w-6 text-primary shrink-0" />
-                {!collapsed && <span className="font-bold text-sm leading-tight">Họ Nguyễn Duy<br /><span className="text-xs font-normal text-muted-foreground">(nhánh cụ Khoan Giản) - Làng Nghìn, An Bài, Quỳnh Phụ, Thái Bình</span></span>}
+                {siteConfig?.logo_url ? (
+                    <img src={siteConfig.logo_url} alt="Logo" className="h-6 w-6 shrink-0 rounded" />
+                ) : (
+                    <Scroll className="h-6 w-6 text-primary shrink-0" />
+                )}
+                {!collapsed && <span className="font-bold text-sm leading-tight">{siteName}<br /><span className="text-xs font-normal text-muted-foreground">{siteDesc}</span></span>}
             </div>
 
             {/* Navigation — scrollable */}
@@ -174,6 +182,9 @@ export function Sidebar() {
 /* ── Mobile Sidebar Drawer (visible only on mobile) ── */
 export function MobileSidebar() {
     const [open, setOpen] = useState(false);
+    const { siteConfig, tenant } = useTenant();
+    const siteName = siteConfig?.site_name || tenant?.name || 'Gia phả';
+    const siteDesc = siteConfig?.description || tenant?.description || '';
 
     return (
         <>
@@ -192,11 +203,15 @@ export function MobileSidebar() {
                     <SheetTitle className="sr-only">Menu điều hướng</SheetTitle>
                     {/* Logo */}
                     <div className="flex items-center gap-2 px-4 py-4 border-b">
-                        <Scroll className="h-6 w-6 text-primary shrink-0" />
+                        {siteConfig?.logo_url ? (
+                            <img src={siteConfig.logo_url} alt="Logo" className="h-6 w-6 shrink-0 rounded" />
+                        ) : (
+                            <Scroll className="h-6 w-6 text-primary shrink-0" />
+                        )}
                         <span className="font-bold text-sm leading-tight">
-                            Họ Nguyễn Duy<br />
+                            {siteName}<br />
                             <span className="text-xs font-normal text-muted-foreground">
-                                (nhánh cụ Khoan Giản)
+                                {siteDesc}
                             </span>
                         </span>
                     </div>

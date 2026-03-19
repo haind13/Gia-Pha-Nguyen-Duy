@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { BarChart3, Users, Heart, Baby, Calendar, MapPin, Briefcase, Loader2, Crown, Settings2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useTenant } from '@/components/tenant-provider';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -51,6 +52,7 @@ const STORAGE_KEY = 'admin_dashboard_config';
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function AdminThongKePage() {
+    const { treeId } = useTenant();
     const [people, setPeople] = useState<Person[]>([]);
     const [families, setFamilies] = useState<Family[]>([]);
     const [loading, setLoading] = useState(true);
@@ -75,19 +77,22 @@ export default function AdminThongKePage() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [pRes, fRes] = await Promise.all([
-                    supabase.from('people_safe')
-                        .select('id, display_name, gender, generation, birth_year, death_year, is_living, is_patrilineal, birth_order, occupation, current_address')
-                        .order('generation', { ascending: true }),
-                    supabase.from('families').select('id, father_id, mother_id, child_ids'),
-                ]);
+                let pQuery = supabase.from('people_safe')
+                    .select('id, display_name, gender, generation, birth_year, death_year, is_living, is_patrilineal, birth_order, occupation, current_address')
+                    .order('generation', { ascending: true });
+                let fQuery = supabase.from('families').select('id, father_id, mother_id, child_ids');
+                if (treeId) {
+                    pQuery = pQuery.eq('tree_id', treeId);
+                    fQuery = fQuery.eq('tree_id', treeId);
+                }
+                const [pRes, fRes] = await Promise.all([pQuery, fQuery]);
                 if (pRes.data) setPeople(pRes.data);
                 if (fRes.data) setFamilies(fRes.data);
             } catch {}
             setLoading(false);
         };
         fetchData();
-    }, []);
+    }, [treeId]);
 
     const stats = useMemo(() => {
         if (!people.length) return null;

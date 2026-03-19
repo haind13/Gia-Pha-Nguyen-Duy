@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { useTenant } from '@/components/tenant-provider';
 
 const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -61,6 +62,8 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
 /* ── Desktop Admin Sidebar ── */
 export function AdminSidebar() {
     const [collapsed, setCollapsed] = useState(false);
+    const { siteConfig, tenant } = useTenant();
+    const tenantName = siteConfig?.site_name || tenant?.name || 'Quản trị';
 
     return (
         <aside className={cn(
@@ -69,11 +72,15 @@ export function AdminSidebar() {
         )}>
             {/* Logo */}
             <div className="flex items-center gap-2 px-4 py-4 border-b border-slate-700 shrink-0">
-                <Settings className="h-5 w-5 text-amber-400 shrink-0" />
+                {siteConfig?.logo_url ? (
+                    <img src={siteConfig.logo_url} alt="Logo" className="h-5 w-5 shrink-0 rounded" />
+                ) : (
+                    <Settings className="h-5 w-5 text-amber-400 shrink-0" />
+                )}
                 {!collapsed && (
                     <span className="font-bold text-sm leading-tight text-white">
                         Quản trị<br />
-                        <span className="text-xs font-normal text-slate-400">Gia phả Nguyễn Duy</span>
+                        <span className="text-xs font-normal text-slate-400">{tenantName}</span>
                     </span>
                 )}
             </div>
@@ -102,6 +109,8 @@ export function AdminSidebar() {
 /* ── Mobile Admin Sidebar ── */
 export function MobileAdminSidebar() {
     const [open, setOpen] = useState(false);
+    const { siteConfig, tenant } = useTenant();
+    const tenantName = siteConfig?.site_name || tenant?.name || 'Quản trị';
 
     return (
         <>
@@ -119,10 +128,14 @@ export function MobileAdminSidebar() {
                 <SheetContent side="left" className="w-60 p-0 bg-slate-900 border-slate-700" showCloseButton={false}>
                     <SheetTitle className="sr-only">Menu quản trị</SheetTitle>
                     <div className="flex items-center gap-2 px-4 py-4 border-b border-slate-700">
-                        <Settings className="h-5 w-5 text-amber-400 shrink-0" />
+                        {siteConfig?.logo_url ? (
+                            <img src={siteConfig.logo_url} alt="Logo" className="h-5 w-5 shrink-0 rounded" />
+                        ) : (
+                            <Settings className="h-5 w-5 text-amber-400 shrink-0" />
+                        )}
                         <span className="font-bold text-sm leading-tight text-white">
                             Quản trị<br />
-                            <span className="text-xs font-normal text-slate-400">Gia phả Nguyễn Duy</span>
+                            <span className="text-xs font-normal text-slate-400">{tenantName}</span>
                         </span>
                     </div>
                     <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">

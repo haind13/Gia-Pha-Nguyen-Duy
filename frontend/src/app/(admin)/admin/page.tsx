@@ -8,6 +8,7 @@ import {
     Crown, Settings,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useTenant } from '@/components/tenant-provider';
 
 interface DashboardStats {
     totalPeople: number;
@@ -25,29 +26,36 @@ interface AdminUser {
     created_at: string;
 }
 
-interface UpcomingEvent {
-    id: string;
-    person_name: string;
-    event_type: string;
-    lunar_date: string;
-    solar_date: string;
-}
-
-const SITE_DOMAIN = 'donghonguyenduy-langnghin.asia';
-
 export default function AdminDashboardPage() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [admins, setAdmins] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
+    const { tenant, siteConfig, treeId } = useTenant();
+
+    // Build website URL dynamically from tenant data
+    const siteDomain = tenant?.custom_domain
+        || (tenant?.slug ? `${tenant.slug}.giaphadaiviet.vn` : '');
+    const cpDomain = siteDomain ? `cp.${siteDomain}` : '';
 
     useEffect(() => {
         const fetchAll = async () => {
             try {
+                // Build queries with optional tree_id filter
+                let peopleQuery = supabase.from('people_safe').select('id', { count: 'exact', head: true });
+                let genQuery = supabase.from('people_safe').select('generation');
+                let editsQuery = supabase.from('pending_edits').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+
+                if (treeId) {
+                    peopleQuery = peopleQuery.eq('tree_id', treeId);
+                    genQuery = genQuery.eq('tree_id', treeId);
+                    editsQuery = editsQuery.eq('tree_id', treeId);
+                }
+
                 const [peopleRes, usersRes, editsRes, genRes, adminRes] = await Promise.all([
-                    supabase.from('people_safe').select('id', { count: 'exact', head: true }),
+                    peopleQuery,
                     supabase.from('profiles').select('id', { count: 'exact', head: true }),
-                    supabase.from('pending_edits').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-                    supabase.from('people_safe').select('generation'),
+                    editsQuery,
+                    genQuery,
                     supabase.from('profiles').select('id, email, display_name, role, created_at')
                         .in('role', ['admin', 'editor']).order('created_at', { ascending: true }),
                 ]);
@@ -71,7 +79,7 @@ export default function AdminDashboardPage() {
             setLoading(false);
         };
         fetchAll();
-    }, []);
+    }, [treeId]);
 
     const quickLinks = [
         { href: '/admin/users', label: 'Quản lý Users', icon: Shield, description: 'Quản lý tài khoản, phân quyền, mời thành viên', color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -90,7 +98,7 @@ export default function AdminDashboardPage() {
                     <h1 className="text-2xl font-bold text-slate-800">Dashboard Quản trị</h1>
                     <p className="text-sm text-slate-500 mt-1">Tổng quan hệ thống gia phả</p>
                 </div>
-                <a href={`https://${SITE_DOMAIN}`} target="_blank" rel="noopener noreferrer"
+                <a href={siteDomain ? `https://${siteDomain}` : '#'} target="_blank" rel="noopener noreferrer"
                     className="hidden sm:flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-full">
                     <Globe className="h-3.5 w-3.5" />
                     Website trực tuyến
@@ -129,12 +137,12 @@ export default function AdminDashboardPage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
                                     <div className="flex items-center justify-between py-1.5 border-b border-dashed">
                                         <span className="text-slate-500">Website</span>
-                                        <a href={`https://${SITE_DOMAIN}`} target="_blank" rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline font-medium text-xs">{SITE_DOMAIN}</a>
+                                        <a href={siteDomain ? `https://${siteDomain}` : '#'} target="_blank" rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline font-medium text-xs">{siteDomain || 'Chưa cấu hình'}</a>
                                     </div>
                                     <div className="flex items-center justify-between py-1.5 border-b border-dashed">
                                         <span className="text-slate-500">Admin CP</span>
-                                        <span className="text-slate-700 font-medium text-xs">cp.{SITE_DOMAIN}</span>
+                                        <span className="text-slate-700 font-medium text-xs">{cpDomain || 'Chưa cấu hình'}</span>
                                     </div>
                                     <div className="flex items-center justify-between py-1.5 border-b border-dashed">
                                         <span className="text-slate-500">Số thành viên</span>

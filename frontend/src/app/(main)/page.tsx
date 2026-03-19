@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
+import { useTenant } from '@/components/tenant-provider';
 
 // ─── Types ────────────────────────────────────────────────────────
 interface Stats {
@@ -328,22 +329,26 @@ function CopyrightFooter() {
 
 // ─── Main Page ──────────────────────────────────────────────────
 export default function HomePage() {
+    const { treeId, siteConfig, tenant } = useTenant();
     const [stats, setStats] = useState<Stats>({ people: 0, families: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchStats() {
             try {
-                const [{ count: people }, { count: families }] = await Promise.all([
-                    supabase.from('people_safe').select('*', { count: 'exact', head: true }).gte('generation', 10),
-                    supabase.from('families').select('*', { count: 'exact', head: true }),
-                ]);
+                let pQuery = supabase.from('people_safe').select('*', { count: 'exact', head: true }).gte('generation', 10);
+                let fQuery = supabase.from('families').select('*', { count: 'exact', head: true });
+                if (treeId) {
+                    pQuery = pQuery.eq('tree_id', treeId);
+                    fQuery = fQuery.eq('tree_id', treeId);
+                }
+                const [{ count: people }, { count: families }] = await Promise.all([pQuery, fQuery]);
                 setStats({ people: people || 0, families: families || 0 });
             } catch { /* ignore */ }
             finally { setLoading(false); }
         }
         fetchStats();
-    }, []);
+    }, [treeId]);
 
     return (
         <div className="flex flex-col min-h-full">

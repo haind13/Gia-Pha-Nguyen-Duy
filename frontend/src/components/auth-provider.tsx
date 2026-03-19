@@ -13,6 +13,7 @@ interface Profile {
     role: UserRole;
     person_id: string | null;
     avatar_url: string | null;
+    is_superadmin: boolean;
 }
 
 interface AuthState {
@@ -21,7 +22,13 @@ interface AuthState {
     profile: Profile | null;
     role: UserRole;
     loading: boolean;
+    /** Global superadmin (manages all tenants) */
+    isSuperAdmin: boolean;
+    /** Current tenant role (from tenant_members) */
+    tenantRole: UserRole;
+    /** Is admin of current tenant OR superadmin */
     isAdmin: boolean;
+    /** Can edit in current tenant (admin/editor) OR superadmin */
     canEdit: boolean;
     isMember: boolean;
     isLoggedIn: boolean;
@@ -30,6 +37,9 @@ interface AuthState {
     signInWithGoogle: () => Promise<{ error?: string }>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
+    /** Set when TenantProvider detects a tenant */
+    setCurrentTenantId: (tenantId: string | null) => void;
+    currentTenantId: string | null;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -39,16 +49,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
+    const [tenantRole, setTenantRole] = useState<UserRole>(null);
 
     const fetchProfile = useCallback(async (userId: string) => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('id, email, display_name, role, person_id, avatar_url, is_superadmin')
                 .eq('id', userId)
                 .maybeSingle();
             if (!error && data) {
-                setProfile(data as Profile);
+                setProfile({
+                    ...data,
+                    is_superadmin: data.is_superadmin ?? false,
+                } as Profile);
             } else {
                 setProfile(null);
             }
@@ -57,8 +72,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    // Fetch tenant-specific role when tenant changes
+    const fetchTenantRole = useCallback(async (userId: string, tenantId: string) => {
+        try {
+            const { data } = await supabase
+                .from('tenant_members')
+                .select('role')
+                .eq('user_id', userId)
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
+            setTenantRole((data?.role as UserRole) ?? null);
+        } catch {
+            setTenantRole(null);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (user && currentTenantId) {
+            fetchTenantRole(user.id, currentTenantId);
+        } else {
+            setTenantRole(null);
+        }
+    }, [user, currentTenantId, fetchTenantRole]);
+
     const ensureProfile = useCallback(async (u: User) => {
-        // Create profile if it doesn't exist (handles signup)
         const { data: existing } = await supabase
             .from('profiles')
             .select('id')
@@ -91,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 ensureProfile(s.user);
             } else {
                 setProfile(null);
+                setTenantRole(null);
             }
         });
 
@@ -122,7 +160,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             return { error: error.message };
         }
-        // If email confirmation is required
         if (data.user && !data.session) {
             return { error: 'Đã đăng ký! Kiểm tra email để xác nhận tài khoản.' };
         }
@@ -143,22 +180,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = useCallback(async () => {
         await supabase.auth.signOut();
         setProfile(null);
+        setTenantRole(null);
     }, []);
 
     const refreshProfile = useCallback(async () => {
         if (user) await fetchProfile(user.id);
     }, [user, fetchProfile]);
 
+    const isSuperAdmin = profile?.is_superadmin ?? false;
     const role = profile?.role ?? null;
+
+    // Effective admin: tenant admin OR superadmin OR legacy global admin
+    const effectiveTenantRole = tenantRole ?? role; // fallback to global role if no tenant_members entry
+    const isAdmin = isSuperAdmin || effectiveTenantRole === 'admin';
+    const canEdit = isAdmin || effectiveTenantRole === 'editor';
 
     return (
         <AuthContext.Provider value={{
             user, session, profile, role, loading,
-            isAdmin: role === 'admin',
-            canEdit: role === 'admin' || role === 'editor',
-            isMember: role === 'member' || role === 'viewer' || role === 'editor' || role === 'admin',
+            isSuperAdmin,
+            tenantRole: effectiveTenantRole,
+            isAdmin,
+            canEdit,
+            isMember: effectiveTenantRole === 'member' || effectiveTenantRole === 'viewer' || canEdit,
             isLoggedIn: !!user,
             signIn, signUp, signInWithGoogle, signOut, refreshProfile,
+            setCurrentTenantId,
+            currentTenantId,
         }}>
             {children}
         </AuthContext.Provider>

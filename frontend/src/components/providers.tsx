@@ -4,8 +4,15 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AuthProvider } from '@/components/auth-provider';
+import { TenantProvider } from '@/components/tenant-provider';
 
-export function Providers({ children }: { children: React.ReactNode }) {
+interface ProvidersProps {
+    children: React.ReactNode;
+    tenantSlug?: string | null;
+    tenantDomain?: string | null;
+}
+
+export function Providers({ children, tenantSlug, tenantDomain }: ProvidersProps) {
     const [queryClient] = useState(
         () =>
             new QueryClient({
@@ -21,9 +28,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return (
         <QueryClientProvider client={queryClient}>
             <NextThemesProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-                <AuthProvider>{children}</AuthProvider>
+                <TenantProvider tenantSlug={tenantSlug} tenantDomain={tenantDomain}>
+                    <AuthProvider>{children}</AuthProvider>
+                </TenantProvider>
             </NextThemesProvider>
         </QueryClientProvider>
     );
 }
-

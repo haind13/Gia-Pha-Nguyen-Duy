@@ -58,13 +58,17 @@ function dbRowToTreeFamily(row: Record<string, unknown>): TreeFamily {
 
 // ── Read operations ──
 
-/** Fetch all people from Supabase */
-export async function fetchPeople(): Promise<TreeNode[]> {
-    const { data, error } = await supabase
+/** Fetch all people from Supabase, optionally filtered by tree_id */
+export async function fetchPeople(treeId?: string | null): Promise<TreeNode[]> {
+    let query = supabase
         .from('people_safe')
         .select('id, display_name, gender, birth_year, death_year, generation, is_living, is_privacy_filtered, is_patrilineal, birth_order, family_ids, parent_family_ids')
         .order('generation')
         .order('id');
+
+    if (treeId) query = query.eq('tree_id', treeId);
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Failed to fetch people:', error.message);
@@ -73,12 +77,16 @@ export async function fetchPeople(): Promise<TreeNode[]> {
     return (data || []).map(dbRowToTreeNode);
 }
 
-/** Fetch all families from Supabase */
-export async function fetchFamilies(): Promise<TreeFamily[]> {
-    const { data, error } = await supabase
+/** Fetch all families from Supabase, optionally filtered by tree_id */
+export async function fetchFamilies(treeId?: string | null): Promise<TreeFamily[]> {
+    let query = supabase
         .from('families')
         .select('id, father_id, mother_id, child_ids')
         .order('id');
+
+    if (treeId) query = query.eq('tree_id', treeId);
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Failed to fetch families:', error.message);
@@ -87,9 +95,9 @@ export async function fetchFamilies(): Promise<TreeFamily[]> {
     return (data || []).map(dbRowToTreeFamily);
 }
 
-/** Fetch both people and families in parallel */
-export async function fetchTreeData(): Promise<{ people: TreeNode[]; families: TreeFamily[] }> {
-    const [people, families] = await Promise.all([fetchPeople(), fetchFamilies()]);
+/** Fetch both people and families in parallel, optionally filtered by tree_id */
+export async function fetchTreeData(treeId?: string | null): Promise<{ people: TreeNode[]; families: TreeFamily[] }> {
+    const [people, families] = await Promise.all([fetchPeople(treeId), fetchFamilies(treeId)]);
     return { people, families };
 }
 
