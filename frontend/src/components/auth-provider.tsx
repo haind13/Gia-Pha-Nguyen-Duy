@@ -27,6 +27,7 @@ interface AuthState {
     isLoggedIn: boolean;
     signIn: (email: string, password: string) => Promise<{ error?: string }>;
     signUp: (email: string, password: string, displayName?: string) => Promise<{ error?: string }>;
+    signInWithGoogle: () => Promise<{ error?: string }>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
 }
@@ -128,6 +129,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {};
     }, []);
 
+    const signInWithGoogle = useCallback(async () => {
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/pha-do`,
+            },
+        });
+        if (error) return { error: error.message };
+        return {};
+    }, []);
+
     const signOut = useCallback(async () => {
         await supabase.auth.signOut();
         setProfile(null);
@@ -146,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             canEdit: role === 'admin' || role === 'editor',
             isMember: role === 'member' || role === 'viewer' || role === 'editor' || role === 'admin',
             isLoggedIn: !!user,
-            signIn, signUp, signOut, refreshProfile,
+            signIn, signUp, signInWithGoogle, signOut, refreshProfile,
         }}>
             {children}
         </AuthContext.Provider>
