@@ -21,6 +21,7 @@ import {
     UserPlus,
     Menu,
     Bell,
+    BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ export const publicNavItems = [
     { href: '/pha-do', label: 'Phả đồ', icon: Scroll },
     { href: '/su-kien', label: 'Sự kiện', icon: CalendarDays },
     { href: '/media', label: 'Thư viện', icon: Image },
+    { href: '/thong-ke', label: 'Thống kê', icon: BarChart3 },
 ];
 
 /* Auth-required navigation — only when logged in */
@@ -45,7 +47,7 @@ const authNavItems = [
     { href: '/feed', label: 'Bảng tin', icon: Newspaper },
     { href: '/danh-ba', label: 'Danh bạ', icon: Contact },
     { href: '/gia-pha', label: 'Sách gia phả', icon: BookOpen },
-    { href: '/people', label: 'Thành viên', icon: Users },
+    { href: '/thanh-vien', label: 'Thành viên', icon: Users },
 ];
 
 const adminItems = [

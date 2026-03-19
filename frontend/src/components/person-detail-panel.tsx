@@ -323,7 +323,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                         </div>
                         <div className="flex items-center gap-1">
                             {!loading && detail && (
-                                <a href={`/people/${personId}`}
+                                <a href={`/thanh-vien/${personId}`}
                                     className="p-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-amber-500 hover:text-amber-700 transition-colors"
                                     title="Xem chi tiết">
                                     <ExternalLink className="w-4.5 h-4.5" />
@@ -656,7 +656,7 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                         )}
 
                         {/* View detail page link */}
-                        <a href={`/people/${personId}`}
+                        <a href={`/thanh-vien/${personId}`}
                             className="w-full py-2.5 rounded-lg border-2 border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/30 flex items-center justify-center gap-2 transition-colors">
                             <ExternalLink className="w-4 h-4" /> Xem chi tiết
                         </a>
