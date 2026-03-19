@@ -451,62 +451,7 @@ export default function PersonProfilePage() {
                         </div>
                     </div>
 
-                    {/* Quick Family Links (sidebar) */}
-                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                            <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200">
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                                Gia đình
-                            </h3>
-                        </div>
-                        <div className="p-3 space-y-2">
-                            {parents.length > 0 && (
-                                <div>
-                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cha mẹ</p>
-                                    <div className="space-y-1">
-                                        {parents.map(p => (
-                                            <PersonChipCompact key={p.id} person={p} label={p.gender === 1 ? 'Cha' : 'Mẹ'} />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {familyUnits.map((unit, idx) => (
-                                <div key={idx}>
-                                    {unit.spouse && (
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                                                {unit.spouse.gender === 2 ? 'Vợ' : 'Chồng'}
-                                            </p>
-                                            <PersonChipCompact person={unit.spouse} label={unit.spouse.gender === 2 ? 'Vợ' : 'Chồng'} />
-                                        </div>
-                                    )}
-                                    {unit.children.length > 0 && (
-                                        <div className="mt-1.5">
-                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Con ({unit.children.length})</p>
-                                            <div className="space-y-1">
-                                                {unit.children.map(ch => (
-                                                    <PersonChipCompact key={ch.id} person={ch} label={ch.gender === 1 ? 'Trai' : 'Gái'} />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                            {siblings.length > 0 && (
-                                <div>
-                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Anh chị em ({siblings.length})</p>
-                                    <div className="space-y-1">
-                                        {siblings.map(s => (
-                                            <PersonChipCompact key={s.id} person={s} label={s.gender === 1 ? 'Trai' : 'Gái'} />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {parents.length === 0 && familyUnits.length === 0 && siblings.length === 0 && (
-                                <p className="text-xs text-muted-foreground italic py-2">Chưa có thông tin</p>
-                            )}
-                        </div>
-                    </div>
+                    {/* Gia đình sidebar — tạm ẩn vì trùng với "Quan hệ gia đình" ở cột phải */}
                 </div>
 
                 {/* ── Right Column: Info Sections ── */}
