@@ -76,10 +76,27 @@ export const V_SPACE = 80;
 export const COUPLE_GAP = 8;
 
 // Sizing — Vertical (compact, no avatar)
-export const CARD_V_W = 80;
-export const CARD_V_H = 110;
+export const CARD_V_W = 100;
+export const CARD_V_H = 88;
+export const H_SPACE_V = 16;
+export const V_SPACE_V = 55;
+export const COUPLE_GAP_V = 4;
 
 export type CardOrientation = 'horizontal' | 'vertical';
+
+export interface LayoutSizing {
+    cardW: number;
+    cardH: number;
+    hSpace: number;
+    vSpace: number;
+    coupleGap: number;
+}
+
+export function getLayoutSizing(orientation: CardOrientation): LayoutSizing {
+    return orientation === 'vertical'
+        ? { cardW: CARD_V_W, cardH: CARD_V_H, hSpace: H_SPACE_V, vSpace: V_SPACE_V, coupleGap: COUPLE_GAP_V }
+        : { cardW: CARD_W, cardH: CARD_H, hSpace: H_SPACE, vSpace: V_SPACE, coupleGap: COUPLE_GAP };
+}
 
 export function getCardSize(orientation: CardOrientation) {
     return orientation === 'vertical'
@@ -116,18 +133,14 @@ interface ChildItem {
 
 // Compute minimum separation between two contours so they don't overlap
 // Returns the minimum distance between the two anchors
-function minSeparation(leftContour: Contour, rightContour: Contour): number {
+function minSeparation(leftContour: Contour, rightContour: Contour, hSpace: number = H_SPACE): number {
     const maxDepth = Math.min(leftContour.right.length, rightContour.left.length);
     let minSep = 0;
     for (let d = 0; d < maxDepth; d++) {
-        // At depth d, left subtree extends to rightContour[d] from its anchor
-        // right subtree starts at leftContour[d] from its anchor
-        // Separation needed: leftRight - rightLeft + H_SPACE
-        const needed = leftContour.right[d] - rightContour.left[d] + H_SPACE;
+        const needed = leftContour.right[d] - rightContour.left[d] + hSpace;
         minSep = Math.max(minSep, needed);
     }
-    // Ensure minimum separation so cards don't touch
-    return Math.max(minSep, H_SPACE);
+    return Math.max(minSep, hSpace);
 }
 
 // Merge two contours: shift rightContour by offset and produce combined contour
@@ -160,6 +173,8 @@ function buildSubtree(
     visited: Set<string>,
     cardW: number = CARD_W,
     cardH: number = CARD_H,
+    hSpace: number = H_SPACE,
+    coupleGap: number = COUPLE_GAP,
 ): Subtree | null {
     if (visited.has(family.id)) return null;
     visited.add(family.id);
@@ -182,7 +197,7 @@ function buildSubtree(
         );
 
         if (childFamily) {
-            const sub = buildSubtree(childFamily, personMap, familyMap, visited, cardW, cardH);
+            const sub = buildSubtree(childFamily, personMap, familyMap, visited, cardW, cardH, hSpace, coupleGap);
             if (sub) {
                 children.push({
                     subtree: sub, width: sub.width, anchorX: sub.anchorX,
@@ -206,12 +221,12 @@ function buildSubtree(
 
     // ── Compute width and anchorX ──
     const hasCouple = patrilineal && spouse;
-    const coupleWidth = hasCouple ? 2 * cardW + COUPLE_GAP : cardW;
+    const coupleWidth = hasCouple ? 2 * cardW + coupleGap : cardW;
     const halfCard = cardW / 2;
 
     if (children.length === 0) {
         // Leaf family: width = couple width, anchor = patri center
-        const coupleRight = hasCouple ? halfCard + COUPLE_GAP + cardW : halfCard;
+        const coupleRight = hasCouple ? halfCard + coupleGap + cardW : halfCard;
         const parentContour: Contour = {
             left: [-halfCard],
             right: [coupleRight],
@@ -229,7 +244,7 @@ function buildSubtree(
         const child = children[0];
         const childAnchor = child.anchorX;
 
-        const coupleRight = hasCouple ? halfCard + COUPLE_GAP + cardW : halfCard;
+        const coupleRight = hasCouple ? halfCard + coupleGap + cardW : halfCard;
         const leftExtent = Math.max(halfCard, childAnchor);
         const childRightExtent = child.width - childAnchor;
         const rightExtent = Math.max(coupleRight, childRightExtent);
@@ -268,7 +283,7 @@ function buildSubtree(
     for (let i = 1; i < children.length; i++) {
         // minSeparation returns distance from merged contour's reference (child 0 anchor)
         // to the new child's anchor that prevents overlap at all depths
-        const sep = minSeparation(mergedChildContour, children[i].contour);
+        const sep = minSeparation(mergedChildContour, children[i].contour, hSpace);
         childOffsets.push(sep);
 
         // Merge contours with the new child at offset sep from first child
@@ -299,7 +314,7 @@ function buildSubtree(
     // We need to update the total block structure
     const adjustedAnchorX = midpointOfAnchors - blockLeft;
     const leftExtent = Math.max(halfCard, adjustedAnchorX);
-    const coupleRight = hasCouple ? halfCard + COUPLE_GAP + cardW : halfCard;
+    const coupleRight = hasCouple ? halfCard + coupleGap + cardW : halfCard;
     const childrenRight = childrenTotalWidth - adjustedAnchorX;
     const rightExtent = Math.max(coupleRight, childrenRight);
 
@@ -339,9 +354,12 @@ function assignPositions(
     placed: Set<string>,
     cardW: number = CARD_W,
     cardH: number = CARD_H,
+    hSpace: number = H_SPACE,
+    vSpace: number = V_SPACE,
+    coupleGap: number = COUPLE_GAP,
 ) {
     const { patrilineal, spouse, children, anchorX } = subtree;
-    const y = generation * (cardH + V_SPACE);
+    const y = generation * (cardH + vSpace);
     const patriCenterX = startX + anchorX;
 
     // Place patrilineal person
@@ -352,7 +370,7 @@ function assignPositions(
 
     // Place spouse (right of patrilineal)
     if (spouse && !placed.has(spouse.id)) {
-        allNodes.push({ node: spouse, x: patriCenterX + cardW / 2 + COUPLE_GAP, y, generation });
+        allNodes.push({ node: spouse, x: patriCenterX + cardW / 2 + coupleGap, y, generation });
         placed.add(spouse.id);
     }
 
@@ -364,9 +382,9 @@ function assignPositions(
         const item = children[0];
         const cx = patriCenterX - item.anchorX;
         if (item.subtree) {
-            assignPositions(item.subtree, cx, generation + 1, allNodes, placed, cardW, cardH);
+            assignPositions(item.subtree, cx, generation + 1, allNodes, placed, cardW, cardH, hSpace, vSpace, coupleGap);
         } else if (item.leaf && !placed.has(item.leaf.id)) {
-            const childY = (generation + 1) * (cardH + V_SPACE);
+            const childY = (generation + 1) * (cardH + vSpace);
             allNodes.push({ node: item.leaf, x: cx, y: childY, generation: generation + 1 });
             placed.add(item.leaf.id);
         }
@@ -378,21 +396,19 @@ function assignPositions(
     const storedBlockLeft = (subtree as any)._blockLeft as number | undefined;
 
     if (storedOffsets && storedBlockLeft !== undefined) {
-        // Use contour-based child offsets for compact placement
         const firstAnchor = storedOffsets[0];
         const lastAnchor = storedOffsets[storedOffsets.length - 1];
         const midpoint = (firstAnchor + lastAnchor) / 2;
 
         for (let i = 0; i < children.length; i++) {
             const item = children[i];
-            // Child's anchor absolute X = patriCenterX - midpoint + storedOffsets[i]
             const childAnchorX = patriCenterX - midpoint + storedOffsets[i];
             const childStartX = childAnchorX - item.anchorX;
 
             if (item.subtree) {
-                assignPositions(item.subtree, childStartX, generation + 1, allNodes, placed, cardW, cardH);
+                assignPositions(item.subtree, childStartX, generation + 1, allNodes, placed, cardW, cardH, hSpace, vSpace, coupleGap);
             } else if (item.leaf && !placed.has(item.leaf.id)) {
-                const childY = (generation + 1) * (cardH + V_SPACE);
+                const childY = (generation + 1) * (cardH + vSpace);
                 allNodes.push({ node: item.leaf, x: childStartX, y: childY, generation: generation + 1 });
                 placed.add(item.leaf.id);
             }
@@ -403,7 +419,7 @@ function assignPositions(
         let blockOffset = 0;
         for (const item of children) {
             childAnchors.push(blockOffset + item.anchorX);
-            blockOffset += item.width + H_SPACE;
+            blockOffset += item.width + hSpace;
         }
         const firstAnchor = childAnchors[0];
         const lastAnchor = childAnchors[childAnchors.length - 1];
@@ -414,13 +430,13 @@ function assignPositions(
         let cx = blockStartX;
         for (const item of children) {
             if (item.subtree) {
-                assignPositions(item.subtree, cx, generation + 1, allNodes, placed, cardW, cardH);
+                assignPositions(item.subtree, cx, generation + 1, allNodes, placed, cardW, cardH, hSpace, vSpace, coupleGap);
             } else if (item.leaf && !placed.has(item.leaf.id)) {
-                const childY = (generation + 1) * (cardH + V_SPACE);
+                const childY = (generation + 1) * (cardH + vSpace);
                 allNodes.push({ node: item.leaf, x: cx, y: childY, generation: generation + 1 });
                 placed.add(item.leaf.id);
             }
-            cx += item.width + H_SPACE;
+            cx += item.width + hSpace;
         }
     }
 }
@@ -428,7 +444,8 @@ function assignPositions(
 // ═══ Main layout ═══
 
 export function computeLayout(people: TreeNode[], families: TreeFamily[], orientation: CardOrientation = 'horizontal'): LayoutResult {
-    const { cardW, cardH } = getCardSize(orientation);
+    const sizing = getLayoutSizing(orientation);
+    const { cardW, cardH, hSpace, vSpace, coupleGap } = sizing;
     const personMap = new Map(people.map(p => [p.id, p]));
     const familyMap = new Map(families.map(f => [f.id, f]));
 
@@ -442,14 +459,10 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[], orient
     const rootFamilies = families.filter(f => {
         const fh = f.fatherId ? personMap.get(f.fatherId) : null;
         const mh = f.motherId ? personMap.get(f.motherId) : null;
-        // A family is root if at least one PATRILINEAL parent is not a child of any family.
-        // Non-patrilineal spouses (ngoại tộc) are never children in the tree, so we
-        // exclude them from the root check to avoid creating disconnected subtrees.
         const fhIsRoot = fh && fh.isPatrilineal && !childOfAnyFamily.has(fh.id);
         const mhIsRoot = mh && mh.isPatrilineal && !childOfAnyFamily.has(mh.id);
         return fhIsRoot || mhIsRoot;
     });
-
 
     const allNodes: PositionedNode[] = [];
     const visited = new Set<string>();
@@ -457,10 +470,10 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[], orient
     let cursorX = 0;
 
     for (const fam of rootFamilies) {
-        const subtree = buildSubtree(fam, personMap, familyMap, visited, cardW, cardH);
+        const subtree = buildSubtree(fam, personMap, familyMap, visited, cardW, cardH, hSpace, coupleGap);
         if (!subtree) continue;
-        assignPositions(subtree, cursorX, 0, allNodes, placed, cardW, cardH);
-        cursorX += subtree.width + H_SPACE;
+        assignPositions(subtree, cursorX, 0, allNodes, placed, cardW, cardH, hSpace, vSpace, coupleGap);
+        cursorX += subtree.width + hSpace;
     }
 
     // Place orphans (people not in any family tree)
@@ -470,11 +483,11 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[], orient
             allNodes.push({
                 node: p,
                 x: cursorX,
-                y: gen * (cardH + V_SPACE),
+                y: gen * (cardH + vSpace),
                 generation: gen,
             });
             placed.add(p.id);
-            cursorX += cardW + H_SPACE;
+            cursorX += cardW + hSpace;
         }
     }
 
@@ -501,7 +514,7 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[], orient
 
         const patriNode = (fatherNode?.node.isPatrilineal ? fatherNode : motherNode) ?? fatherNode;
 
-        // Couple line (horizontal between cards)
+        // Couple line
         if (fatherNode && motherNode) {
             const left = fatherNode.x < motherNode.x ? fatherNode : motherNode;
             const right = fatherNode.x < motherNode.x ? motherNode : fatherNode;
@@ -518,7 +531,7 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[], orient
             });
         }
 
-        // Parent-child connections: strictly orthogonal bus-line
+        // Parent-child connections
         if (patriNode && fam.childIds.length > 0) {
             const parentCX = patriNode.x + cardW / 2;
             const parentBottomY = patriNode.y + cardH;
@@ -608,8 +621,8 @@ export function computeLayout(people: TreeNode[], families: TreeFamily[], orient
         nodes: allNodes,
         couples,
         connections,
-        width: maxX + H_SPACE,
-        height: maxY + V_SPACE / 2,
+        width: maxX + hSpace,
+        height: maxY + vSpace / 2,
         generations: Math.max(...Array.from(gens.values())) + 1,
         cardW,
         cardH,

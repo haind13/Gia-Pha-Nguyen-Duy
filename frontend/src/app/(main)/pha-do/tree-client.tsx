@@ -2720,10 +2720,10 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 onClick={(e) => { e.stopPropagation(); onClick(node.id, x + cardW, y + cardH / 2); }}
                 onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
             >
-                <div className="px-0.5 py-1 h-full flex flex-col items-center justify-center text-center gap-px">
-                    <p className="font-semibold text-[8px] leading-tight text-slate-800 line-clamp-3 w-full">{node.displayName}</p>
-                    <span className="text-[6px] font-semibold px-0.5 rounded bg-amber-100 text-amber-700 leading-none">Đ{node.generation}</span>
-                    {isDead && <span className="text-[6px] text-slate-400 leading-none">✝</span>}
+                <div className="px-1 py-1 h-full flex flex-col items-center justify-center text-center gap-px">
+                    <p className="font-semibold text-[9px] leading-tight text-slate-800 line-clamp-2 w-full">{node.displayName}</p>
+                    <span className="text-[7px] font-semibold px-1 rounded bg-amber-100 text-amber-700 leading-none">Đ{node.generation}</span>
+                    {isDead && <span className="text-[7px] text-slate-400 leading-none">✝</span>}
                 </div>
                 {isKinshipA && (
                     <div className="absolute -top-2 -right-2 z-10 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-md border-2 border-white">
@@ -2802,17 +2802,17 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
                 onMouseDown={(e) => { if (editorMode && e.button === 0) { e.stopPropagation(); onDragStart(node.id, e.clientX, e.clientY); } }}
                 onContextMenu={(e) => { e.preventDefault(); onSetFocus(node.id); }}
             >
-                <div className="px-1 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
-                    <p className="font-semibold text-[10px] leading-tight text-slate-800 line-clamp-3 w-full">
+                <div className="px-1.5 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
+                    <p className="font-semibold text-[11px] leading-tight text-slate-800 line-clamp-2 w-full">
                         {node.displayName}
                     </p>
                     {node.birthYear && (
-                        <p className="text-[8px] text-slate-500 leading-none">
+                        <p className="text-[9px] text-slate-500 leading-none">
                             {node.birthYear}{node.deathYear ? `–${node.deathYear}` : node.isLiving ? '–nay' : ''}
                         </p>
                     )}
-                    <span className="text-[7px] font-semibold px-1 py-px rounded bg-amber-100 text-amber-700 leading-none">Đời {node.generation}</span>
-                    {isDead && <span className="text-[7px] text-slate-400 leading-none">✝ Đã mất</span>}
+                    <span className="text-[8px] font-semibold px-1.5 py-px rounded bg-amber-100 text-amber-700 leading-none">Đời {node.generation}</span>
+                    {isDead && <span className="text-[8px] text-slate-400 leading-none">✝ Đã mất</span>}
                 </div>
 
                 {isKinshipA && (
