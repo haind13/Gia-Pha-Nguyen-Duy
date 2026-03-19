@@ -75,12 +75,12 @@ function ExportPage() {
         fetchTree();
     }, []);
 
-    // Compute layout when data changes
+    // Compute layout when data or card orientation changes
     useEffect(() => {
         if (!treeData) return;
-        const result = computeLayout(treeData.people, treeData.families);
+        const result = computeLayout(treeData.people, treeData.families, settings.cardOrientation);
         setLayout(result);
-    }, [treeData]);
+    }, [treeData, settings.cardOrientation]);
 
     // Export handler
     const handleExport = useCallback(async () => {
@@ -114,6 +114,7 @@ function ExportPage() {
         showBirthDeath: settings.showBirthDeath,
         showSpouse: settings.showSpouse,
         showAvatar: settings.showAvatar,
+        cardOrientation: settings.cardOrientation,
     };
 
     return (

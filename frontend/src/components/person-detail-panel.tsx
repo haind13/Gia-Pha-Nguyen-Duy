@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import {
     X, Pencil, Save, User, Phone, Mail, MapPin, Briefcase,
-    GraduationCap, StickyNote, Users, ChevronRight, ScrollText,
+    GraduationCap, StickyNote, Users, ChevronRight, ScrollText, ExternalLink,
 } from 'lucide-react';
 import {
     fetchPersonDetail,
@@ -322,6 +322,13 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
+                            {!loading && detail && (
+                                <a href={`/people/${personId}`}
+                                    className="p-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-amber-500 hover:text-amber-700 transition-colors"
+                                    title="Xem chi tiết">
+                                    <ExternalLink className="w-4.5 h-4.5" />
+                                </a>
+                            )}
                             {canEdit && !editing && !loading && detail && (
                                 <button onClick={startEditing}
                                     className="p-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-blue-500 hover:text-blue-700 transition-colors"
@@ -647,6 +654,12 @@ export function PersonDetailPanel({ personId, treeData, initialEdit, onClose, on
                                 )}
                             </DetailSection>
                         )}
+
+                        {/* View detail page link */}
+                        <a href={`/people/${personId}`}
+                            className="w-full py-2.5 rounded-lg border-2 border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/30 flex items-center justify-center gap-2 transition-colors">
+                            <ExternalLink className="w-4 h-4" /> Xem chi tiết
+                        </a>
 
                         {/* Edit button at bottom for admin/editor */}
                         {canEdit && (

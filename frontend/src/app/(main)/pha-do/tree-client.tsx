@@ -1629,6 +1629,7 @@ export default function TreeViewPage() {
                                         onExpand={() => toggleCollapse(handle)}
                                         cardW={layout!.cardW}
                                         cardH={layout!.cardH}
+                                        isVertical={cardOrientation === 'vertical'}
                                     />
                                 );
                             })}
@@ -2170,7 +2171,7 @@ function CardContextMenu({ person, x, y, canEdit, isLoggedIn, viewportRef, trans
 
                 {/* Actions — scrollable */}
                 <div className="py-1 overflow-y-auto flex-1">
-                    <MenuAction icon={<User className="w-4 h-4" />} label="Xem chi tiết" desc="Thông tin cá nhân & quan hệ" onClick={onViewDetail} />
+                    <MenuAction icon={<User className="w-4 h-4" />} label="Xem thông tin" desc="Thông tin cá nhân & quan hệ" onClick={onViewDetail} />
                     <MenuAction icon={<ArrowDownToLine className="w-4 h-4" />} label="Hậu duệ từ đây" desc="Hiển thị cây con cháu" onClick={onShowDescendants} />
                     <MenuAction icon={<ArrowUpFromLine className="w-4 h-4" />} label="Tổ tiên" desc="Hiển thị dòng tổ tiên" onClick={onShowAncestors} />
                     <MenuAction icon={<Crosshair className="w-4 h-4" />} label="Căn giữa" desc="Di chuyển tới vị trí" onClick={onSetFocus} />
@@ -2843,13 +2844,14 @@ function PersonCard({ item, isHighlighted, isFocused, isHovered, isSelected, isK
 }
 
 // === F4: Branch Summary Card ===
-function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand, cardW, cardH }: {
+function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand, cardW, cardH, isVertical }: {
     summary: BranchSummary;
     parentNode: PositionedNode;
     zoomLevel: ZoomLevel;
     onExpand: () => void;
     cardW: number;
     cardH: number;
+    isVertical?: boolean;
 }) {
     const x = parentNode.x;
     const y = parentNode.y + cardH + 40; // Position below parent with spacing
@@ -2872,6 +2874,37 @@ function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand, cardW, ca
         );
     }
 
+    // Vertical orientation: compact stacked layout
+    if (isVertical) {
+        return (
+            <div
+                className="absolute rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50
+                    shadow-md cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+                style={{ left: x, top: y, width: cardW, height: cardH }}
+                onClick={(e) => { e.stopPropagation(); onExpand(); }}
+            >
+                <div className="px-1 py-1.5 h-full flex flex-col items-center justify-center text-center gap-0.5">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500
+                        flex items-center justify-center shadow-sm shrink-0">
+                        <Package className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <p className="font-bold text-[9px] leading-tight text-amber-900">
+                        {summary.totalDescendants} người
+                    </p>
+                    <p className="text-[7px] text-amber-700 leading-none">
+                        Đời {summary.generationRange[0]}→{summary.generationRange[1]}
+                    </p>
+                    <div className="flex items-center gap-1 text-[7px] leading-none">
+                        <span className="text-emerald-600 font-medium">{summary.livingCount}</span>
+                        <span className="text-slate-400">✝{summary.deceasedCount}</span>
+                    </div>
+                    <span className="text-amber-600 text-[7px] font-semibold leading-none">▶ Mở</span>
+                </div>
+            </div>
+        );
+    }
+
+    // Horizontal orientation: side-by-side layout
     return (
         <div
             className="absolute rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50
@@ -2886,7 +2919,7 @@ function BranchSummaryCard({ summary, parentNode, zoomLevel, onExpand, cardW, ca
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[11px] leading-tight text-amber-900">
-                        📦 {summary.totalDescendants} người
+                        {summary.totalDescendants} người
                     </p>
                     <p className="text-[10px] text-amber-700 mt-0.5">
                         Đời {summary.generationRange[0]} → {summary.generationRange[1]}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, Download, Palette, Type, ScrollText, Eye, EyeOff, UserMinus, UserPlus, ImageOff, Image, RotateCcw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, Palette, Type, ScrollText, Eye, EyeOff, UserMinus, UserPlus, ImageOff, Image, RotateCcw, Loader2, GripVertical, GripHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ export const COUPLET_FONTS: Record<CoupletFontType, { label: string; family: str
     thuphap: { label: 'Thư pháp', family: '"UTM ThuPhap ThienAn", cursive' },
     serif: { label: 'Unicode (Noto Serif)', family: '"Noto Serif", "Times New Roman", serif' },
 };
+
+export type CardOrientationType = 'horizontal' | 'vertical';
 
 export interface ExportSettings {
     template: TemplateType;
@@ -26,6 +28,7 @@ export interface ExportSettings {
     showBirthDeath: boolean;
     showSpouse: boolean;
     showAvatar: boolean;
+    cardOrientation: CardOrientationType;
 }
 
 const DEFAULT_SETTINGS: ExportSettings = {
@@ -40,6 +43,7 @@ const DEFAULT_SETTINGS: ExportSettings = {
     showBirthDeath: true,
     showSpouse: true,
     showAvatar: true,
+    cardOrientation: 'horizontal',
 };
 
 export function getDefaultSettings(): ExportSettings {
@@ -138,6 +142,18 @@ export function ExportToolbar({ settings, onSettingsChange, onExport, onBack, ex
                     >
                         {settings.showAvatar ? <ImageOff className="h-4 w-4" /> : <Image className="h-4 w-4" />}
                         <span className="hidden md:inline">Ảnh</span>
+                    </Button>
+
+                    {/* Toggle: Card Orientation */}
+                    <Button
+                        variant={settings.cardOrientation === 'vertical' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => update({ cardOrientation: settings.cardOrientation === 'horizontal' ? 'vertical' : 'horizontal' })}
+                        className="gap-1.5 flex-shrink-0"
+                        title={settings.cardOrientation === 'vertical' ? 'Chuyển sang thẻ ngang' : 'Chuyển sang thẻ dọc'}
+                    >
+                        {settings.cardOrientation === 'vertical' ? <GripVertical className="h-4 w-4" /> : <GripHorizontal className="h-4 w-4" />}
+                        <span className="hidden md:inline">{settings.cardOrientation === 'vertical' ? 'Thẻ dọc' : 'Thẻ ngang'}</span>
                     </Button>
 
                     <div className="w-px h-6 bg-border mx-1 flex-shrink-0" />
