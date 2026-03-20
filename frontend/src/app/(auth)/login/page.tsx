@@ -52,7 +52,7 @@ export default function LoginPage() {
             if (result.error) {
                 setError(result.error);
             } else {
-                router.push('/pha-do');
+                router.push('/');
             }
         } finally {
             setLoading(false);
